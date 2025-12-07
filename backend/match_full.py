@@ -2,340 +2,178 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
-# Ovi importi su u skladu sa tvojim backend dizajnom.
-# Ako neki helper ne postoji u konkretnom repo-u, fallback
-# funkcije ispod će sprečiti pad servisa.
-try:
-    from .api_football import (
-        get_team_stats,
-        get_standings,
-        get_h2h,
-        get_injuries,
-        get_predictions_for_fixture,
-        get_all_odds_for_fixture,
-    )
-except Exception:  # pragma: no cover - fallback za dev situacije
-
-    def _missing_api_helper(*_: Any, **__: Any) -> Any:
-        raise RuntimeError("API-Football helper not available in this build")
-
-    get_team_stats = _missing_api_helper
-    get_standings = _missing_api_helper
-    get_h2h = _missing_api_helper
-    get_injuries = _missing_api_helper
-    get_predictions_for_fixture = _missing_api_helper
-    get_all_odds_for_fixture = _missing_api_helper
-
-# Odds normalizacija – nije obavezna, ali ako postoji koristimo je.
-try:
-    from .odds_normalizer import normalize_fixture_odds
-except Exception:  # pragma: no cover
-    normalize_fixture_odds = None  # type: ignore[assignment]
-
+from . import api_football
+from .config import TIMEZONE
+from .odds_normalizer import normalize_odds
 
 logger = logging.getLogger("naksir.go_premium.match_full")
 
+# Zapamtimo koje helpere nemamo da ne spamujemo log svaki put
+_MISSING_HELPERS: set[str] = set()
+
 
 # ---------------------------------------------------------------------
-# Helperi za bezbedno čitanje i čišćenje podataka
+# Interni helperi
 # ---------------------------------------------------------------------
 
 
-def _safe_get(obj: Any, *keys: Any, default: Any = None) -> Any:
+def _safe_call(label: str, func: Optional[callable], *args: Any, **kwargs: Any) -> Any:
     """
-    Bezbedno čitanje ugnježdenih ključeva iz dict-a.
+    Wrapper oko API-Football helpera.
 
-    _safe_get(fx, "league", "id") -> fx["league"]["id"] ili default.
+    - Ako helper ne postoji u ovom buildu -> WARNING samo prvi put, vraća None.
+    - Ako baci exception -> WARNING i vraća None.
     """
-    cur = obj
-    for k in keys:
-        if not isinstance(cur, dict) or k not in cur:
-            return default
-        cur = cur[k]
-    return cur
+    if func is None:
+        if label not in _MISSING_HELPERS:
+            logger.warning(
+                "match_full: helper '%s' not available in this build", label
+            )
+            _MISSING_HELPERS.add(label)
+        return None
 
-
-def _prune_empty(value: Any) -> Any:
-    """
-    Rekurzivno uklanja:
-      - None
-      - prazne stringove
-      - prazne liste/diktove/tupse
-    Ne dira 0, False, i ostale validne vrednosti.
-    """
-    if isinstance(value, dict):
-        cleaned: Dict[str, Any] = {}
-        for k, v in value.items():
-            v_clean = _prune_empty(v)
-            if v_clean is None:
-                continue
-            if isinstance(v_clean, str) and not v_clean.strip():
-                continue
-            if isinstance(v_clean, (list, dict, tuple, set)) and not v_clean:
-                continue
-            cleaned[k] = v_clean
-        return cleaned
-
-    if isinstance(value, list):
-        items: List[Any] = []
-        for v in value:
-            v_clean = _prune_empty(v)
-            if v_clean is None:
-                continue
-            if isinstance(v_clean, str) and not v_clean.strip():
-                continue
-            if isinstance(v_clean, (list, dict, tuple, set)) and not v_clean:
-                continue
-            items.append(v_clean)
-        return items
-
-    return value
-
-
-def _safe_call(label: str, fn, *args, **kwargs) -> Any:
-    """
-    Wrapper za sve API-Football pozive – hvata SVAKU grešku i loguje je,
-    ali ne dozvoljava da se endpoint sruši.
-    """
     try:
-        return fn(*args, **kwargs)
-    except Exception as exc:  # pragma: no cover - runtime zaštita
-        logger.warning("Failed to fetch %s: %s", label, exc)
+        return func(*args, **kwargs)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("match_full: %s failed: %s", label, exc)
         return None
 
 
-# ---------------------------------------------------------------------
-# Sažetak meča – card format za /matches/today i /matches/{fixture_id}
-# ---------------------------------------------------------------------
-
-
-def _build_basic_match_info(fixture: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Minimalni set podataka koji treba svakoj kartici:
-      - fixture_id, kickoff, status
-      - osnovni info o ligi i zemlji
-      - osnovni info o timovima
-      - venue, referee (ako postoji)
-    Pretpostavka: fixture je već Naksir-normalizovan (kao iz /matches/today).
-    """
-    fixture_id = fixture.get("fixture_id") or _safe_get(fixture, "fixture", "id")
-
-    league_block = fixture.get("league", {}) or {}
-    country_block = fixture.get("country", {}) or {}
-
-    home_team = _safe_get(fixture, "teams", "home", default={}) or {}
-    away_team = _safe_get(fixture, "teams", "away", default={}) or {}
-
-    return {
-        "fixture_id": fixture_id,
-        "kickoff": fixture.get("kickoff")
-        or _safe_get(fixture, "fixture", "date"),
-        "status": fixture.get("status")
-        or _safe_get(fixture, "fixture", "status", "short"),
-        "league": {
-            "id": league_block.get("id"),
-            "name": league_block.get("name"),
-            "season": league_block.get("season"),
-            "round": league_block.get("round"),
-            "logo": league_block.get("logo"),
-        },
-        "country": {
-            "name": country_block.get("name"),
-            "code": country_block.get("code"),
-            "flag": country_block.get("flag"),
-        },
-        "venue": {
-            "id": _safe_get(fixture, "venue", "id"),
-            "name": _safe_get(fixture, "venue", "name"),
-            "city": _safe_get(fixture, "venue", "city"),
-        },
-        "referee": fixture.get("referee")
-        or _safe_get(fixture, "fixture", "referee"),
-        "teams": {
-            "home": {
-                "id": home_team.get("id"),
-                "name": home_team.get("name"),
-                "logo": home_team.get("logo"),
-            },
-            "away": {
-                "id": away_team.get("id"),
-                "name": away_team.get("name"),
-                "logo": away_team.get("logo"),
-            },
-        },
-    }
-
-
-def _build_scoreboard(fixture: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Izvlači skor: golove i poluvremena, ako postoje.
-    Ako nema skorova (pred meč), ostavlja score blok prazan.
-    """
+def _get_fixture_core(fixture: Dict[str, Any]) -> Dict[str, Any]:
+    """Bezbedno izvuci core sekcije iz API-Football fixture objekta."""
+    fx = fixture.get("fixture") or {}
+    league = fixture.get("league") or {}
+    teams = fixture.get("teams") or {}
     goals = fixture.get("goals") or {}
     score = fixture.get("score") or {}
 
-    home_ft = _safe_get(score, "fulltime", "home", default=goals.get("home"))
-    away_ft = _safe_get(score, "fulltime", "away", default=goals.get("away"))
-
-    if home_ft is None and away_ft is None:
-        # pre meča – nema smislenog score-a
-        return {"score": None}
+    venue = fx.get("venue") or {}
+    status = fx.get("status") or {}
 
     return {
-        "score": {
-            "home": home_ft,
-            "away": away_ft,
-            "ht_home": _safe_get(score, "halftime", "home"),
-            "ht_away": _safe_get(score, "halftime", "away"),
-            "ft_home": home_ft,
-            "ft_away": away_ft,
-        }
+        "fixture": fx,
+        "league": league,
+        "teams": teams,
+        "goals": goals,
+        "score": score,
+        "venue": venue,
+        "status": status,
     }
+
+
+# ---------------------------------------------------------------------
+# Public: summary za kartice
+# ---------------------------------------------------------------------
 
 
 def build_match_summary(fixture: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Finalni payload za karticu (lista na /matches/today i single na /matches/{id}).
+    Jedan "card" za front.
 
-    Sve je organizovano tako da se može direktno renderovati na frontu
-    bez dodatne obrade. Front može da ignoriše polja koja mu ne trebaju.
+    Ovaj format se koristi i u:
+    - GET /matches/today
+    - GET /matches/{fixture_id}
+    - `summary` deo u GET /matches/{fixture_id}/full
     """
-    base = _build_basic_match_info(fixture)
-    score = _build_scoreboard(fixture)
-    # Spoj i očisti prazna polja
-    payload = {**base, **score}
-    return _prune_empty(payload)
+    core = _get_fixture_core(fixture)
+
+    fx = core["fixture"]
+    league = core["league"]
+    teams = core["teams"]
+    goals = core["goals"]
+    score = core["score"]
+    venue = core["venue"]
+    status = core["status"]
+
+    home = teams.get("home") or {}
+    away = teams.get("away") or {}
+
+    return {
+        "fixture_id": fx.get("id"),
+        "kickoff": fx.get("date"),
+        "timezone": fx.get("timezone") or TIMEZONE,
+        "status": status.get("short"),
+        "status_long": status.get("long"),
+        "league": {
+            "id": league.get("id"),
+            "name": league.get("name"),
+            "country": league.get("country"),
+            "round": league.get("round"),
+            "season": league.get("season"),
+            "logo": league.get("logo"),
+            "flag": league.get("flag"),
+        },
+        "venue": {
+            "id": venue.get("id"),
+            "name": venue.get("name"),
+            "city": venue.get("city"),
+        },
+        "referee": fx.get("referee"),
+        "teams": {
+            "home": {
+                "id": home.get("id"),
+                "name": home.get("name"),
+                "logo": home.get("logo"),
+                "winner": home.get("winner"),
+            },
+            "away": {
+                "id": away.get("id"),
+                "name": away.get("name"),
+                "logo": away.get("logo"),
+                "winner": away.get("winner"),
+            },
+        },
+        "goals": {
+            "home": goals.get("home"),
+            "away": goals.get("away"),
+        },
+        "score": score,  # pun raw score objekt (ht, ft, et, pen...)
+    }
 
 
 # ---------------------------------------------------------------------
-# Full kontekst meča – za /matches/{fixture_id}/full
+# Public: full kontekst za jedan meč
 # ---------------------------------------------------------------------
-
-
-def _build_stats_block(
-    league_id: Optional[int],
-    season: Optional[int],
-    home_team_id: Optional[int],
-    away_team_id: Optional[int],
-) -> Dict[str, Any]:
-    """
-    Wrapper za team statistics – pojedinačni pozivi za home/away tim.
-    Ako bilo šta fali (id, season…), vraća prazan blok.
-    """
-    if not league_id or not season or not home_team_id or not away_team_id:
-        return {}
-
-    home_raw = _safe_call(
-        "team_stats_home",
-        get_team_stats,
-        league_id=league_id,
-        season=season,
-        team_id=home_team_id,
-    )
-    away_raw = _safe_call(
-        "team_stats_away",
-        get_team_stats,
-        league_id=league_id,
-        season=season,
-        team_id=away_team_id,
-    )
-
-    if not home_raw and not away_raw:
-        return {}
-
-    return {"home": home_raw or {}, "away": away_raw or {}}
-
-
-def _build_standings_block(
-    league_id: Optional[int], season: Optional[int]
-) -> Dict[str, Any]:
-    if not league_id or not season:
-        return {}
-
-    standings_raw = _safe_call(
-        "standings",
-        get_standings,
-        league_id=league_id,
-        season=season,
-    )
-    return standings_raw or {}
-
-
-def _build_h2h_block(
-    home_team_id: Optional[int],
-    away_team_id: Optional[int],
-    limit: int = 10,
-) -> List[Dict[str, Any]]:
-    if not home_team_id or not away_team_id:
-        return []
-
-    h2h_raw = _safe_call(
-        "h2h",
-        get_h2h,
-        home_team_id=home_team_id,
-        away_team_id=away_team_id,
-        limit=limit,
-    )
-    if not h2h_raw:
-        return []
-    return h2h_raw
-
-
-def _build_injuries_block(fixture_id: Optional[int]) -> List[Dict[str, Any]]:
-    if not fixture_id:
-        return []
-    injuries_raw = _safe_call("injuries", get_injuries, fixture_id=fixture_id)
-    return injuries_raw or []
-
-
-def _build_predictions_block(fixture_id: Optional[int]) -> Dict[str, Any]:
-    if not fixture_id:
-        return {}
-    predictions_raw = _safe_call(
-        "predictions", get_predictions_for_fixture, fixture_id=fixture_id
-    )
-    return predictions_raw or {}
-
-
-def _build_odds_block(fixture_id: Optional[int]) -> Dict[str, Any]:
-    if not fixture_id:
-        return {}
-
-    raw_odds = _safe_call("odds", get_all_odds_for_fixture, fixture_id=fixture_id)
-    if not raw_odds:
-        return {}
-
-    # Ako postoji normalizator – prosledi kroz njega, inače vrati raw
-    if callable(normalize_fixture_odds):  # type: ignore[arg-type]
-        try:
-            normalized = normalize_fixture_odds(raw_odds)  # type: ignore[call-arg]
-            return normalized or {}
-        except Exception as exc:  # pragma: no cover
-            logger.warning("Failed to normalize odds for fixture_id=%s: %s", fixture_id, exc)
-            return raw_odds or {}
-
-    return raw_odds or {}
 
 
 def build_full_match(fixture: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Glavna funkcija koju koristi /matches/{fixture_id}/full.
+    OPTION A – CLEAN STRUCTURED
 
-    Princip:
-    - fixture (sažetak) uvek postoji – to je core bloka `summary`
-    - svi ostali slojevi (stats, standings, h2h, injuries, predictions, odds)
-      su *best-effort* – ako bilo koji API call padne, samo se taj deo izostavi
-      ali endpoint uvek vraća validan JSON.
+    Vraća jedan veliki, stabilan objekat:
+
+    full_context = {
+      "meta": {...},
+      "summary": {...},
+      "stats": {...},
+      "team_stats": {"home": {...}, "away": {...}},
+      "standings": {...},
+      "h2h": {...},
+      "events": [...],
+      "lineups": [...],
+      "players": [...],
+      "predictions": {...},
+      "injuries": {...},
+      "odds": {...}
+    }
+
+    Sve sekcije koje ne možemo da dohvatimo ili koje failuju su jednostavno None.
+    Front (i AI layer) samo preskače None.
     """
-    summary = build_match_summary(fixture)
 
-    fixture_id: Optional[int] = summary.get("fixture_id")  # već očišćen
-    league_id: Optional[int] = _safe_get(fixture, "league", "id")
-    season: Optional[int] = _safe_get(fixture, "league", "season")
-    home_team_id: Optional[int] = _safe_get(fixture, "teams", "home", "id")
-    away_team_id: Optional[int] = _safe_get(fixture, "teams", "away", "id")
+    core = _get_fixture_core(fixture)
+
+    fx = core["fixture"]
+    league = core["league"]
+    teams = core["teams"]
+
+    fixture_id = fx.get("id")
+    league_id = league.get("id")
+    season = league.get("season")
+    home_team_id = (teams.get("home") or {}).get("id")
+    away_team_id = (teams.get("away") or {}).get("id")
 
     logger.info(
         "Building full match context for fixture_id=%s (league=%s, season=%s)",
@@ -344,30 +182,131 @@ def build_full_match(fixture: Dict[str, Any]) -> Dict[str, Any]:
         season,
     )
 
-    stats_block = _build_stats_block(league_id, season, home_team_id, away_team_id)
-    standings_block = _build_standings_block(league_id, season)
-    h2h_block = _build_h2h_block(home_team_id, away_team_id, limit=10)
-    injuries_block = _build_injuries_block(fixture_id)
-    predictions_block = _build_predictions_block(fixture_id)
-    odds_block = _build_odds_block(fixture_id)
+    # ---- Basic stats & standings -------------------------------------------------
 
-    payload: Dict[str, Any] = {
+    stats = _safe_call(
+        "fixture_stats",
+        getattr(api_football, "get_fixture_stats", None),
+        fixture_id,
+    )
+
+    team_stats_home = (
+        _safe_call(
+            "team_stats_home",
+            getattr(api_football, "get_team_stats", None),
+            league_id,
+            season,
+            home_team_id,
+        )
+        if home_team_id
+        else None
+    )
+
+    team_stats_away = (
+        _safe_call(
+            "team_stats_away",
+            getattr(api_football, "get_team_stats", None),
+            league_id,
+            season,
+            away_team_id,
+        )
+        if away_team_id
+        else None
+    )
+
+    standings = _safe_call(
+        "standings",
+        getattr(api_football, "get_standings", None),
+        league_id,
+        season,
+    )
+
+    # ---- Rich context (ako su helperi implementirani u api_football) -------------
+
+    h2h = _safe_call(
+        "h2h",
+        getattr(api_football, "get_fixture_h2h", None)
+        if hasattr(api_football, "get_fixture_h2h")
+        else getattr(api_football, "get_h2h", None),
+        fixture_id,
+    )
+
+    events = _safe_call(
+        "events",
+        getattr(api_football, "get_fixture_events", None),
+        fixture_id,
+    )
+
+    lineups = _safe_call(
+        "lineups",
+        getattr(api_football, "get_fixture_lineups", None),
+        fixture_id,
+    )
+
+    players = _safe_call(
+        "players",
+        getattr(api_football, "get_fixture_players", None),
+        fixture_id,
+    )
+
+    predictions = _safe_call(
+        "predictions",
+        getattr(api_football, "get_fixture_predictions", None),
+        fixture_id,
+    )
+
+    injuries = _safe_call(
+        "injuries",
+        getattr(api_football, "get_fixture_injuries", None),
+        fixture_id,
+    )
+
+    # ---- Odds (raw + normalizovani marketi) --------------------------------------
+
+    odds_helper = getattr(api_football, "get_all_odds_for_fixture", None)
+    odds_raw = _safe_call("odds_all", odds_helper, fixture_id)
+
+    odds_summary = None
+    if odds_raw:
+        try:
+            odds_summary = normalize_odds(odds_raw)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("match_full: normalize_odds failed: %s", exc)
+
+    # Ako nemamo ni home ni away team stats, sekcija je None (lakše za front)
+    team_stats_block: Optional[Dict[str, Any]]
+    if team_stats_home or team_stats_away:
+        team_stats_block = {
+            "home": team_stats_home,
+            "away": team_stats_away,
+        }
+    else:
+        team_stats_block = None
+
+    full_context: Dict[str, Any] = {
         "meta": {
             "fixture_id": fixture_id,
             "league_id": league_id,
             "season": season,
             "generated_at": datetime.utcnow().isoformat() + "Z",
         },
-        "summary": summary,
-        "context": {
-            "stats": stats_block,
-            "standings": standings_block,
-            "h2h": h2h_block,
-            "injuries": injuries_block,
-            "predictions": predictions_block,
-            "odds": odds_block,
-        },
+        "summary": build_match_summary(fixture),
+        "stats": stats,
+        "team_stats": team_stats_block,
+        "standings": standings,
+        "h2h": h2h,
+        "events": events,
+        "lineups": lineups,
+        "players": players,
+        "predictions": predictions,
+        "injuries": injuries,
+        "odds": {
+            "summary": odds_summary,
+            "raw": odds_raw,
+        }
+        if odds_raw is not None
+        else None,
     }
 
-    # Završno čišćenje da izbaciš sve prazne blokove i None.
-    return _prune_empty(payload)
+    return full_context
+```0
