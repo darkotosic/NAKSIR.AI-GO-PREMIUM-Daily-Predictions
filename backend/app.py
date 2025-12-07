@@ -39,3 +39,18 @@ def post_ai_analysis(
     full = build_full_match(fixtures[0])
     analysis = run_ai_analysis(full, user_question=body.user_question)
     return analysis
+
+# ---------------------------------------------------------
+# DEBUG: Log all available routes on startup
+# ---------------------------------------------------------
+from fastapi.routing import APIRoute
+
+def log_all_routes() -> None:
+    print("\n============== API ROUTES ==============")
+    for route in app.routes:
+        if isinstance(route, APIRoute):
+            methods = ",".join(route.methods)
+            print(f"{methods:10}  {route.path}")
+    print("========================================\n")
+
+log_all_routes()
