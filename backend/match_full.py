@@ -1,240 +1,186 @@
+from __future__ import annotations
+
 from typing import Any, Dict, List, Optional
 
 from .api_football import (
-    get_odds_for_fixture,
-    get_team_stats,
-    get_standings,
+    get_all_odds_for_fixture,
+    get_fixture_stats,
     get_h2h,
     get_injuries,
-    get_fixture_stats,
+    get_predictions,
+    get_standings,
+    get_team_stats,
 )
+from .odds_normalizer import normalize_odds
+
+
+def build_match_summary(fixture_raw: Dict[str, Any]) -> Dict[str, Any]:
+    """Layer 1 — lightweight card for the main list screen."""
+    fixture = fixture_raw.get("fixture", {}) or {}
+    league = fixture_raw.get("league", {}) or {}
+    teams = fixture_raw.get("teams", {}) or {}
+    venue = fixture.get("venue", {}) or {}
+
+    home = teams.get("home", {}) or {}
+    away = teams.get("away", {}) or {}
+
+    country = {
+        "name": league.get("country"),
+        "code": league.get("country"),
+        "flag": league.get("flag"),
+        "emoji": flag_emoji_from_code(league.get("country")),
+    }
+
+    return {
+        "fixture_id": fixture.get("id"),
+        "kickoff": fixture.get("date"),
+        "status": (fixture.get("status") or {}).get("short"),
+        "country": country,
+        "league": {
+            "id": league.get("id"),
+            "name": league.get("name"),
+            "round": league.get("round"),
+            "season": league.get("season"),
+        },
+        "venue": {
+            "id": venue.get("id"),
+            "name": venue.get("name"),
+            "city": venue.get("city"),
+        },
+        "referee": fixture.get("referee"),
+        "teams": {
+            "home": {
+                "id": home.get("id"),
+                "name": home.get("name"),
+                "logo": home.get("logo"),
+            },
+            "away": {
+                "id": away.get("id"),
+                "name": away.get("name"),
+                "logo": away.get("logo"),
+            },
+        },
+    }
 
 
 def build_full_match(fixture_raw: Dict[str, Any]) -> Dict[str, Any]:
-    """Prima jedan raw fixture objekt iz get_fixtures_today() i vraca normalized full JSON."""
-    fixture = fixture_raw["fixture"]
-    league = fixture_raw["league"]
-    teams = fixture_raw["teams"]
+    """Layer 2 — enriched match object for the detailed screen."""
+    summary = build_match_summary(fixture_raw)
 
-    fixture_id = fixture["id"]
-    league_id = league["id"]
-    season = league["season"]
+    league_id = summary["league"]["id"]
+    home_id = summary["teams"]["home"]["id"]
+    away_id = summary["teams"]["away"]["id"]
+    fixture_id = summary["fixture_id"]
 
-    odds_raw = get_odds_for_fixture(fixture_id)
-    odds = _normalize_odds(odds_raw)
+    # Standings
+    standings_raw = get_standings(league_id)
+    standings = _extract_team_standings(standings_raw, home_id, away_id)
 
-    home_id = teams["home"]["id"]
-    away_id = teams["away"]["id"]
+    # Team stats (season level)
+    stats_home = get_team_stats(league_id, home_id)
+    stats_away = get_team_stats(league_id, away_id)
 
-    stats_home = get_team_stats(league_id, season, home_id)
-    stats_away = get_team_stats(league_id, season, away_id)
-
-    standings_raw = get_standings(league_id, season)
-    standings = _find_standings_for_teams(standings_raw, home_id, away_id)
-
+    # H2H
     h2h_raw = get_h2h(home_id, away_id, last=5)
-    h2h = _normalize_h2h(h2h_raw)
 
-    injuries_home = get_injuries(league_id, season, home_id)
-    injuries_away = get_injuries(league_id, season, away_id)
+    # Injuries
+    injuries_home = get_injuries(league_id, home_id)
+    injuries_away = get_injuries(league_id, away_id)
 
+    # Live / fixture stats
     live_stats = get_fixture_stats(fixture_id)
 
+    # Predictions (API‑Football model)
+    predictions_raw = get_predictions(fixture_id)
+
+    # Odds
+    odds_raw = get_all_odds_for_fixture(fixture_id)
+    odds = normalize_odds(odds_raw)
+
     return {
-        "fixture": {
-            "id": fixture_id,
-            "league": {
-                "id": league_id,
-                "name": league["name"],
-                "round": league.get("round"),
-            },
-            "date": fixture["date"],
-            "status": fixture["status"]["short"],
-            "venue": fixture.get("venue") or {},
-        },
-        "teams": {
-            "home": teams["home"],
-            "away": teams["away"],
-        },
-        "odds": odds,
-        "stats": {
-            "home": _normalize_team_stats(stats_home),
-            "away": _normalize_team_stats(stats_away),
-        },
-        "form": {
-            "home": stats_home.get("form", ""),
-            "away": stats_away.get("form", ""),
-        },
+        "summary": summary,
         "standings": standings,
-        "h2h": h2h,
+        "h2h_last5": _normalize_h2h(h2h_raw),
         "injuries": {
             "home": _normalize_injuries(injuries_home),
             "away": _normalize_injuries(injuries_away),
         },
+        "team_stats": {
+            "home": stats_home,
+            "away": stats_away,
+        },
         "live_stats": live_stats,
+        "odds": odds,
+        "api_predictions": predictions_raw,
     }
 
 
-def _normalize_odds(odds_raw: List[Dict[str, Any]]) -> Dict[str, Any]:
-    result = {
-        "1x2": {"home": None, "draw": None, "away": None},
-        "double_chance": {"1X": None, "X2": None, "12": None},
-        "goals": {"over_1_5": None, "over_2_5": None, "under_3_5": None},
-        "btts": {"yes": None, "no": None},
-        "correct_score_sample": [],
-    }
+# ---------- helpers ----------
 
-    if not odds_raw:
-        return result
 
-    bookmaker_section = odds_raw[0].get("bookmakers", [])
-
-    def find_bet(name: str) -> Optional[Dict[str, Any]]:
-        for bm in bookmaker_section:
-            for bet in bm.get("bets", []):
-                if bet.get("name") == name:
-                    return bet
+def flag_emoji_from_code(code: Optional[str]) -> Optional[str]:
+    if not code or len(code) != 2:
+        return None
+    code = code.upper()
+    try:
+        return chr(0x1F1E6 + ord(code[0]) - ord("A")) + chr(
+            0x1F1E6 + ord(code[1]) - ord("A")
+        )
+    except Exception:
         return None
 
-    def parse_value(values: List[Dict[str, Any]], target: str) -> Optional[float]:
-        for val in values:
-            if val.get("value") == target:
-                try:
-                    return float(val.get("odd"))
-                except (TypeError, ValueError):
-                    return None
-        return None
 
-    match_winner = find_bet("Match Winner") or find_bet("1X2")
-    if match_winner:
-        values = match_winner.get("values", [])
-        result["1x2"] = {
-            "home": parse_value(values, "Home"),
-            "draw": parse_value(values, "Draw"),
-            "away": parse_value(values, "Away"),
-        }
+def _extract_team_standings(raw: List[Dict[str, Any]], home_id: int, away_id: int) -> Dict[str, Any]:
+    """Flatten the standings payload into two rows (home/away)."""
+    home_row: Optional[Dict[str, Any]] = None
+    away_row: Optional[Dict[str, Any]] = None
 
-    double_chance = find_bet("Double Chance")
-    if double_chance:
-        values = double_chance.get("values", [])
-        result["double_chance"] = {
-            "1X": parse_value(values, "1X"),
-            "X2": parse_value(values, "X2"),
-            "12": parse_value(values, "12"),
-        }
-
-    goals = find_bet("Goals Over/Under")
-    if goals:
-        values = goals.get("values", [])
-        result["goals"] = {
-            "over_1_5": parse_value(values, "Over 1.5"),
-            "over_2_5": parse_value(values, "Over 2.5"),
-            "under_3_5": parse_value(values, "Under 3.5"),
-        }
-
-    btts = find_bet("Both Teams To Score")
-    if btts:
-        values = btts.get("values", [])
-        result["btts"] = {
-            "yes": parse_value(values, "Yes"),
-            "no": parse_value(values, "No"),
-        }
-
-    correct_score = find_bet("Correct Score")
-    if correct_score:
-        values = correct_score.get("values", [])
-        samples = []
-        for val in values[:3]:
-            score_val = val.get("value", "")
-            score = score_val.replace(":", "-")
-            try:
-                odd_float = float(val.get("odd"))
-            except (TypeError, ValueError):
-                odd_float = None
-            samples.append({"score": score, "odd": odd_float})
-        result["correct_score_sample"] = samples
-
-    return result
-
-
-def _find_standings_for_teams(
-    standings_raw: List[Dict[str, Any]], home_id: int, away_id: int
-) -> Dict[str, Any]:
-    standings = {"home": {}, "away": {}}
-
-    for league_block in standings_raw:
-        league_data = league_block.get("league", {})
-        for table in league_data.get("standings", []):
+    for league_block in raw:
+        for table in league_block.get("league", {}).get("standings", []):
             for row in table:
-                team_info = row.get("team", {})
-                team_id = team_info.get("id")
-                if team_id == home_id:
-                    standings["home"] = {
-                        "position": row.get("rank"),
-                        "points": row.get("points"),
-                        "goal_diff": row.get("goalsDiff"),
-                    }
-                if team_id == away_id:
-                    standings["away"] = {
-                        "position": row.get("rank"),
-                        "points": row.get("points"),
-                        "goal_diff": row.get("goalsDiff"),
-                    }
-    return standings
+                team = row.get("team", {}) or {}
+                tid = team.get("id")
+                if tid == home_id:
+                    home_row = row
+                elif tid == away_id:
+                    away_row = row
+    return {"home": home_row, "away": away_row}
 
 
-def _normalize_h2h(h2h_raw: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _normalize_h2h(raw: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     normalized: List[Dict[str, Any]] = []
-    for fixture in h2h_raw:
-        fixture_info = fixture.get("fixture", {})
-        teams_info = fixture.get("teams", {})
-        goals_info = fixture.get("goals", {})
-
-        winner = None
-        if teams_info.get("home", {}).get("winner"):
-            winner = "home"
-        elif teams_info.get("away", {}).get("winner"):
-            winner = "away"
+    for fx in raw:
+        fx_fixture = fx.get("fixture", {}) or {}
+        fx_league = fx.get("league", {}) or {}
+        teams = fx.get("teams", {}) or {}
+        goals = fx.get("goals", {}) or {}
+        score = fx.get("score", {}) or {}
 
         normalized.append(
             {
-                "date": fixture_info.get("date"),
-                "home_team": teams_info.get("home"),
-                "away_team": teams_info.get("away"),
-                "score": {
-                    "home": goals_info.get("home"),
-                    "away": goals_info.get("away"),
+                "date": fx_fixture.get("date"),
+                "league": {
+                    "id": fx_league.get("id"),
+                    "name": fx_league.get("name"),
                 },
-                "winner": winner,
+                "teams": {
+                    "home": teams.get("home", {}).get("name"),
+                    "away": teams.get("away", {}).get("name"),
+                },
+                "goals": goals,
+                "score": score,
+                "status": (fx_fixture.get("status") or {}).get("short"),
             }
         )
     return normalized
 
 
-def _normalize_team_stats(stats: Dict[str, Any]) -> Dict[str, Any]:
-    fixtures = stats.get("fixtures", {})
-    goals = stats.get("goals", {})
-    avg_goals_for = goals.get("for", {}).get("average", {}).get("total")
-    avg_goals_against = goals.get("against", {}).get("average", {}).get("total")
-
-    return {
-        "played": fixtures.get("played", {}).get("total"),
-        "wins": fixtures.get("wins", {}).get("total"),
-        "draws": fixtures.get("draws", {}).get("total"),
-        "losses": fixtures.get("loses", {}).get("total"),
-        "goals_for": goals.get("for", {}).get("total", {}).get("total"),
-        "goals_against": goals.get("against", {}).get("total", {}).get("total"),
-        "avg_goals_for": avg_goals_for,
-        "avg_goals_against": avg_goals_against,
-    }
-
-
-def _normalize_injuries(injuries_raw: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    injuries: List[Dict[str, Any]] = []
-    for item in injuries_raw:
-        player = item.get("player", {})
-        team = item.get("team", {})
-        injuries.append(
+def _normalize_injuries(raw: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    out: List[Dict[str, Any]] = []
+    for item in raw:
+        player = item.get("player", {}) or {}
+        team = item.get("team", {}) or {}
+        out.append(
             {
                 "player": player.get("name"),
                 "type": item.get("type"),
@@ -243,4 +189,4 @@ def _normalize_injuries(injuries_raw: List[Dict[str, Any]]) -> List[Dict[str, An
                 "team_name": team.get("name"),
             }
         )
-    return injuries
+    return out
