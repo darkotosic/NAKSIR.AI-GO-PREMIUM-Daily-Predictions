@@ -63,3 +63,8 @@ def get_injuries(league_id: int, season: int, team_id: int) -> Dict[str, Any]:
 def get_fixture_stats(fixture_id: int) -> Dict[str, Any]:
     data = _get("/fixtures/statistics", {"fixture": fixture_id})
     return data.get("response", [])
+
+def get_fixture_by_id(fixture_id: int) -> List[Dict[str, Any]]:
+    data = _get("/fixtures", {"id": fixture_id})
+    return data.get("response", [])
+
