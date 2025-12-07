@@ -3,6 +3,11 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 
+# ---------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------
+
+
 def _to_float(value: Any) -> Optional[float]:
     try:
         return float(value)
@@ -28,12 +33,17 @@ def _all_done(summary: Dict[str, Any]) -> bool:
     return True
 
 
+# ---------------------------------------------------------------------
+# Main builder
+# ---------------------------------------------------------------------
+
+
 def build_odds_summary(odds_raw: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Prima kompletan odds RAW sa API-Football-a i vraća SAMO kvote koje tražimo,
-    uzimajući prvu kvotu koju nađe, nebitno koja je kladionica.
+    uzimajući PRVU kvotu koju nađe, nebitno koja je kladionica.
 
-    Očekivani output format:
+    Output shape:
 
     {
       "match_winner": {"home": 2.40, "draw": 3.10, "away": 2.80},
@@ -51,8 +61,7 @@ def build_odds_summary(odds_raw: List[Dict[str, Any]]) -> Dict[str, Any]:
       }
     }
 
-    Ako neka kvota ne postoji u feed-u, ključ ostaje sa vrednošću None,
-    ali struktura JSON-a je uvek ista.
+    Ako neka kvota ne postoji u feed-u, ostaje None, ali struktura je uvek ista.
     """
 
     summary: Dict[str, Any] = {
@@ -85,18 +94,17 @@ def build_odds_summary(odds_raw: List[Dict[str, Any]]) -> Dict[str, Any]:
     if not odds_raw:
         return summary
 
-    # odds_raw: lista objekata, svaki ima "bookmakers": [...]
+    # odds_raw je lista: svaki item = { league, fixture, update, bookmakers: [...] }
     for item in odds_raw:
         bookmakers = item.get("bookmakers") or []
         for bm in bookmakers:
             bets = bm.get("bets") or []
 
-            # --- Match Winner ---
+            # ---------------- Match Winner ----------------
             if any(v is None for v in summary["match_winner"].values()):
                 mw = next((b for b in bets if b.get("name") == "Match Winner"), None)
                 if mw:
-                    values = mw.get("values") or []
-                    for v in values:
+                    for v in mw.get("values") or []:
                         label = v.get("value")
                         odd = _to_float(v.get("odd"))
                         if odd is None:
@@ -108,31 +116,36 @@ def build_odds_summary(odds_raw: List[Dict[str, Any]]) -> Dict[str, Any]:
                         elif label == "Away" and summary["match_winner"]["away"] is None:
                             summary["match_winner"]["away"] = odd
 
-            # --- Double Chance (1X, X2, 12) ---
+            # ---------------- Double Chance ----------------
             if any(v is None for v in summary["double_chance"].values()):
                 dc = next((b for b in bets if b.get("name") == "Double Chance"), None)
                 if dc:
-                    values = dc.get("values") or []
-                    for v in values:
+                    for v in dc.get("values") or []:
                         label = v.get("value")
                         odd = _to_float(v.get("odd"))
                         if odd is None:
                             continue
                         if label == "Home/Draw" and summary["double_chance"]["1X"] is None:
                             summary["double_chance"]["1X"] = odd
-                        elif label == "Draw/Away" and summary["double_chance"]["X2"] is None:
+                        elif (
+                            label == "Draw/Away"
+                            and summary["double_chance"]["X2"] is None
+                        ):
                             summary["double_chance"]["X2"] = odd
-                        elif label == "Home/Away" and summary["double_chance"]["12"] is None:
+                        elif (
+                            label == "Home/Away"
+                            and summary["double_chance"]["12"] is None
+                        ):
                             summary["double_chance"]["12"] = odd
 
-            # --- BTTS: Yes / No ---
+            # ---------------- BTTS ----------------
             if any(v is None for v in summary["btts"].values()):
                 btts_bet = next(
-                    (b for b in bets if b.get("name") == "Both Teams Score"), None
+                    (b for b in bets if b.get("name") == "Both Teams Score"),
+                    None,
                 )
                 if btts_bet:
-                    values = btts_bet.get("values") or []
-                    for v in values:
+                    for v in btts_bet.get("values") or []:
                         label = v.get("value")
                         odd = _to_float(v.get("odd"))
                         if odd is None:
@@ -142,7 +155,7 @@ def build_odds_summary(odds_raw: List[Dict[str, Any]]) -> Dict[str, Any]:
                         elif label == "No" and summary["btts"]["no"] is None:
                             summary["btts"]["no"] = odd
 
-            # --- Half Time Goals: Over 0.5 ---
+            # ---------------- HT Over 0.5 ----------------
             if summary["ht_over_0_5"] is None:
                 ht_ou = next(
                     (
@@ -153,50 +166,49 @@ def build_odds_summary(odds_raw: List[Dict[str, Any]]) -> Dict[str, Any]:
                     None,
                 )
                 if ht_ou:
-                    values = ht_ou.get("values") or []
-                    for v in values:
+                    for v in ht_ou.get("values") or []:
                         if v.get("value") == "Over 0.5":
                             odd = _to_float(v.get("odd"))
                             if odd is not None:
                                 summary["ht_over_0_5"] = odd
                                 break
 
-            # --- Home team goals: Over 0.5 ---
+            # ---------------- Home goals Over 0.5 ----------------
             if summary["home_goals_over_0_5"] is None:
                 home_total = next(
-                    (b for b in bets if b.get("name") == "Total - Home"), None
+                    (b for b in bets if b.get("name") == "Total - Home"),
+                    None,
                 )
                 if home_total:
-                    values = home_total.get("values") or []
-                    for v in values:
+                    for v in home_total.get("values") or []:
                         if v.get("value") == "Over 0.5":
                             odd = _to_float(v.get("odd"))
                             if odd is not None:
                                 summary["home_goals_over_0_5"] = odd
                                 break
 
-            # --- Away team goals: Over 0.5 ---
+            # ---------------- Away goals Over 0.5 ----------------
             if summary["away_goals_over_0_5"] is None:
                 away_total = next(
-                    (b for b in bets if b.get("name") == "Total - Away"), None
+                    (b for b in bets if b.get("name") == "Total - Away"),
+                    None,
                 )
                 if away_total:
-                    values = away_total.get("values") or []
-                    for v in values:
+                    for v in away_total.get("values") or []:
                         if v.get("value") == "Over 0.5":
                             odd = _to_float(v.get("odd"))
                             if odd is not None:
                                 summary["away_goals_over_0_5"] = odd
                                 break
 
-            # --- Total Goals: Over 1.5 / 2.5 / 3.5, Under 3.5 / 4.5 ---
+            # ---------------- Totals O/U ----------------
             if any(v is None for v in summary["totals"].values()):
                 ou = next(
-                    (b for b in bets if b.get("name") == "Goals Over/Under"), None
+                    (b for b in bets if b.get("name") == "Goals Over/Under"),
+                    None,
                 )
                 if ou:
-                    values = ou.get("values") or []
-                    for v in values:
+                    for v in ou.get("values") or []:
                         label = v.get("value")
                         odd = _to_float(v.get("odd"))
                         if odd is None:
