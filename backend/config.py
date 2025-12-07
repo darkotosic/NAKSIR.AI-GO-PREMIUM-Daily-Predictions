@@ -4,6 +4,8 @@ from typing import Set
 # Core configuration for the Naksir GO Premium backend.
 # Values are pulled from environment variables so the same code
 # can run locally, on Render, or in GitHub Actions without changes.
+# API-Football base URL (v3)
+API_FOOTBALL_BASE_URL = "https://v3.football.api-sports.io"
 
 API_KEY: str = os.getenv("API_FOOTBALL_KEY", "")
 OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
