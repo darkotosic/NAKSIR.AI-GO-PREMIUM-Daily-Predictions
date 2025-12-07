@@ -309,4 +309,3 @@ def build_full_match(fixture: Dict[str, Any]) -> Dict[str, Any]:
     }
 
     return full_context
-```0
