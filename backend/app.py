@@ -1,20 +1,22 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Body, FastAPI, HTTPException, Path, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from .config import SEASON, TIMEZONE, ALLOW_LIST
-from .api_football import get_fixture_by_id, get_fixtures_today
+from .api_football import get_fixtures_today, get_fixture_by_id
 from .match_full import build_full_match, build_match_summary
 from .ai_analysis import run_ai_analysis
+from .config import TIMEZONE
 
-# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------
 # Logging setup
-# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------
 
 logger = logging.getLogger("naksir.go_premium.api")
 logging.basicConfig(
@@ -22,182 +24,245 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 
-# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------
 # FastAPI app
-# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------
 
 app = FastAPI(
-    title="Naksir GO Premium Backend",
+    title="Naksir Go Premium – Football API",
     description=(
-        "Three-layer match analysis API powered by API-FOOTBALL (season 2025) "
-        "and OpenAI. Layer 1 = daily match list, Layer 2 = full enriched match, "
-        "Layer 3 = Naksir in-depth AI analysis."
+        "Backend servis za Naksir Go Premium / Daily Predictions.\n\n"
+        "Glavni fokus: lagani JSON feedovi za mobilni front (Expo / React Native)."
     ),
     version="1.0.0",
 )
 
-# CORS – front će najčešće biti mobilna app + web, zato otvaramo sve
+# CORS – dozvoli mobilnim aplikacijama i web frontovima da zovu API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # po potrebi kasnije zatvoriti
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------
 # Pydantic modeli
-# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------
 
 
-class AiRequest(BaseModel):
-    """
-    Body za /matches/{fixture_id}/ai-analysis.
-    """
+class AIAnalysisRequest(BaseModel):
+    """Optionalni prompt korisnika za AI analizu meča."""
 
-    user_question: Optional[str] = Field(
+    question: Optional[str] = Field(
         default=None,
-        description=(
-            "Opcioni custom prompt korisnika. Ako je None, koristi se "
-            "default Naksir in-depth analiza."
-        ),
+        description="Dodatno objašnjenje šta tačno AI treba da naglasi (npr. 'objasni value bet', 'short TikTok opis', itd.)",
     )
 
 
-# ---------------------------------------------------------------------------
-# Helper – logovanje ruta na startup
-# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# Globalni handler-i
+# ---------------------------------------------------------------------
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Catch-all handler da uvek vratimo čist JSON a ne HTML traceback."""
+    logger.exception("Unhandled error on %s %s", request.method, request.url)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error. Contact support if this persists."},
+    )
 
 
 @app.on_event("startup")
-async def log_routes() -> None:
-    lines: List[str] = []
+def log_available_routes() -> None:
+    """Na startup izloguj sve rute da odmah u Render logu vidiš šta je aktivno."""
+    logger.info("===== API ROUTES =====")
     for route in app.routes:
         methods = getattr(route, "methods", None)
         if not methods:
             continue
-        visible_methods = sorted(m for m in methods if m not in {"HEAD", "OPTIONS"})
-        for m in visible_methods:
-            lines.append(f"{m:6} {route.path}")
-    if lines:
-        logger.info("========== API ROUTES ==========")
-        for line in lines:
-            logger.info(line)
-        logger.info("================================")
+        visible_methods = sorted(
+            m for m in methods if m not in {"HEAD", "OPTIONS"}
+        )
+        if not visible_methods:
+            continue
+        logger.info(
+            "%-6s %s",
+            ",".join(visible_methods),
+            route.path,
+        )
+    logger.info("======================")
 
 
-# ---------------------------------------------------------------------------
-# Core endpoints
-# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# Meta / health
+# ---------------------------------------------------------------------
 
 
-@app.get("/")
+@app.get("/", tags=["meta"])
 def root() -> Dict[str, Any]:
-    """
-    Root endpoint – brzi health + meta informacije o servisu.
-    """
+    """Kratak opis servisa + linkovi ka dokumentaciji."""
     return {
-        "name": "Naksir GO Premium Backend",
-        "status": "ok",
-        "season": SEASON,
-        "timezone": TIMEZONE,
-        "allow_leagues_count": len(ALLOW_LIST),
+        "service": "Naksir Go Premium API",
+        "status": "online",
         "docs": "/docs",
         "redoc": "/redoc",
+        "timezone": TIMEZONE,
     }
 
 
-@app.get("/health")
+@app.get("/health", tags=["meta"])
 def health() -> Dict[str, str]:
-    """
-    Jednostavan health-check – koristi ga Render i monitoring.
-    """
+    """Health-check endpoint za Render / uptime monitor."""
     return {"status": "ok"}
 
 
-@app.get("/matches/today")
+@app.get("/_debug/routes", tags=["meta"])
+def list_routes() -> List[Dict[str, Any]]:
+    """Povratak svih ruta i metoda – korisno za debag i QA."""
+    routes: List[Dict[str, Any]] = []
+    for route in app.routes:
+        methods = getattr(route, "methods", None)
+        if not methods:
+            continue
+        visible_methods = sorted(
+            m for m in methods if m not in {"HEAD", "OPTIONS"}
+        )
+        if not visible_methods:
+            continue
+        routes.append(
+            {
+                "path": route.path,
+                "methods": visible_methods,
+                "name": route.name,
+            }
+        )
+    routes.sort(key=lambda r: r["path"])
+    return routes
+
+
+# ---------------------------------------------------------------------
+# Matches – glavne rute za front
+# ---------------------------------------------------------------------
+
+
+@app.get(
+    "/matches/today",
+    tags=["matches"],
+    summary="Svi današnji mečevi (card format)",
+)
 def get_today_matches() -> List[Dict[str, Any]]:
     """
-    Layer 1 — lista svih današnjih mečeva iz allow liste.
+    Vrati listu svih *dozvoljenih* mečeva za današnji dan.
 
-    Idealno za home screen:
-    • scroll lista kartica
-    • osnovni podaci: država + emoji, liga, runda, timovi, logo, vreme (Europe/Belgrade),
-      stadion, sudija…
+    Interno:
+    - `get_fixtures_today()` radi poziv ka API-Football i filtriranje
+      (allowlist liga + izbacivanje završenih / otkazanih statusa).
+    - `build_match_summary()` pretvara raw fixture u lagani JSON
+      spreman za karticu na frontu (liga, timovi, kickoff, status, skor, flagovi...).
 
-    Response: list[MatchSummaryDict]
-    (tačan shape određuje build_match_summary u match_full.py)
+    Response je čist `List[card]` bez dodatnog wrapper-a,
+    da Expo/React Native može direktno da map-uje niz.
     """
     fixtures = get_fixtures_today()
-    summaries = [build_match_summary(fx) for fx in fixtures]
-    logger.info("Returned %s matches for /matches/today", len(summaries))
-    return summaries
+    cards = [build_match_summary(fx) for fx in fixtures]
+
+    logger.info("Today matches requested -> %s cards", len(cards))
+
+    return cards
 
 
-@app.get("/matches/{fixture_id}")
-@app.get("/matches/{fixture_id}/full")
-def get_match_full(fixture_id: int) -> Dict[str, Any]:
+@app.get(
+    "/matches/{fixture_id}",
+    tags=["matches"],
+    summary="Sažetak jednog meča (card)",
+)
+def get_match_summary(
+    fixture_id: int = Path(..., description="API-Football fixture ID"),
+) -> Dict[str, Any]:
     """
-    Layer 2 — full enriched match object za jedan meč.
+    Vrati sažetak (istu strukturu kao iz `/matches/today`, ali za jedan fixture).
 
-    Ovaj endpoint je core za drugi sloj:
-    • forma oba tima (last 5)
-    • H2H (last 5)
-    • standings
-    • injuries
-    • team statistics
-    • venue / stadium
-    • kompletan odds paket (1X2, DC, BTTS, totals, team goals…)
-
-    Response: dict (shape određuje build_full_match u match_full.py)
+    Ako fixture ne postoji (nije u allowlistu ili je pogrešan ID) -> 404.
     """
     fixture = get_fixture_by_id(fixture_id)
     if not fixture:
-        logger.warning("Fixture %s not found for /matches/.../full", fixture_id)
         raise HTTPException(status_code=404, detail="Fixture not found")
 
-    full = build_full_match(fixture)
-    logger.info("Built full match payload for fixture_id=%s", fixture_id)
-    return full
+    return build_match_summary(fixture)
 
 
-@app.post("/matches/{fixture_id}/ai-analysis")
-def post_ai_analysis(fixture_id: int, body: AiRequest) -> Dict[str, Any]:
+@app.get(
+    "/matches/{fixture_id}/full",
+    tags=["matches"],
+    summary="Full kontekst jednog meča (stats, h2h, standings, itd.)",
+)
+def get_match_full(
+    fixture_id: int = Path(..., description="API-Football fixture ID"),
+) -> Dict[str, Any]:
     """
-    Layer 3 — Naksir AI in-depth analiza za jedan meč.
+    Dubinski kontekst jednog meča.
 
-    Radi end-to-end:
-    • dohvatimo fixture
-    • složimo full objekt (Layer 2)
-    • pošaljemo u OpenAI meta-model
-    • vraćamo:
-        - in-depth text analizу (5–7 rečenica)
-        - value bet kombinacije
-        - winner prediction
-        - goals / BTTS probability
-        - correct score (2 najverovatnija rezultata)
+    `build_full_match` na osnovu raw fixture-a gradi bogat JSON:
+    - osnovni podaci o meču
+    - forma timova
+    - H2H
+    - standings / pozicije
+    - timske statistike
+    - predictions, injuries (gde god API-Football ima podatke)
     """
     fixture = get_fixture_by_id(fixture_id)
     if not fixture:
-        logger.warning("Fixture %s not found for /matches/.../ai-analysis", fixture_id)
         raise HTTPException(status_code=404, detail="Fixture not found")
 
-    full = build_full_match(fixture)
-    analysis = run_ai_analysis(full, user_question=body.user_question)
-    logger.info("AI analysis generated for fixture_id=%s", fixture_id)
-    return analysis
+    full_context = build_full_match(fixture)
+    return full_context
 
 
-# ---------------------------------------------------------------------------
-# Lokalno pokretanje (nije potrebno na Render-u, ali zgodno za dev)
-# ---------------------------------------------------------------------------
+@app.post(
+    "/matches/{fixture_id}/ai-analysis",
+    tags=["ai"],
+    summary="AI analiza meča (GPT layer preko full konteksta)",
+)
+def post_match_ai_analysis(
+    fixture_id: int = Path(..., description="API-Football fixture ID"),
+    payload: AIAnalysisRequest = Body(
+        default_factory=AIAnalysisRequest,
+        description="Opcioni user prompt kojim se usmerava AI analiza.",
+    ),
+) -> Dict[str, Any]:
+    """
+    GPT analiza konkretnog meča.
 
-if __name__ == "__main__":
-    import uvicorn
+    Flow:
+    1) Dohvati se fixture (`get_fixture_by_id`).
+    2) Od njega se napravi full kontekst (`build_full_match`).
+    3) Taj kontekst + opcioni `question` se šalju u `run_ai_analysis`.
+    """
+    fixture = get_fixture_by_id(fixture_id)
+    if not fixture:
+        raise HTTPException(status_code=404, detail="Fixture not found")
 
-    uvicorn.run(
-        "backend.app:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
+    full_context = build_full_match(fixture)
+
+    user_question = payload.question.strip() if payload.question else None
+    logger.info(
+        "AI analysis requested for fixture_id=%s (custom_question=%s)",
+        fixture_id,
+        bool(user_question),
     )
+
+    analysis = run_ai_analysis(
+        match_context=full_context,
+        user_question=user_question,
+    )
+
+    return {
+        "fixture_id": fixture_id,
+        "generated_at": datetime.now().isoformat(),
+        "timezone": TIMEZONE,
+        "question": user_question,
+        "analysis": analysis,
+    }
