@@ -7,6 +7,8 @@ from typing import Any, Dict, Optional
 from . import api_football
 from .config import TIMEZONE
 from .odds_normalizer import normalize_odds
+from .odds_summary import build_odds_summary
+
 
 logger = logging.getLogger("naksir.go_premium.match_full")
 
@@ -132,6 +134,9 @@ def build_match_summary(fixture: Dict[str, Any]) -> Dict[str, Any]:
         "score": score,  # pun raw score objekt (ht, ft, et, pen...)
     }
 
+# negde posle što znaš fixture_id, league_id, season
+odds_raw = get_odds(fixture_id=fixture_id, league_id=league_id, season=season) or []
+odds_summary = build_odds_summary(odds_raw)
 
 # ---------------------------------------------------------------------
 # Public: full kontekst za jedan meč
@@ -144,20 +149,21 @@ def build_full_match(fixture: Dict[str, Any]) -> Dict[str, Any]:
 
     Vraća jedan veliki, stabilan objekat:
 
-    full_context = {
-      "meta": {...},
-      "summary": {...},
-      "stats": {...},
-      "team_stats": {"home": {...}, "away": {...}},
-      "standings": {...},
-      "h2h": {...},
-      "events": [...],
-      "lineups": [...],
-      "players": [...],
-      "predictions": {...},
-      "injuries": {...},
-      "odds": {...}
+full_context = {
+    "meta": meta,
+    "summary": summary,
+    "stats": stats,
+    "team_stats": team_stats,
+    "standings": standings,
+    "h2h": h2h,
+    "events": events,
+    "lineups": lineups,
+    "players": players,
+    "predictions": predictions,
+    "injuries": injuries,
+    "odds": odds_summary,
     }
+
 
     Sve sekcije koje ne možemo da dohvatimo ili koje failuju su jednostavno None.
     Front (i AI layer) samo preskače None.
