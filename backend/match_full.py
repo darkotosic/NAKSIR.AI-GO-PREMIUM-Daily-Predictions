@@ -134,10 +134,6 @@ def build_match_summary(fixture: Dict[str, Any]) -> Dict[str, Any]:
         "score": score,  # pun raw score objekt (ht, ft, et, pen...)
     }
 
-# negde posle što znaš fixture_id, league_id, season
-odds_raw = get_odds(fixture_id=fixture_id, league_id=league_id, season=season) or []
-odds_summary = build_odds_summary(odds_raw)
-
 # ---------------------------------------------------------------------
 # Public: full kontekst za jedan meč
 # ---------------------------------------------------------------------
@@ -161,7 +157,7 @@ full_context = {
     "players": players,
     "predictions": predictions,
     "injuries": injuries,
-    "odds": odds_summary,
+    "odds": odds_block,  # summary + raw + "flat" snapshot
     }
 
 
@@ -273,11 +269,24 @@ full_context = {
     odds_raw = _safe_call("odds_all", odds_helper, fixture_id)
 
     odds_summary = None
+    odds_flat = None
     if odds_raw:
         try:
             odds_summary = normalize_odds(odds_raw)
         except Exception as exc:  # noqa: BLE001
             logger.warning("match_full: normalize_odds failed: %s", exc)
+        try:
+            odds_flat = build_odds_summary(odds_raw)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("match_full: build_odds_summary failed: %s", exc)
+
+    odds_block = None
+    if odds_raw is not None:
+        odds_block = {
+            "summary": odds_summary,
+            "raw": odds_raw,
+            "flat": odds_flat,
+        }
 
     # Ako nemamo ni home ni away team stats, sekcija je None (lakše za front)
     team_stats_block: Optional[Dict[str, Any]]
@@ -306,12 +315,7 @@ full_context = {
         "players": players,
         "predictions": predictions,
         "injuries": injuries,
-        "odds": {
-            "summary": odds_summary,
-            "raw": odds_raw,
-        }
-        if odds_raw is not None
-        else None,
+        "odds": odds_block,
     }
 
     return full_context
