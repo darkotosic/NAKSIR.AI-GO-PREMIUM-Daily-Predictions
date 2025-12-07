@@ -1,192 +1,142 @@
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, List, Optional
 
-from .api_football import (
-    get_all_odds_for_fixture,
-    get_fixture_stats,
-    get_h2h,
-    get_injuries,
-    get_predictions,
-    get_standings,
-    get_team_stats,
-)
-from .odds_normalizer import normalize_odds
+from .api_football import ApiFootballError, _get, get_all_odds_for_fixture
+from .config import SEASON, TIMEZONE
+
+logger = logging.getLogger("naksir.go_premium.match_full")
 
 
-def build_match_summary(fixture_raw: Dict[str, Any]) -> Dict[str, Any]:
-    """Layer 1 — lightweight card for the main list screen."""
-    fixture = fixture_raw.get("fixture", {}) or {}
-    league = fixture_raw.get("league", {}) or {}
-    teams = fixture_raw.get("teams", {}) or {}
-    venue = fixture.get("venue", {}) or {}
-
-    home = teams.get("home", {}) or {}
-    away = teams.get("away", {}) or {}
-
-    country = {
-        "name": league.get("country"),
-        "code": league.get("country"),
-        "flag": league.get("flag"),
-        "emoji": flag_emoji_from_code(league.get("country")),
-    }
-
-    return {
-        "fixture_id": fixture.get("id"),
-        "kickoff": fixture.get("date"),
-        "status": (fixture.get("status") or {}).get("short"),
-        "country": country,
-        "league": {
-            "id": league.get("id"),
-            "name": league.get("name"),
-            "round": league.get("round"),
-            "season": league.get("season"),
-        },
-        "venue": {
-            "id": venue.get("id"),
-            "name": venue.get("name"),
-            "city": venue.get("city"),
-        },
-        "referee": fixture.get("referee"),
-        "teams": {
-            "home": {
-                "id": home.get("id"),
-                "name": home.get("name"),
-                "logo": home.get("logo"),
-            },
-            "away": {
-                "id": away.get("id"),
-                "name": away.get("name"),
-                "logo": away.get("logo"),
-            },
-        },
-    }
+def _get_fixture_or_error(fixture_id: int) -> Dict[str, Any]:
+    """
+    Učita jedan fixture iz /fixtures. Ako ga nema → ApiFootballError.
+    """
+    raw = _get("/fixtures", {"id": fixture_id, "timezone": TIMEZONE})
+    resp = raw.get("response", [])
+    if not resp:
+        raise ApiFootballError(f"Fixture {fixture_id} not found")
+    return resp[0]
 
 
-def build_full_match(fixture_raw: Dict[str, Any]) -> Dict[str, Any]:
-    """Layer 2 — enriched match object for the detailed screen."""
-    summary = build_match_summary(fixture_raw)
-
-    league_id = summary["league"]["id"]
-    home_id = summary["teams"]["home"]["id"]
-    away_id = summary["teams"]["away"]["id"]
-    fixture_id = summary["fixture_id"]
-
-    # Standings
-    standings_raw = get_standings(league_id)
-    standings = _extract_team_standings(standings_raw, home_id, away_id)
-
-    # Team stats (season level)
-    stats_home = get_team_stats(league_id, home_id)
-    stats_away = get_team_stats(league_id, away_id)
-
-    # H2H
-    h2h_raw = get_h2h(home_id, away_id, last=5)
-
-    # Injuries
-    injuries_home = get_injuries(league_id, home_id)
-    injuries_away = get_injuries(league_id, away_id)
-
-    # Live / fixture stats
-    live_stats = get_fixture_stats(fixture_id)
-
-    # Predictions (API‑Football model)
-    predictions_raw = get_predictions(fixture_id)
-
-    # Odds
-    odds_raw = get_all_odds_for_fixture(fixture_id)
-    odds = normalize_odds(odds_raw)
-
-    return {
-        "summary": summary,
-        "standings": standings,
-        "h2h_last5": _normalize_h2h(h2h_raw),
-        "injuries": {
-            "home": _normalize_injuries(injuries_home),
-            "away": _normalize_injuries(injuries_away),
-        },
-        "team_stats": {
-            "home": stats_home,
-            "away": stats_away,
-        },
-        "live_stats": live_stats,
-        "odds": odds,
-        "api_predictions": predictions_raw,
-    }
-
-
-# ---------- helpers ----------
-
-
-def flag_emoji_from_code(code: Optional[str]) -> Optional[str]:
-    if not code or len(code) != 2:
-        return None
-    code = code.upper()
+def _safe_call(label: str, fn, *args, default=None, **kwargs):
+    """
+    Helper da ne rušimo ceo endpoint ako neki dodatni API call padne.
+    Samo zaloguje i vrati default.
+    """
     try:
-        return chr(0x1F1E6 + ord(code[0]) - ord("A")) + chr(
-            0x1F1E6 + ord(code[1]) - ord("A")
+        return fn(*args, **kwargs)
+    except ApiFootballError as exc:
+        logger.warning(
+            "FULL_VIEW: %s failed for args=%s kwargs=%s → %s",
+            label,
+            args,
+            kwargs,
+            exc,
         )
-    except Exception:
-        return None
+        return default
+    except Exception as exc:  # bilo šta neočekivano
+        logger.exception("FULL_VIEW: unexpected error in %s: %s", label, exc)
+        return default
 
 
-def _extract_team_standings(raw: List[Dict[str, Any]], home_id: int, away_id: int) -> Dict[str, Any]:
-    """Flatten the standings payload into two rows (home/away)."""
-    home_row: Optional[Dict[str, Any]] = None
-    away_row: Optional[Dict[str, Any]] = None
+def _extract_ids(fixture: Dict[str, Any]):
+    league = fixture.get("league") or {}
+    teams = fixture.get("teams") or {}
+    home = (teams.get("home") or {})
+    away = (teams.get("away") or {})
 
-    for league_block in raw:
-        for table in league_block.get("league", {}).get("standings", []):
-            for row in table:
-                team = row.get("team", {}) or {}
-                tid = team.get("id")
-                if tid == home_id:
-                    home_row = row
-                elif tid == away_id:
-                    away_row = row
-    return {"home": home_row, "away": away_row}
+    league_id = league.get("id")
+    season = league.get("season") or SEASON
+    home_id = home.get("id")
+    away_id = away.get("id")
+
+    return league_id, season, home_id, away_id
 
 
-def _normalize_h2h(raw: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    normalized: List[Dict[str, Any]] = []
-    for fx in raw:
-        fx_fixture = fx.get("fixture", {}) or {}
-        fx_league = fx.get("league", {}) or {}
-        teams = fx.get("teams", {}) or {}
-        goals = fx.get("goals", {}) or {}
-        score = fx.get("score", {}) or {}
+def build_full_match_view(fixture_id: int) -> Dict[str, Any]:
+    """
+    Glavna funkcija koju zove ruta /matches/{fixture_id}/full.
 
-        normalized.append(
-            {
-                "date": fx_fixture.get("date"),
-                "league": {
-                    "id": fx_league.get("id"),
-                    "name": fx_league.get("name"),
-                },
-                "teams": {
-                    "home": teams.get("home", {}).get("name"),
-                    "away": teams.get("away", {}).get("name"),
-                },
-                "goals": goals,
-                "score": score,
-                "status": (fx_fixture.get("status") or {}).get("short"),
-            }
+    Vraća jedan veliki dict sa:
+      - fixture osnovnim podacima
+      - odds (svi dostupni)
+      - h2h (poslednjih 10 mečeva)
+      - home_stats, away_stats
+      - standings
+    Sve sporedne stvari su "best effort" – ako nešto pukne, samo je None/prazno.
+    """
+    # 1) Osnovni fixture mora da postoji → inače 404 / 502 iz rute.
+    fixture = _get_fixture_or_error(fixture_id)
+    league_id, season, home_id, away_id = _extract_ids(fixture)
+
+    # 2) Odds (možemo mirno da ih preskočimo ako nema)
+    odds_rows: List[Dict[str, Any]] = _safe_call(
+        "odds",
+        get_all_odds_for_fixture,
+        fixture_id,
+        default=[],
+    )
+
+    # 3) H2H – poslednjih 10 mečeva home vs away
+    h2h_raw = None
+    if home_id and away_id:
+        h2h_raw = _safe_call(
+            "h2h",
+            _get,
+            "/fixtures/headtohead",
+            {"h2h": f"{home_id}-{away_id}", "last": 10, "timezone": TIMEZONE},
+            default=None,
         )
-    return normalized
+    h2h_list = []
+    if isinstance(h2h_raw, dict):
+        h2h_list = h2h_raw.get("response") or []
 
-
-def _normalize_injuries(raw: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    out: List[Dict[str, Any]] = []
-    for item in raw:
-        player = item.get("player", {}) or {}
-        team = item.get("team", {}) or {}
-        out.append(
-            {
-                "player": player.get("name"),
-                "type": item.get("type"),
-                "reason": item.get("reason"),
-                "team_id": team.get("id"),
-                "team_name": team.get("name"),
-            }
+    # 4) Team statistics – home i away (ovo znaju da blokiraju planovi)
+    home_stats_raw = None
+    if home_id and league_id:
+        home_stats_raw = _safe_call(
+            "home_stats",
+            _get,
+            "/teams/statistics",
+            {"team": home_id, "league": league_id, "season": season},
+            default=None,
         )
-    return out
+
+    away_stats_raw = None
+    if away_id and league_id:
+        away_stats_raw = _safe_call(
+            "away_stats",
+            _get,
+            "/teams/statistics",
+            {"team": away_id, "league": league_id, "season": season},
+            default=None,
+        )
+
+    # 5) Standings – takođe mogu da budu zaključane na jeftinijim planovima
+    standings_raw = None
+    if league_id:
+        standings_raw = _safe_call(
+            "standings",
+            _get,
+            "/standings",
+            {"league": league_id, "season": season},
+            default=None,
+        )
+
+    # Lepo očistimo response da front dobije čiste listove/dict-ove
+    def _unwrap_response(x: Any) -> Any:
+        if isinstance(x, dict) and "response" in x:
+            return x.get("response")
+        return x
+
+    return {
+        "fixture_id": fixture_id,
+        "fixture": fixture,
+        "odds": odds_rows,
+        "h2h": h2h_list,
+        "home_stats": _unwrap_response(home_stats_raw),
+        "away_stats": _unwrap_response(away_stats_raw),
+        "standings": _unwrap_response(standings_raw),
+    }
