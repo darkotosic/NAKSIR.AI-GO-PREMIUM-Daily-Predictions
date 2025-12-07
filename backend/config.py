@@ -6,7 +6,7 @@ from typing import List
 # ---------------------------------------------------------------------
 # ENV
 # ---------------------------------------------------------------------
-
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 API_FOOTBALL_KEY = os.getenv("API_FOOTBALL_KEY", "")
 TIMEZONE = os.getenv("TIMEZONE", "Europe/Belgrade")
 
