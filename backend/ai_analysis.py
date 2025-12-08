@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from openai import OpenAI
 
@@ -9,63 +9,90 @@ from .config import OPENAI_API_KEY
 # Inicijalizacija OpenAI klijenta (ili None ako nema ključa)
 client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
-SYSTEM_PROMPT = """You are a football betting analyst. Focus on:
-- Double Chance + Goals combos (1X & O1.5, X2 & O1.5, 1X & U3.5, etc.)
-- Correct Score Top 2 scenarios
-- BTTS YES probability
+SYSTEM_PROMPT = """You are a football betting analyst.
 
-Rules:
+Strictly follow these rules:
 - Use only the data provided in MATCH_JSON (stats, form, standings, h2h, odds, injuries).
-- If data is missing for some metric, mention that as a limitation.
-- Be conservative with probabilities; avoid 100% or 0%.
+- If data is missing or weak, explicitly mention limitations and reduce confidence.
+- Provide balanced, realistic probabilities. Avoid 0% or 100%.
+- Always keep responses grounded and concise.
 
-Output:
-Return a single JSON object with EXACTLY these keys:
-- summary: short string
-- key_factors: array of strings
-- probabilities: object with:
-    - dc: { "1X": float|null, "X2": float|null, "12": float|null }
-    - goals: { "over_1_5": float|null, "over_2_5": float|null, "under_3_5": float|null }
-    - btts_yes: float|null
-    - btts_no: float|null
-    - cs_top2: array of { "score": string, "probability": float }
-- value_bets: array of {
+Output: Return ONE JSON object with EXACTLY these keys:
+- preview: 5–7 sentence in-depth preview.
+- key_factors: array of strings (why the outlook is what it is).
+- winner_probabilities: { "home_win_pct": float|null, "draw_pct": float|null, "away_win_pct": float|null }
+- goals_probabilities: {
+    "over_0_5_ht_pct": float|null,
+    "over_1_5_pct": float|null,
+    "over_2_5_pct": float|null,
+    "over_3_5_pct": float|null,
+    "under_3_5_pct": float|null,
+    "under_4_5_pct": float|null
+  }
+- team_goals: { "home_over_0_5_pct": float|null, "away_over_0_5_pct": float|null }
+- btts: { "yes_pct": float|null, "no_pct": float|null }
+- value_bet: {  # prioritize Double Chance + Goals combos
     "market": string,
     "selection": string,
     "bookmaker_odd": float|null,
-    "model_probability": float|null,
-    "edge": float|null,
+    "model_probability_pct": float|null,
+    "edge_pct": float|null,
     "comment": string
   }
-- risk_flags: array of strings
-- disclaimer: string (must clearly say this is NOT financial advice)
+- correct_scores_top2: array of { "score": string, "probability_pct": float|null }
+- risk_flags: array of strings (data quality, volatility, injuries, etc.).
+- disclaimer: string that clearly states this is NOT financial advice.
 
-All probabilities are 0–1 floats (e.g. 0.68 = 68%).
+Percentages are 0–100 floats (e.g. 68 = 68%). Do not return any other keys.
 """
 
 
 def _fallback_response(reason: str) -> Dict[str, Any]:
     """Minimal valid schema kada je AI isključen ili odgovori loše."""
     return {
-        "summary": f"AI analysis unavailable: {reason}",
+        "preview": f"AI analysis unavailable: {reason}",
         "key_factors": [],
-        "probabilities": {
-            "dc": {"1X": None, "X2": None, "12": None},
-            "goals": {"over_1_5": None, "over_2_5": None, "under_3_5": None},
-            "btts_yes": None,
-            "btts_no": None,
-            "cs_top2": [],
+        "winner_probabilities": {
+            "home_win_pct": None,
+            "draw_pct": None,
+            "away_win_pct": None,
         },
-        "value_bets": [],
+        "goals_probabilities": {
+            "over_0_5_ht_pct": None,
+            "over_1_5_pct": None,
+            "over_2_5_pct": None,
+            "over_3_5_pct": None,
+            "under_3_5_pct": None,
+            "under_4_5_pct": None,
+        },
+        "team_goals": {
+            "home_over_0_5_pct": None,
+            "away_over_0_5_pct": None,
+        },
+        "btts": {"yes_pct": None, "no_pct": None},
+        "value_bet": {
+            "market": "",
+            "selection": "",
+            "bookmaker_odd": None,
+            "model_probability_pct": None,
+            "edge_pct": None,
+            "comment": "",
+        },
+        "correct_scores_top2": [],
         "risk_flags": [reason],
         "disclaimer": "Ovo nije finansijski savet, već AI analiza zasnovana na dostupnoj statistici.",
     }
 
 
-def run_ai_analysis(full_match: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Prima full_match JSON (iz match_full.build_full_match)
-    i vraća strukturisanu AI analizu sa value bet predlozima.
+def run_ai_analysis(
+    full_match: Dict[str, Any],
+    user_question: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Generate structured AI analysis for a single match.
+
+    Args:
+        full_match: JSON kontekst iz ``match_full.build_full_match``.
+        user_question: Opcioni dodatni fokus (npr. "naglasite defanzivu").
     """
     if client is None:
         return _fallback_response("no OPENAI_API_KEY configured")
@@ -79,11 +106,22 @@ def run_ai_analysis(full_match: Dict[str, Any]) -> Dict[str, Any]:
             "role": "user",
             "content": (
                 "Analyze this football match using the MATCH_JSON below. "
-                "Return ONLY a JSON object that follows the specified schema.\n\n"
+                "Return ONLY a JSON object that follows the specified schema and percentages.\n\n"
                 f"MATCH_JSON:\n{match_json_str}"
             ),
         },
     ]
+
+    if user_question:
+        messages.append(
+            {
+                "role": "user",
+                "content": (
+                    "Additional user focus for this analysis: "
+                    f"{user_question.strip()}"
+                ),
+            }
+        )
 
     try:
         completion = client.chat.completions.create(
@@ -114,16 +152,36 @@ def run_ai_analysis(full_match: Dict[str, Any]) -> Dict[str, Any]:
 
     # Minimalna validacija ključnih polja; ako nešto fali, dopuni default vrednostima
     return {
-        "summary": parsed.get("summary", ""),
+        "preview": parsed.get("preview", ""),
         "key_factors": parsed.get("key_factors", []) or [],
-        "probabilities": parsed.get("probabilities", {}) or {
-            "dc": {"1X": None, "X2": None, "12": None},
-            "goals": {"over_1_5": None, "over_2_5": None, "under_3_5": None},
-            "btts_yes": None,
-            "btts_no": None,
-            "cs_top2": [],
+        "winner_probabilities": parsed.get("winner_probabilities", {})
+        or {
+            "home_win_pct": None,
+            "draw_pct": None,
+            "away_win_pct": None,
         },
-        "value_bets": parsed.get("value_bets", []) or [],
+        "goals_probabilities": parsed.get("goals_probabilities", {})
+        or {
+            "over_0_5_ht_pct": None,
+            "over_1_5_pct": None,
+            "over_2_5_pct": None,
+            "over_3_5_pct": None,
+            "under_3_5_pct": None,
+            "under_4_5_pct": None,
+        },
+        "team_goals": parsed.get("team_goals", {})
+        or {"home_over_0_5_pct": None, "away_over_0_5_pct": None},
+        "btts": parsed.get("btts", {}) or {"yes_pct": None, "no_pct": None},
+        "value_bet": parsed.get("value_bet", {})
+        or {
+            "market": "",
+            "selection": "",
+            "bookmaker_odd": None,
+            "model_probability_pct": None,
+            "edge_pct": None,
+            "comment": "",
+        },
+        "correct_scores_top2": parsed.get("correct_scores_top2", []) or [],
         "risk_flags": parsed.get("risk_flags", []) or [],
         "disclaimer": parsed.get(
             "disclaimer",

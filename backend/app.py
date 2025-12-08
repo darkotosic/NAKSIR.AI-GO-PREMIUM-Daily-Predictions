@@ -255,7 +255,7 @@ def post_match_ai_analysis(
     )
 
     analysis = run_ai_analysis(
-        match_context=full_context,
+        full_match=full_context,
         user_question=user_question,
     )
 
