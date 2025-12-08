@@ -225,43 +225,45 @@ full_context = {
 
     # ---- Rich context (ako su helperi implementirani u api_football) -------------
 
-    h2h = _safe_call(
-        "h2h",
-        getattr(api_football, "get_fixture_h2h", None)
-        if hasattr(api_football, "get_fixture_h2h")
-        else getattr(api_football, "get_h2h", None),
-        fixture_id,
-    )
+    h2h_helper = getattr(api_football, "get_fixture_h2h", None)
+    if h2h_helper is None:
+        h2h_helper = getattr(api_football, "get_h2h", None)
 
-    events = _safe_call(
-        "events",
-        getattr(api_football, "get_fixture_events", None),
-        fixture_id,
-    )
+    if h2h_helper and home_team_id and away_team_id:
+        h2h = _safe_call(
+            "h2h",
+            h2h_helper,
+            fixture_id,
+            home_team_id,
+            away_team_id,
+        )
+    else:
+        h2h = None
 
-    lineups = _safe_call(
-        "lineups",
-        getattr(api_football, "get_fixture_lineups", None),
-        fixture_id,
+    events_helper = getattr(api_football, "get_fixture_events", None) or getattr(
+        api_football, "get_events_for_fixture", None
     )
+    events = _safe_call("events", events_helper, fixture_id)
 
-    players = _safe_call(
-        "players",
-        getattr(api_football, "get_fixture_players", None),
-        fixture_id,
+    lineups_helper = getattr(api_football, "get_fixture_lineups", None) or getattr(
+        api_football, "get_lineups_for_fixture", None
     )
+    lineups = _safe_call("lineups", lineups_helper, fixture_id)
 
-    predictions = _safe_call(
-        "predictions",
-        getattr(api_football, "get_fixture_predictions", None),
-        fixture_id,
+    players_helper = getattr(api_football, "get_fixture_players", None) or getattr(
+        api_football, "get_players_for_fixture", None
     )
+    players = _safe_call("players", players_helper, fixture_id)
 
-    injuries = _safe_call(
-        "injuries",
-        getattr(api_football, "get_fixture_injuries", None),
-        fixture_id,
+    predictions_helper = getattr(api_football, "get_fixture_predictions", None) or getattr(
+        api_football, "get_predictions", None
     )
+    predictions = _safe_call("predictions", predictions_helper, fixture_id)
+
+    injuries_helper = getattr(api_football, "get_fixture_injuries", None) or getattr(
+        api_football, "get_injuries_for_fixture", None
+    )
+    injuries = _safe_call("injuries", injuries_helper, fixture_id)
 
     # ---- Odds (raw + normalizovani marketi) --------------------------------------
 
