@@ -1,4 +1,4 @@
-# Naksir GO Premium — Backend Only
+# Naksir GO Premium — Backend + Frontend
 
 This repo is a backend‑only implementation designed for deployment on Render
 at `https://naksir-go-premium-api.onrender.com` (or similar). It exposes a
