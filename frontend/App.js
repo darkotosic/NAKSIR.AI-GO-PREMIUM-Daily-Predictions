@@ -460,6 +460,32 @@ const AIAnalysisScreen = ({ route }) => {
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  const formatTimer = (seconds) => {
+    const mins = Math.floor(seconds / 60)
+      .toString()
+      .padStart(2, '0');
+    const secs = (seconds % 60).toString().padStart(2, '0');
+    return `${mins}:${secs}`;
+  };
+
+  useEffect(() => {
+    let timer;
+
+    if (loading) {
+      setElapsedSeconds(0);
+      timer = setInterval(() => {
+        setElapsedSeconds((prev) => prev + 1);
+      }, 1000);
+    }
+
+    return () => {
+      if (timer) {
+        clearInterval(timer);
+      }
+    };
+  }, [loading]);
 
   useEffect(() => {
     const url = aiUrl(fixtureId);
@@ -503,11 +529,17 @@ const AIAnalysisScreen = ({ route }) => {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {loading && (
-          <ActivityIndicator
-            color={COLORS.neonPurple}
-            size="large"
-            style={styles.loader}
-          />
+          <View style={styles.loadingState}>
+            <ActivityIndicator
+              color={COLORS.neonPurple}
+              size="large"
+              style={styles.loader}
+            />
+            <Text style={styles.loadingText}>
+              Analyzing odds, recent team form, goals trends, and value-bet signals...
+            </Text>
+            <Text style={styles.timerText}>Time elapsed: {formatTimer(elapsedSeconds)}</Text>
+          </View>
         )}
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -783,6 +815,21 @@ const styles = StyleSheet.create({
   },
   loader: {
     marginVertical: 24,
+  },
+  loadingState: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  loadingText: {
+    color: COLORS.muted,
+    textAlign: 'center',
+    marginTop: 8,
+    paddingHorizontal: 12,
+  },
+  timerText: {
+    color: COLORS.neonPurple,
+    fontWeight: '700',
+    marginTop: 6,
   },
   errorText: {
     color: COLORS.neonViolet,
