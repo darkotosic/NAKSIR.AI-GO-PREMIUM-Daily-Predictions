@@ -1,73 +1,67 @@
-# Naksir GO Premium — Backend + Frontend
+# Naksir GO Premium — Backend + Expo frontend
 
-This repo is a backend‑only implementation designed for deployment on Render
-at `https://naksir-go-premium-api.onrender.com` (or similar). It exposes a
-three‑layer contract for rich single‑match analysis.
+Ovaj repo sadrži kompletan FastAPI backend i Expo (React Native) frontend koji
+pričaju preko JSON feedova hostovanih na `https://naksir-go-premium-api.onrender.com`.
+Backend prikuplja i normalizuje podatke iz API‑FOOTBALL-a, a frontend renderuje
+kartice mečeva, detalje i AI analize.
 
-## Layers
+## Backend (FastAPI)
 
-1. **Layer 1 — `/matches/today`**
-   - Returns a scrollable list of today's fixtures from the allow‑listed leagues.
-   - Each item contains: country + emoji, league, round, teams (names + logos),
-     kickoff time in `Europe/Belgrade`, venue, and referee.
+### Rute
 
-2. **Layer 2 — `/matches/{fixture_id}`**
-   - Returns the full enriched match JSON for one fixture:
-     - summary card (same as Layer 1)
-     - standings rows (home/away)
-     - H2H last 5
-     - injuries (home/away)
-     - team statistics (API‑FOOTBALL `/teams/statistics`)
-     - fixture statistics (`/fixtures/statistics`)
-     - API‑FOOTBALL predictions (`/predictions`)
-     - normalized odds for:
-       - 1X2
-       - Double Chance (1X, X2, 12)
-       - Goals: O0.5 HT, O1.5, O2.5, O3.5, U3.5, U4.5
-       - Team goals O0.5 (home/away)
-       - BTTS YES/NO
+- `GET /` i `GET /health` – osnovni meta/health check odgovori.
+- `GET /matches/today` – lista današnjih mečeva za allow‑listed lige (liga,
+  timovi, kickoff u `Europe/Belgrade`, status, skor, osnovni odds snapshot).
+- `GET /matches/{fixture_id}` – isti card format kao gore, ali za konkretan
+  fixture.
+- `GET /matches/{fixture_id}/full` – kompletan kontekst meča: forma, standings,
+  H2H, linije, statistike timova/fixture‑a, predictions, injuries i
+  normalizovani odds (uključujući flat probability snapshot).
+- `POST /matches/{fixture_id}/ai-analysis` – koristi pun kontekst i opcioni
+  `question` da vrati strukturisan AI rezime + value bet signale.
 
-3. **Layer 3 — `POST /matches/{fixture_id}/ai-analysis`**
-   - Consumes the full Layer‑2 object and produces a structured AI analysis:
-     - 5–7 sentence in‑depth preview
-     - winner probabilities + pick
-     - goals probability map
-     - BTTS YES/NO probability
-     - up to 3 high‑conviction value bets (DC + goals combos)
-     - top 2 correct score outcomes
-
-## Running locally
+### Podešavanje i pokretanje lokalno
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+source .venv/bin/activate  # ili .venv\Scripts\activate na Windowsu
 pip install -r requirements.txt
 
 export API_FOOTBALL_KEY=your_api_key_here
-export OPENAI_API_KEY=sk-...
+export OPENAI_API_KEY=sk-...  # opciono, za AI analize
 export TIMEZONE="Europe/Belgrade"
-export SEASON=2025
 
 uvicorn backend.app:app --reload --port 8000
 ```
 
-Then open `http://localhost:8000/docs` for Swagger UI.
-```
+Swagger UI je dostupan na `http://localhost:8000/docs`.
 
-## Render deployment
+### Deploy na Render
 
-- Create a new **Web Service** on Render.
-- Use this repo as the source.
-- Set the start command to:
+- Web Service sa start komandom:
+
+  ```bash
+  uvicorn backend.app:app --host 0.0.0.0 --port $PORT
+  ```
+
+- Ključni env var‑ovi: `API_FOOTBALL_KEY`, `OPENAI_API_KEY` (opciono),
+  `TIMEZONE` (default `Europe/Belgrade`).
+
+## Frontend (Expo / React Native)
+
+- Lokacija: `frontend/` (Expo SDK 54, React Native 0.81).
+- Koristi rute iznad (`/matches/today`, `/matches/{id}/full`,
+  `/matches/{id}/ai-analysis`) za pun tok: lista mečeva, detalji, AI analiza i
+  vrednosne opklade.
+- Zadati API endpoint u kodu je `https://naksir-go-premium-api.onrender.com`.
+
+### Pokretanje frontend-a
 
 ```bash
-uvicorn backend.app:app --host 0.0.0.0 --port $PORT
+cd frontend
+npm install
+npm run start  # ili npm run android / ios / web
 ```
 
-- Configure environment variables:
-  - `API_FOOTBALL_KEY`
-  - `OPENAI_API_KEY` (optional but recommended)
-  - `TIMEZONE=Europe/Belgrade`
-  - `SEASON=2025`
-
-Once deployed, the service exposes the same routes in production.
+Expo CLI otvara bundler; u simulatoru ili na fizičkom uređaju videćete drawer
+sa "Today's Matches" listom, detaljnim ekranom meča i sekcijom za AI analize.
