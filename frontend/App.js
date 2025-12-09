@@ -29,12 +29,10 @@ const COLORS = {
   borderSoft: '#1f2937',
 };
 
-const TODAY_URL =
-  'https://naksir-go-premium-api.onrender.com/matches/today';
-const MATCH_DETAIL_URL =
-  'https://naksir-go-premium-api.onrender.com/matches/{fixture_id}/full';
-const AI_ANALYSIS_URL =
-  'https://naksir-go-premium-api.onrender.com/matches/{fixture_id}/ai-analysis';
+const API_BASE = 'https://naksir-go-premium-api.onrender.com';
+const TODAY_URL = `${API_BASE}/matches/today`;
+const fullUrl = (fixtureId) => `${API_BASE}/matches/${fixtureId}/full`;
+const aiUrl = (fixtureId) => `${API_BASE}/matches/${fixtureId}/ai-analysis`;
 
 const TelegramBanner = () => (
   <TouchableOpacity
@@ -197,12 +195,11 @@ const MatchesScreen = ({ navigation }) => {
           !error &&
           filteredMatches.map((match, index) => (
             <MatchCard
-              key={match.fixture?.id ?? `${match.league?.id || 'match'}-${index}`}
+              key={match.fixture_id ?? `${match.league?.id || 'match'}-${index}`}
               match={match}
               onPress={() =>
                 navigation.navigate('MatchDetails', {
-                  fixtureId: match.fixture?.id,
-                  match,
+                  fixtureId: match.fixture_id,
                 })
               }
             />
@@ -217,23 +214,27 @@ const MatchesScreen = ({ navigation }) => {
 };
 
 const MatchDetailsScreen = ({ route, navigation }) => {
-  const params = route?.params || {};
-  const fixtureId = params.fixtureId ?? params.match?.fixture?.id;
+  const { fixtureId } = route.params || {};
+
+  if (!fixtureId) {
+    return (
+      <Text style={{ color: '#f7931a', textAlign: 'center', marginTop: 32 }}>
+        Fixture ID is missing for this match.
+      </Text>
+    );
+  }
 
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!fixtureId) {
-      setError('Fixture ID is missing for this match.');
-      return;
-    }
+    const url = fullUrl(fixtureId);
 
     setLoading(true);
     setError('');
 
-    fetch(MATCH_DETAIL_URL.replace('{fixture_id}', String(fixtureId)))
+    fetch(url)
       .then((res) => res.json())
       .then((data) => setDetails(data))
       .catch(() => setError('Unable to load match details.'))
@@ -246,9 +247,8 @@ const MatchDetailsScreen = ({ route, navigation }) => {
         <TouchableOpacity
           style={styles.analysisButton}
           onPress={() =>
-            navigation.navigate('Analysis', {
+            navigation.navigate('AIAnalysis', {
               fixtureId,
-              match: details || params.match || null,
             })
           }
           activeOpacity={0.88}
@@ -326,9 +326,8 @@ const MatchDetailsScreen = ({ route, navigation }) => {
         <TouchableOpacity
           style={styles.analysisButton}
           onPress={() =>
-            navigation.navigate('Analysis', {
+            navigation.navigate('AIAnalysis', {
               fixtureId,
-              match: details || params.match || null,
             })
           }
           activeOpacity={0.88}
@@ -340,24 +339,24 @@ const MatchDetailsScreen = ({ route, navigation }) => {
   );
 };
 
-const AnalysisScreen = ({ route }) => {
-  const params = route?.params || {};
-  const fixtureId = params.fixtureId ?? params.match?.fixture?.id;
+const AIAnalysisScreen = ({ route }) => {
+  const { fixtureId } = route.params || {};
+
+  if (!fixtureId) {
+    return <Text style={styles.warningText}>Fixture ID is missing for this match.</Text>;
+  }
 
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!fixtureId) {
-      setError('Fixture ID is missing for this match.');
-      return;
-    }
+    const url = aiUrl(fixtureId);
 
     setLoading(true);
     setError('');
 
-    fetch(AI_ANALYSIS_URL.replace('{fixture_id}', String(fixtureId)), {
+    fetch(url, {
       method: 'POST',
     })
       .then((res) => res.json())
@@ -483,8 +482,8 @@ export default function App() {
           }}
         />
         <Drawer.Screen
-          name="Analysis"
-          component={AnalysisScreen}
+          name="AIAnalysis"
+          component={AIAnalysisScreen}
           options={{
             drawerItemStyle: { display: 'none' },
             title: 'AI Analysis',
@@ -594,6 +593,11 @@ const styles = StyleSheet.create({
     marginVertical: 24,
   },
   errorText: {
+    color: COLORS.neonOrange,
+    textAlign: 'center',
+    marginVertical: 12,
+  },
+  warningText: {
     color: COLORS.neonOrange,
     textAlign: 'center',
     marginVertical: 12,
