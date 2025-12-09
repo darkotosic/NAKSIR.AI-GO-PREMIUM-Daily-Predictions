@@ -13,20 +13,25 @@ import {
   Image,
 } from 'react-native';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
-import { createDrawerNavigator } from '@react-navigation/drawer';
+import {
+  createDrawerNavigator,
+  DrawerContentScrollView,
+  DrawerItem,
+  DrawerItemList,
+} from '@react-navigation/drawer';
 
 const Drawer = createDrawerNavigator();
 
 const COLORS = {
-  background: '#050516',
-  card: '#111827',
-  neonPurple: '#a855f7',
-  neonOrange: '#f97316',
-  gold: '#eab308',
-  text: '#f9fafb',
-  muted: '#9ca3af',
-  accentBlue: '#0d6efd',
-  borderSoft: '#1f2937',
+  background: '#040312',
+  card: '#0b0c1f',
+  neonPurple: '#b06bff',
+  neonViolet: '#8b5cf6',
+  deepViolet: '#6d28d9',
+  text: '#f8fafc',
+  muted: '#a5b4fc',
+  accentBlue: '#0ea5e9',
+  borderSoft: '#1f1f3a',
 };
 
 const API_BASE = 'https://naksir-go-premium-api.onrender.com';
@@ -93,15 +98,40 @@ const MatchCard = ({ match, onPress }) => {
       </Text>
 
       <View style={styles.teamsRow}>
-        <Text style={styles.teamName} numberOfLines={1}>
-          {match.teams?.home?.name}
-        </Text>
+        <View style={styles.teamPill}>
+          {match.teams?.home?.logo ? (
+            <Image
+              source={{ uri: match.teams.home.logo }}
+              style={styles.teamLogoSmall}
+            />
+          ) : (
+            <View style={styles.teamLogoSmallPlaceholder} />
+          )}
+          <Text style={styles.teamName} numberOfLines={1}>
+            {match.teams?.home?.name}
+          </Text>
+        </View>
 
-        <Text style={styles.kickoff}>{kickoff}</Text>
+        <View style={styles.kickoffPill}>
+          <Text style={styles.kickoff}>{kickoff}</Text>
+        </View>
 
-        <Text style={[styles.teamName, { textAlign: 'right' }]} numberOfLines={1}>
-          {match.teams?.away?.name}
-        </Text>
+        <View style={[styles.teamPill, { justifyContent: 'flex-end' }]}>
+          <Text
+            style={[styles.teamName, { textAlign: 'right', marginRight: 6 }]}
+            numberOfLines={1}
+          >
+            {match.teams?.away?.name}
+          </Text>
+          {match.teams?.away?.logo ? (
+            <Image
+              source={{ uri: match.teams.away.logo }}
+              style={styles.teamLogoSmall}
+            />
+          ) : (
+            <View style={styles.teamLogoSmallPlaceholder} />
+          )}
+        </View>
       </View>
 
       {match.odds?.full_time && (
@@ -278,7 +308,7 @@ const MatchDetailsScreen = ({ route, navigation }) => {
 
         {loading && (
           <ActivityIndicator
-            color={COLORS.neonOrange}
+            color={COLORS.neonViolet}
             size="large"
             style={styles.loader}
           />
@@ -556,6 +586,41 @@ const AIAnalysisScreen = ({ route }) => {
 
 // --- Root App ----------------------------------------------------------------
 
+const legalLinks = [
+  { label: 'Terms of Use', url: 'https://naksirpredictions.top/terms-of-use' },
+  {
+    label: 'Privacy Policy',
+    url: 'https://naksirpredictions.top/privacy-policy',
+  },
+  {
+    label: 'Legal Disclaimer',
+    url: 'https://naksirpredictions.top/legal-disclaimer',
+  },
+  { label: 'Naksir Website', url: 'https://naksirpredictions.top' },
+  {
+    label: 'Nakir Apps',
+    url: 'https://play.google.com/store/apps/dev?id=6165954326742483653',
+  },
+  { label: 'Telegram', url: 'https://t.me/naksiranalysis' },
+];
+
+function CustomDrawerContent(props) {
+  return (
+    <DrawerContentScrollView {...props} style={styles.drawerContent}>
+      <DrawerItemList {...props} />
+      <View style={styles.drawerDivider} />
+      {legalLinks.map((link) => (
+        <DrawerItem
+          key={link.label}
+          label={link.label}
+          labelStyle={styles.drawerLinkText}
+          onPress={() => Linking.openURL(link.url)}
+        />
+      ))}
+    </DrawerContentScrollView>
+  );
+}
+
 export default function App() {
   const navigationTheme = {
     ...DefaultTheme,
@@ -573,10 +638,11 @@ export default function App() {
     <NavigationContainer theme={navigationTheme}>
       <Drawer.Navigator
         initialRouteName="Today's Matches"
+        drawerContent={(props) => <CustomDrawerContent {...props} />}
         screenOptions={{
           headerStyle: { backgroundColor: COLORS.card },
           headerTintColor: COLORS.text,
-          drawerActiveTintColor: COLORS.neonPurple,
+          drawerActiveTintColor: COLORS.neonViolet,
           drawerInactiveTintColor: COLORS.text,
           drawerStyle: { backgroundColor: COLORS.background },
         }}
@@ -647,12 +713,12 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 16,
     marginBottom: 14,
-    borderColor: COLORS.neonOrange,
+    borderColor: COLORS.neonViolet,
     borderWidth: 1,
     shadowColor: COLORS.neonPurple,
     shadowOpacity: 0.65,
     shadowOffset: { width: 0, height: 12 },
-    shadowRadius: 18,
+    shadowRadius: 22,
     elevation: 6,
   },
   leagueText: {
@@ -667,6 +733,37 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 6,
+    gap: 10,
+  },
+  teamPill: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  teamLogoSmall: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#0f0f2d',
+    borderWidth: 1,
+    borderColor: COLORS.neonViolet,
+  },
+  teamLogoSmallPlaceholder: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#0f0f2d',
+    borderWidth: 1,
+    borderColor: COLORS.borderSoft,
+  },
+  kickoffPill: {
+    backgroundColor: '#141334',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.neonPurple,
   },
   teamName: {
     color: COLORS.text,
@@ -688,12 +785,12 @@ const styles = StyleSheet.create({
     marginVertical: 24,
   },
   errorText: {
-    color: COLORS.neonOrange,
+    color: COLORS.neonViolet,
     textAlign: 'center',
     marginVertical: 12,
   },
   warningText: {
-    color: COLORS.neonOrange,
+    color: COLORS.neonViolet,
     textAlign: 'center',
     marginVertical: 12,
   },
@@ -702,7 +799,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingVertical: 14,
     borderWidth: 1.5,
-    borderColor: COLORS.gold,
+    borderColor: COLORS.neonViolet,
     marginBottom: 16,
     shadowColor: COLORS.neonPurple,
     shadowOpacity: 0.75,
@@ -710,7 +807,7 @@ const styles = StyleSheet.create({
     elevation: 7,
   },
   analysisButtonText: {
-    color: COLORS.gold,
+    color: COLORS.text,
     textAlign: 'center',
     fontWeight: '800',
     letterSpacing: 0.8,
@@ -722,9 +819,9 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: COLORS.neonPurple,
     marginBottom: 18,
-    shadowColor: COLORS.neonOrange,
-    shadowOpacity: 0.6,
-    shadowRadius: 16,
+    shadowColor: COLORS.neonPurple,
+    shadowOpacity: 0.7,
+    shadowRadius: 20,
   },
   detailTitle: {
     color: COLORS.text,
@@ -745,7 +842,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionLabel: {
-    color: COLORS.neonOrange,
+    color: COLORS.neonViolet,
     fontWeight: '700',
     marginBottom: 6,
   },
@@ -759,6 +856,20 @@ const styles = StyleSheet.create({
   refreshRow: {
     alignItems: 'flex-end',
     marginBottom: 10,
+  },
+  drawerContent: {
+    backgroundColor: COLORS.background,
+  },
+  drawerDivider: {
+    height: 1,
+    backgroundColor: COLORS.borderSoft,
+    marginHorizontal: 12,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  drawerLinkText: {
+    color: COLORS.text,
+    fontWeight: '700',
   },
   refreshButton: {
     paddingHorizontal: 14,
@@ -815,7 +926,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   vsText: {
-    color: COLORS.gold,
+    color: COLORS.neonViolet,
     fontSize: 16,
     fontWeight: '800',
     marginTop: 4,
