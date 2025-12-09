@@ -520,8 +520,6 @@ const AIAnalysisScreen = ({ route }) => {
       ? analysis.key_factors
       : null;
 
-  const winnerProbs = analysis?.winner_probabilities;
-  const goalsProbs = analysis?.goals_probabilities;
   const valueBet = analysis?.value_bet;
   const formatPct = (value) =>
     value === null || value === undefined ? '-' : `${value}%`;
@@ -567,29 +565,6 @@ const AIAnalysisScreen = ({ route }) => {
               </Text>
             </View>
 
-            {winnerProbs && (
-              <View style={styles.sectionBlock}>
-                <Text style={styles.sectionLabel}>Probabilities</Text>
-                <Text style={styles.sectionValue}>
-                  Home win: {winnerProbs.home_win_pct}%{'\n'}
-                  Draw: {winnerProbs.draw_pct}%{'\n'}
-                  Away win: {winnerProbs.away_win_pct}%
-                </Text>
-              </View>
-            )}
-
-            {goalsProbs && (
-              <View style={styles.sectionBlock}>
-                <Text style={styles.sectionLabel}>Goals markets</Text>
-                <Text style={styles.sectionValue}>
-                  Over 1.5: {goalsProbs.over_1_5_pct}%{'\n'}
-                  Over 2.5: {goalsProbs.over_2_5_pct}%{'\n'}
-                  Over 3.5: {goalsProbs.over_3_5_pct}%{'\n'}
-                  Under 3.5: {goalsProbs.under_3_5_pct}%
-                </Text>
-              </View>
-            )}
-
             {oddsProbabilities && (
               <View style={styles.sectionBlock}>
                 <Text style={styles.sectionLabel}>Implied odds probabilities</Text>
@@ -634,7 +609,7 @@ const AIAnalysisScreen = ({ route }) => {
                 <Text style={styles.sectionValue}>
                   Market: {valueBet.market}{'\n'}
                   Selection: {valueBet.selection}{'\n'}
-                  Model edge: {valueBet.edge_pct}%
+                  Success probability: {formatPct(valueBet.model_probability_pct)}
                 </Text>
               </View>
             )}
