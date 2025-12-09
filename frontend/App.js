@@ -8,7 +8,6 @@ import {
   StatusBar,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
   Image,
@@ -47,32 +46,30 @@ const TelegramBanner = () => (
   </TouchableOpacity>
 );
 
-const FilterBar = ({
-  countryFilter,
-  timeFilter,
-  onCountryChange,
-  onTimeChange,
-}) => (
-  <View style={styles.filterRow}>
-    <View style={styles.filterGroup}>
-      <Text style={styles.filterLabel}>Country</Text>
-      <TextInput
-        value={countryFilter}
-        onChangeText={onCountryChange}
-        placeholder="e.g. England"
-        placeholderTextColor={COLORS.muted}
-        style={styles.input}
-      />
-    </View>
-    <View style={styles.filterGroup}>
-      <Text style={styles.filterLabel}>Kickoff (HH:MM)</Text>
-      <TextInput
-        value={timeFilter}
-        onChangeText={onTimeChange}
-        placeholder="e.g. 18:00"
-        placeholderTextColor={COLORS.muted}
-        style={styles.input}
-      />
+const SortBar = ({ sortOption, onSortChange }) => (
+  <View style={styles.sortRow}>
+    <Text style={styles.filterLabel}>Sort by</Text>
+    <View style={styles.sortButtons}>
+      {[
+        { key: 'time', label: 'Kickoff time' },
+        { key: 'name', label: 'Team name' },
+      ].map((option) => {
+        const isActive = sortOption === option.key;
+        return (
+          <TouchableOpacity
+            key={option.key}
+            style={[styles.sortChip, isActive && styles.sortChipActive]}
+            onPress={() => onSortChange(option.key)}
+            activeOpacity={0.85}
+          >
+            <Text
+              style={[styles.sortChipText, isActive && styles.sortChipTextActive]}
+            >
+              {option.label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
     </View>
   </View>
 );
@@ -124,8 +121,7 @@ const MatchesScreen = ({ navigation }) => {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [countryFilter, setCountryFilter] = useState('');
-  const [timeFilter, setTimeFilter] = useState('');
+  const [sortOption, setSortOption] = useState('time');
 
   const loadMatches = () => {
     setLoading(true);
@@ -144,24 +140,20 @@ const MatchesScreen = ({ navigation }) => {
     loadMatches();
   }, []);
 
-  const filteredMatches = useMemo(() => {
-    return matches.filter((match) => {
-      const country = (match.league?.country || '').toLowerCase();
-      const time = match.fixture?.date
-        ? new Date(match.fixture.date).toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-          })
-        : '';
+  const sortedMatches = useMemo(() => {
+    const list = [...matches];
+    return list.sort((a, b) => {
+      if (sortOption === 'name') {
+        const nameA = (a.teams?.home?.name || '').toLowerCase();
+        const nameB = (b.teams?.home?.name || '').toLowerCase();
+        return nameA.localeCompare(nameB);
+      }
 
-      const timeMatch = timeFilter ? time.includes(timeFilter) : true;
-      const countryMatch = countryFilter
-        ? country.includes(countryFilter.toLowerCase())
-        : true;
-
-      return timeMatch && countryMatch;
+      const dateA = a.fixture?.date ? new Date(a.fixture.date).getTime() : Infinity;
+      const dateB = b.fixture?.date ? new Date(b.fixture.date).getTime() : Infinity;
+      return dateA - dateB;
     });
-  }, [matches, countryFilter, timeFilter]);
+  }, [matches, sortOption]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -169,12 +161,7 @@ const MatchesScreen = ({ navigation }) => {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <TelegramBanner />
 
-        <FilterBar
-          countryFilter={countryFilter}
-          timeFilter={timeFilter}
-          onCountryChange={setCountryFilter}
-          onTimeChange={setTimeFilter}
-        />
+        <SortBar sortOption={sortOption} onSortChange={setSortOption} />
 
         <View style={styles.refreshRow}>
           <TouchableOpacity
@@ -198,7 +185,7 @@ const MatchesScreen = ({ navigation }) => {
 
         {!loading &&
           !error &&
-          filteredMatches.map((match, index) => (
+          sortedMatches.map((match, index) => (
             <MatchCard
               key={match.fixture_id ?? `${match.league?.id || 'match'}-${index}`}
               match={match}
@@ -210,7 +197,7 @@ const MatchesScreen = ({ navigation }) => {
             />
           ))}
 
-        {!loading && !error && filteredMatches.length === 0 && (
+        {!loading && !error && sortedMatches.length === 0 && (
           <Text style={styles.errorText}>No matches to display.</Text>
         )}
       </ScrollView>
@@ -649,31 +636,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '700',
   },
-  filterRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 10,
-  },
-  filterGroup: {
-    flex: 1,
-  },
   filterLabel: {
     color: COLORS.muted,
     marginBottom: 6,
     fontSize: 12,
     letterSpacing: 0.5,
-  },
-  input: {
-    backgroundColor: COLORS.card,
-    borderColor: COLORS.neonOrange,
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    color: COLORS.text,
-    shadowColor: COLORS.neonPurple,
-    shadowOpacity: 0.45,
-    shadowRadius: 10,
   },
   card: {
     backgroundColor: COLORS.card,
@@ -786,6 +753,9 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     lineHeight: 20,
   },
+  sortRow: {
+    marginBottom: 12,
+  },
   refreshRow: {
     alignItems: 'flex-end',
     marginBottom: 10,
@@ -802,6 +772,29 @@ const styles = StyleSheet.create({
     color: COLORS.neonPurple,
     fontSize: 12,
     fontWeight: '600',
+  },
+  sortButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  sortChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.borderSoft,
+    backgroundColor: '#0b1220',
+  },
+  sortChipActive: {
+    borderColor: COLORS.neonPurple,
+    backgroundColor: '#1b2132',
+  },
+  sortChipText: {
+    color: COLORS.muted,
+    fontWeight: '600',
+  },
+  sortChipTextActive: {
+    color: COLORS.text,
   },
   leagueHeaderRow: {
     flexDirection: 'row',
