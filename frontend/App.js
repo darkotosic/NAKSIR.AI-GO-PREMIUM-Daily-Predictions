@@ -218,13 +218,13 @@ const MatchDetailsScreen = ({ route, navigation }) => {
 
   if (!fixtureId) {
     return (
-      <Text style={{ color: '#f7931a', textAlign: 'center', marginTop: 32 }}>
-        Fixture ID is missing for this match.
-      </Text>
+      <SafeAreaView style={styles.safeArea}>
+        <Text style={styles.warningText}>Fixture ID is missing for this match.</Text>
+      </SafeAreaView>
     );
   }
 
-  const [details, setDetails] = useState(null);
+  const [rawDetails, setRawDetails] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -236,10 +236,26 @@ const MatchDetailsScreen = ({ route, navigation }) => {
 
     fetch(url)
       .then((res) => res.json())
-      .then((data) => setDetails(data))
+      .then((data) => {
+        // Sačuvaj ceo raw response, ali ćemo kasnije izvući summary
+        setRawDetails(data);
+      })
       .catch(() => setError('Unable to load match details.'))
       .finally(() => setLoading(false));
   }, [fixtureId]);
+
+  // Helperi koji mapiraju backend → UI format
+  const summary = rawDetails?.summary || {};
+  const league = summary.league || rawDetails?.league || {};
+  const teams = summary.teams || rawDetails?.teams || {};
+  const fixture = summary.fixture || {
+    date: summary.kickoff,
+    venue: summary.venue,
+    referee: summary.referee,
+  };
+
+  const odds = rawDetails?.odds || null;
+  const stats = rawDetails?.stats || null;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -266,57 +282,52 @@ const MatchDetailsScreen = ({ route, navigation }) => {
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        {details && (
+        {rawDetails && (
           <View style={styles.detailCard}>
             <Text style={styles.detailTitle}>
-              {details.teams?.home?.name || 'Home team'} vs{' '}
-              {details.teams?.away?.name || 'Away team'}
+              {(teams.home?.name || 'Home team') + ' vs ' + (teams.away?.name || 'Away team')}
             </Text>
 
             <Text style={styles.detailSubtitle}>
-              {details.league?.name || 'League'} •{' '}
-              {details.league?.country || 'Country'}
+              {(league.name || 'League') + ' • ' + (league.country || 'Country')}
             </Text>
 
             <View style={styles.sectionRow}>
               <Text style={styles.sectionLabel}>Date</Text>
               <Text style={styles.sectionValue}>
-                {details.fixture?.date
-                  ? new Date(details.fixture.date).toLocaleString()
-                  : 'Not available'}
+                {fixture?.date ? new Date(fixture.date).toLocaleString() : 'Not available'}
               </Text>
             </View>
 
             <View style={styles.sectionRow}>
               <Text style={styles.sectionLabel}>Stadium</Text>
               <Text style={styles.sectionValue}>
-                {details.fixture?.venue?.name || 'Not provided'}
+                {fixture?.venue?.name || 'Not provided'}
               </Text>
             </View>
 
             <View style={styles.sectionRow}>
               <Text style={styles.sectionLabel}>Referee</Text>
               <Text style={styles.sectionValue}>
-                {details.fixture?.referee || 'Not assigned'}
+                {fixture?.referee || 'Not assigned'}
               </Text>
             </View>
 
-            {details.odds && (
+            {odds && (
               <View style={styles.sectionBlock}>
                 <Text style={styles.sectionLabel}>Odds snapshot</Text>
                 <Text style={styles.sectionValue}>
-                  1: {details.odds?.full_time?.home ?? '-'} | X:{' '}
-                  {details.odds?.full_time?.draw ?? '-'} | 2:{' '}
-                  {details.odds?.full_time?.away ?? '-'}
+                  1: {odds?.full_time?.home ?? '-'} | X: {odds?.full_time?.draw ?? '-'} | 2:{' '}
+                  {odds?.full_time?.away ?? '-'}
                 </Text>
               </View>
             )}
 
-            {details.stats && (
+            {stats && Array.isArray(stats) && stats.length > 0 && (
               <View style={styles.sectionBlock}>
                 <Text style={styles.sectionLabel}>Stats (preview)</Text>
                 <Text style={styles.sectionValue}>
-                  {JSON.stringify(details.stats).slice(0, 220)}…
+                  {JSON.stringify(stats).slice(0, 220)}…
                 </Text>
               </View>
             )}
@@ -343,7 +354,11 @@ const AIAnalysisScreen = ({ route }) => {
   const { fixtureId } = route.params || {};
 
   if (!fixtureId) {
-    return <Text style={styles.warningText}>Fixture ID is missing for this match.</Text>;
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <Text style={styles.warningText}>Fixture ID is missing for this match.</Text>
+      </SafeAreaView>
+    );
   }
 
   const [analysis, setAnalysis] = useState(null);
@@ -360,12 +375,34 @@ const AIAnalysisScreen = ({ route }) => {
       method: 'POST',
     })
       .then((res) => res.json())
-      .then((data) => setAnalysis(data))
+      .then((data) => {
+        // Backend: { fixture_id, generated_at, ..., analysis: { ... } }
+        const core = data.analysis || data;
+        setAnalysis(core);
+      })
       .catch(() =>
         setError('AI analysis is temporarily unavailable. Please try again.'),
       )
       .finally(() => setLoading(false));
   }, [fixtureId]);
+
+  const summaryText =
+    analysis?.preview ||
+    analysis?.summary ||
+    'AI has insufficient data for a summary.';
+
+  const keyFactors =
+    Array.isArray(analysis?.key_factors) && analysis.key_factors.length > 0
+      ? analysis.key_factors
+      : null;
+
+  const winnerProbs = analysis?.winner_probabilities;
+  const goalsProbs = analysis?.goals_probabilities;
+  const valueBet = analysis?.value_bet;
+  const risks =
+    Array.isArray(analysis?.risk_flags) && analysis.risk_flags.length > 0
+      ? analysis.risk_flags
+      : null;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -386,47 +423,56 @@ const AIAnalysisScreen = ({ route }) => {
 
             <View style={styles.sectionBlock}>
               <Text style={styles.sectionLabel}>Summary</Text>
-              <Text style={styles.sectionValue}>
-                {analysis.summary || 'AI has insufficient data for a summary.'}
-              </Text>
+              <Text style={styles.sectionValue}>{summaryText}</Text>
             </View>
 
             <View style={styles.sectionBlock}>
               <Text style={styles.sectionLabel}>Key factors</Text>
               <Text style={styles.sectionValue}>
-                {Array.isArray(analysis.key_factors) &&
-                analysis.key_factors.length > 0
-                  ? '• ' + analysis.key_factors.join('\n• ')
+                {keyFactors
+                  ? '• ' + keyFactors.join('\n• ')
                   : 'No key factors highlighted.'}
               </Text>
             </View>
 
-            <View style={styles.sectionBlock}>
-              <Text style={styles.sectionLabel}>Probabilities</Text>
-              <Text style={styles.sectionValue}>
-                {Object.keys(analysis.probabilities || {}).length > 0
-                  ? JSON.stringify(analysis.probabilities, null, 2)
-                  : 'Model did not produce probability breakdown.'}
-              </Text>
-            </View>
+            {winnerProbs && (
+              <View style={styles.sectionBlock}>
+                <Text style={styles.sectionLabel}>Probabilities</Text>
+                <Text style={styles.sectionValue}>
+                  Home win: {winnerProbs.home_win_pct}%{'\n'}
+                  Draw: {winnerProbs.draw_pct}%{'\n'}
+                  Away win: {winnerProbs.away_win_pct}%
+                </Text>
+              </View>
+            )}
 
-            <View style={styles.sectionBlock}>
-              <Text style={styles.sectionLabel}>Value bets</Text>
-              <Text style={styles.sectionValue}>
-                {Array.isArray(analysis.value_bets) &&
-                analysis.value_bets.length > 0
-                  ? JSON.stringify(analysis.value_bets, null, 2)
-                  : 'No clear value bets detected.'}
-              </Text>
-            </View>
+            {goalsProbs && (
+              <View style={styles.sectionBlock}>
+                <Text style={styles.sectionLabel}>Goals markets</Text>
+                <Text style={styles.sectionValue}>
+                  Over 1.5: {goalsProbs.over_1_5_pct}%{'\n'}
+                  Over 2.5: {goalsProbs.over_2_5_pct}%{'\n'}
+                  Over 3.5: {goalsProbs.over_3_5_pct}%{'\n'}
+                  Under 3.5: {goalsProbs.under_3_5_pct}%
+                </Text>
+              </View>
+            )}
+
+            {valueBet && (
+              <View style={styles.sectionBlock}>
+                <Text style={styles.sectionLabel}>Value bets</Text>
+                <Text style={styles.sectionValue}>
+                  Market: {valueBet.market}{'\n'}
+                  Selection: {valueBet.selection}{'\n'}
+                  Model edge: {valueBet.edge_pct}%
+                </Text>
+              </View>
+            )}
 
             <View style={styles.sectionBlock}>
               <Text style={styles.sectionLabel}>Risks</Text>
               <Text style={styles.sectionValue}>
-                {Array.isArray(analysis.risk_flags) &&
-                analysis.risk_flags.length > 0
-                  ? '• ' + analysis.risk_flags.join('\n• ')
-                  : 'No major risks flagged.'}
+                {risks ? '• ' + risks.join('\n• ') : 'No major risks flagged.'}
               </Text>
             </View>
 
