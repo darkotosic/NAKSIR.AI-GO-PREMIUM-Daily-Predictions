@@ -33,6 +33,20 @@ def _all_done(summary: Dict[str, Any]) -> bool:
     return True
 
 
+def _implied_probability(odd: Optional[float]) -> Optional[float]:
+    """Convert decimal odd to implied probability in percentage (0-100)."""
+
+    try:
+        if odd is None:
+            return None
+        odd_float = float(odd)
+        if odd_float <= 0:
+            return None
+        return round(100.0 / odd_float, 1)
+    except (TypeError, ValueError):
+        return None
+
+
 # ---------------------------------------------------------------------
 # Main builder
 # ---------------------------------------------------------------------
@@ -240,3 +254,40 @@ def build_odds_summary(odds_raw: List[Dict[str, Any]]) -> Dict[str, Any]:
                 return summary
 
     return summary
+
+
+def build_odds_probabilities(flat_odds: Dict[str, Any]) -> Dict[str, Any]:
+    """Derive implied probabilities (in %) from the odds snapshot structure."""
+
+    prob: Dict[str, Any] = {
+        "match_winner": {
+            "home": _implied_probability(flat_odds.get("match_winner", {}).get("home")),
+            "draw": _implied_probability(flat_odds.get("match_winner", {}).get("draw")),
+            "away": _implied_probability(flat_odds.get("match_winner", {}).get("away")),
+        },
+        "double_chance": {
+            "1X": _implied_probability(flat_odds.get("double_chance", {}).get("1X")),
+            "X2": _implied_probability(flat_odds.get("double_chance", {}).get("X2")),
+            "12": _implied_probability(flat_odds.get("double_chance", {}).get("12")),
+        },
+        "btts": {
+            "yes": _implied_probability(flat_odds.get("btts", {}).get("yes")),
+            "no": _implied_probability(flat_odds.get("btts", {}).get("no")),
+        },
+        "ht_over_0_5": _implied_probability(flat_odds.get("ht_over_0_5")),
+        "home_goals_over_0_5": _implied_probability(
+            flat_odds.get("home_goals_over_0_5")
+        ),
+        "away_goals_over_0_5": _implied_probability(
+            flat_odds.get("away_goals_over_0_5")
+        ),
+        "totals": {
+            "over_1_5": _implied_probability(flat_odds.get("totals", {}).get("over_1_5")),
+            "over_2_5": _implied_probability(flat_odds.get("totals", {}).get("over_2_5")),
+            "over_3_5": _implied_probability(flat_odds.get("totals", {}).get("over_3_5")),
+            "under_3_5": _implied_probability(flat_odds.get("totals", {}).get("under_3_5")),
+            "under_4_5": _implied_probability(flat_odds.get("totals", {}).get("under_4_5")),
+        },
+    }
+
+    return prob

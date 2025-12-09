@@ -16,6 +16,7 @@ Strictly follow these rules:
 - If data is missing or weak, explicitly mention limitations and reduce confidence.
 - Provide balanced, realistic probabilities. Avoid 0% or 100%.
 - Always keep responses grounded and concise.
+- When proposing value bets, prefer Double Chance + Over/Under goals (avoid BTTS combos).
 
 Output: Return ONE JSON object with EXACTLY these keys:
 - preview: 5–7 sentence in-depth preview.
@@ -31,7 +32,7 @@ Output: Return ONE JSON object with EXACTLY these keys:
   }
 - team_goals: { "home_over_0_5_pct": float|null, "away_over_0_5_pct": float|null }
 - btts: { "yes_pct": float|null, "no_pct": float|null }
-- value_bet: {  # prioritize Double Chance + Goals combos
+- value_bet: {  # prioritize Double Chance + Over/Under goals combos
     "market": string,
     "selection": string,
     "bookmaker_odd": float|null,

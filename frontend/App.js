@@ -461,6 +461,7 @@ const AIAnalysisScreen = ({ route }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [oddsProbabilities, setOddsProbabilities] = useState(null);
 
   const formatTimer = (seconds) => {
     const mins = Math.floor(seconds / 60)
@@ -492,6 +493,7 @@ const AIAnalysisScreen = ({ route }) => {
 
     setLoading(true);
     setError('');
+    setOddsProbabilities(null);
 
     fetch(url, {
       method: 'POST',
@@ -500,6 +502,7 @@ const AIAnalysisScreen = ({ route }) => {
       .then((data) => {
         const core = data.analysis || data;
         setAnalysis(core);
+        setOddsProbabilities(data?.odds_probabilities || null);
       })
       .catch(() =>
         setError('AI analysis is temporarily unavailable. Please try again.'),
@@ -520,6 +523,8 @@ const AIAnalysisScreen = ({ route }) => {
   const winnerProbs = analysis?.winner_probabilities;
   const goalsProbs = analysis?.goals_probabilities;
   const valueBet = analysis?.value_bet;
+  const formatPct = (value) =>
+    value === null || value === undefined ? '-' : `${value}%`;
   const risks =
     Array.isArray(analysis?.risk_flags) && analysis.risk_flags.length > 0
       ? analysis.risk_flags
@@ -581,6 +586,44 @@ const AIAnalysisScreen = ({ route }) => {
                   Over 2.5: {goalsProbs.over_2_5_pct}%{'\n'}
                   Over 3.5: {goalsProbs.over_3_5_pct}%{'\n'}
                   Under 3.5: {goalsProbs.under_3_5_pct}%
+                </Text>
+              </View>
+            )}
+
+            {oddsProbabilities && (
+              <View style={styles.sectionBlock}>
+                <Text style={styles.sectionLabel}>Implied odds probabilities</Text>
+                <Text style={styles.sectionValue}>
+                  Match winner: {'\n'}
+                  Home: {formatPct(oddsProbabilities.match_winner?.home)} | Draw:{' '}
+                  {formatPct(oddsProbabilities.match_winner?.draw)} | Away:{' '}
+                  {formatPct(oddsProbabilities.match_winner?.away)}
+                </Text>
+                <Text style={styles.sectionValue}>
+                  Double chance: {'\n'}
+                  12: {formatPct(oddsProbabilities.double_chance?.['12'])} | 1X:{' '}
+                  {formatPct(oddsProbabilities.double_chance?.['1X'])} | X2:{' '}
+                  {formatPct(oddsProbabilities.double_chance?.['X2'])}
+                </Text>
+                <Text style={styles.sectionValue}>
+                  BTTS: Yes: {formatPct(oddsProbabilities.btts?.yes)} | No:{' '}
+                  {formatPct(oddsProbabilities.btts?.no)}
+                </Text>
+                <Text style={styles.sectionValue}>
+                  HT over 0.5: {formatPct(oddsProbabilities.ht_over_0_5)}
+                </Text>
+                <Text style={styles.sectionValue}>
+                  Team over 0.5: Home {formatPct(oddsProbabilities.home_goals_over_0_5)} | Away{' '}
+                  {formatPct(oddsProbabilities.away_goals_over_0_5)}
+                </Text>
+                <Text style={styles.sectionValue}>
+                  Totals (Over): O1.5 {formatPct(oddsProbabilities.totals?.over_1_5)} |{' '}
+                  O2.5 {formatPct(oddsProbabilities.totals?.over_2_5)} | O3.5{' '}
+                  {formatPct(oddsProbabilities.totals?.over_3_5)}
+                </Text>
+                <Text style={styles.sectionValue}>
+                  Totals (Under): U3.5 {formatPct(oddsProbabilities.totals?.under_3_5)} |{' '}
+                  U4.5 {formatPct(oddsProbabilities.totals?.under_4_5)}
                 </Text>
               </View>
             )}
