@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional
 from . import api_football
 from .config import TIMEZONE
 from .odds_normalizer import normalize_odds
-from .odds_summary import build_odds_summary
+from .odds_summary import build_odds_probabilities, build_odds_summary
 
 
 logger = logging.getLogger("naksir.go_premium.match_full")
@@ -272,6 +272,7 @@ full_context = {
 
     odds_summary = None
     odds_flat = None
+    odds_flat_probabilities = None
     if odds_raw:
         try:
             odds_summary = normalize_odds(odds_raw)
@@ -281,6 +282,11 @@ full_context = {
             odds_flat = build_odds_summary(odds_raw)
         except Exception as exc:  # noqa: BLE001
             logger.warning("match_full: build_odds_summary failed: %s", exc)
+        try:
+            if odds_flat:
+                odds_flat_probabilities = build_odds_probabilities(odds_flat)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("match_full: build_odds_probabilities failed: %s", exc)
 
     odds_block = None
     if odds_raw is not None:
@@ -288,6 +294,7 @@ full_context = {
             "summary": odds_summary,
             "raw": odds_raw,
             "flat": odds_flat,
+            "flat_probabilities": odds_flat_probabilities,
         }
 
     # Ako nemamo ni home ni away team stats, sekcija je None (lakše za front)

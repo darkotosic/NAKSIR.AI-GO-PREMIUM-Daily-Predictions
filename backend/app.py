@@ -218,6 +218,7 @@ def get_match_full(
         raise HTTPException(status_code=404, detail="Fixture not found")
 
     full_context = build_full_match(fixture)
+
     return full_context
 
 
@@ -247,6 +248,11 @@ def post_match_ai_analysis(
 
     full_context = build_full_match(fixture)
 
+    odds_probabilities = None
+    odds_section = full_context.get("odds") or {}
+    if isinstance(odds_section, dict):
+        odds_probabilities = odds_section.get("flat_probabilities")
+
     user_question = payload.question.strip() if payload.question else None
     logger.info(
         "AI analysis requested for fixture_id=%s (custom_question=%s)",
@@ -265,4 +271,5 @@ def post_match_ai_analysis(
         "timezone": TIMEZONE,
         "question": user_question,
         "analysis": analysis,
+        "odds_probabilities": odds_probabilities,
     }
