@@ -11,6 +11,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Image,
 } from 'react-native';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createDrawerNavigator } from '@react-navigation/drawer';
@@ -33,6 +34,8 @@ const API_BASE = 'https://naksir-go-premium-api.onrender.com';
 const TODAY_URL = `${API_BASE}/matches/today`;
 const fullUrl = (fixtureId) => `${API_BASE}/matches/${fixtureId}/full`;
 const aiUrl = (fixtureId) => `${API_BASE}/matches/${fixtureId}/ai-analysis`;
+
+// --- Reusable UI blocks ------------------------------------------------------
 
 const TelegramBanner = () => (
   <TouchableOpacity
@@ -114,6 +117,8 @@ const MatchCard = ({ match, onPress }) => {
     </TouchableOpacity>
   );
 };
+
+// --- Screens -----------------------------------------------------------------
 
 const MatchesScreen = ({ navigation }) => {
   const [matches, setMatches] = useState([]);
@@ -237,25 +242,37 @@ const MatchDetailsScreen = ({ route, navigation }) => {
     fetch(url)
       .then((res) => res.json())
       .then((data) => {
-        // Sačuvaj ceo raw response, ali ćemo kasnije izvući summary
         setRawDetails(data);
       })
       .catch(() => setError('Unable to load match details.'))
       .finally(() => setLoading(false));
   }, [fixtureId]);
 
-  // Helperi koji mapiraju backend → UI format
+  // --- Map backend → UI model -----------------------------------------------
   const summary = rawDetails?.summary || {};
-  const league = summary.league || rawDetails?.league || {};
-  const teams = summary.teams || rawDetails?.teams || {};
-  const fixture = summary.fixture || {
+  const league = summary.league || {};
+  const teams = summary.teams || {};
+  const fixture = {
     date: summary.kickoff,
     venue: summary.venue,
     referee: summary.referee,
   };
 
-  const odds = rawDetails?.odds || null;
-  const stats = rawDetails?.stats || null;
+  const leagueStandingsLeague = rawDetails?.standings?.[0]?.league;
+  const standingGroups = leagueStandingsLeague?.standings || [];
+  const tableRows = standingGroups.reduce(
+    (acc, group) => acc.concat(group),
+    [],
+  );
+
+  const homeStanding = tableRows.find(
+    (row) => row.team?.id === teams.home?.id,
+  );
+  const awayStanding = tableRows.find(
+    (row) => row.team?.id === teams.away?.id,
+  );
+
+  const flatOdds = rawDetails?.odds?.flat || null;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -284,14 +301,60 @@ const MatchDetailsScreen = ({ route, navigation }) => {
 
         {rawDetails && (
           <View style={styles.detailCard}>
-            <Text style={styles.detailTitle}>
-              {(teams.home?.name || 'Home team') + ' vs ' + (teams.away?.name || 'Away team')}
-            </Text>
+            {/* League & logos */}
+            <View style={styles.leagueHeaderRow}>
+              <View style={styles.teamColumn}>
+                {teams.home?.logo && (
+                  <Image
+                    source={{ uri: teams.home.logo }}
+                    style={styles.teamLogo}
+                  />
+                )}
+                <Text style={styles.detailTitle}>
+                  {teams.home?.name || 'Home team'}
+                </Text>
+                {homeStanding && (
+                  <Text style={styles.formText}>
+                    #{homeStanding.rank} • {homeStanding.points} pts •{' '}
+                    {homeStanding.form}
+                  </Text>
+                )}
+              </View>
+
+              <View style={styles.vsColumn}>
+                {league.logo && (
+                  <Image
+                    source={{ uri: league.logo }}
+                    style={styles.leagueLogo}
+                  />
+                )}
+                <Text style={styles.vsText}>VS</Text>
+              </View>
+
+              <View style={styles.teamColumnRight}>
+                {teams.away?.logo && (
+                  <Image
+                    source={{ uri: teams.away.logo }}
+                    style={styles.teamLogo}
+                  />
+                )}
+                <Text style={[styles.detailTitle, { textAlign: 'right' }]}>
+                  {teams.away?.name || 'Away team'}
+                </Text>
+                {awayStanding && (
+                  <Text style={[styles.formText, { textAlign: 'right' }]}>
+                    #{awayStanding.rank} • {awayStanding.points} pts •{' '}
+                    {awayStanding.form}
+                  </Text>
+                )}
+              </View>
+            </View>
 
             <Text style={styles.detailSubtitle}>
-              {(league.name || 'League') + ' • ' + (league.country || 'Country')}
+              {league.name || 'League'} • {league.country || 'Country'}
             </Text>
 
+            {/* Basic info */}
             <View style={styles.sectionRow}>
               <Text style={styles.sectionLabel}>Date</Text>
               <Text style={styles.sectionValue}>
@@ -313,21 +376,37 @@ const MatchDetailsScreen = ({ route, navigation }) => {
               </Text>
             </View>
 
-            {odds && (
+            {/* Rich odds from odds.flat */}
+            {flatOdds && (
               <View style={styles.sectionBlock}>
                 <Text style={styles.sectionLabel}>Odds snapshot</Text>
                 <Text style={styles.sectionValue}>
-                  1: {odds?.full_time?.home ?? '-'} | X: {odds?.full_time?.draw ?? '-'} | 2:{' '}
-                  {odds?.full_time?.away ?? '-'}
+                  1: {flatOdds.match_winner?.home ?? '-'} | X:{' '}
+                  {flatOdds.match_winner?.draw ?? '-'} | 2:{' '}
+                  {flatOdds.match_winner?.away ?? '-'}
                 </Text>
-              </View>
-            )}
-
-            {stats && Array.isArray(stats) && stats.length > 0 && (
-              <View style={styles.sectionBlock}>
-                <Text style={styles.sectionLabel}>Stats (preview)</Text>
                 <Text style={styles.sectionValue}>
-                  {JSON.stringify(stats).slice(0, 220)}…
+                  1X: {flatOdds.double_chance?.['1X'] ?? '-'} | 12:{' '}
+                  {flatOdds.double_chance?.['12'] ?? '-'} | X2:{' '}
+                  {flatOdds.double_chance?.['X2'] ?? '-'}
+                </Text>
+                <Text style={styles.sectionValue}>
+                  BTTS Yes: {flatOdds.btts?.yes ?? '-'} | No:{' '}
+                  {flatOdds.btts?.no ?? '-'}
+                </Text>
+                <Text style={styles.sectionValue}>
+                  O1.5: {flatOdds.totals?.over_1_5 ?? '-'} | O2.5:{' '}
+                  {flatOdds.totals?.over_2_5 ?? '-'} | O3.5:{' '}
+                  {flatOdds.totals?.over_3_5 ?? '-'}
+                </Text>
+                <Text style={styles.sectionValue}>
+                  U3.5: {flatOdds.totals?.under_3_5 ?? '-'} | U4.5:{' '}
+                  {flatOdds.totals?.under_4_5 ?? '-'}
+                </Text>
+                <Text style={styles.sectionValue}>
+                  HT over 0.5: {flatOdds.ht_over_0_5 ?? '-'} | Home O0.5:{' '}
+                  {flatOdds.home_goals_over_0_5 ?? '-'} | Away O0.5:{' '}
+                  {flatOdds.away_goals_over_0_5 ?? '-'}
                 </Text>
               </View>
             )}
@@ -376,7 +455,6 @@ const AIAnalysisScreen = ({ route }) => {
     })
       .then((res) => res.json())
       .then((data) => {
-        // Backend: { fixture_id, generated_at, ..., analysis: { ... } }
         const core = data.analysis || data;
         setAnalysis(core);
       })
@@ -476,7 +554,7 @@ const AIAnalysisScreen = ({ route }) => {
               </Text>
             </View>
 
-            {analysis.disclaimer && (
+            {analysis?.disclaimer && (
               <View style={styles.sectionBlock}>
                 <Text style={styles.sectionLabel}>Disclaimer</Text>
                 <Text style={styles.sectionValue}>{analysis.disclaimer}</Text>
@@ -488,6 +566,8 @@ const AIAnalysisScreen = ({ route }) => {
     </SafeAreaView>
   );
 };
+
+// --- Root App ----------------------------------------------------------------
 
 export default function App() {
   const navigationTheme = {
@@ -539,6 +619,8 @@ export default function App() {
     </NavigationContainer>
   );
 }
+
+// --- Styles ------------------------------------------------------------------
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -679,7 +761,7 @@ const styles = StyleSheet.create({
   },
   detailTitle: {
     color: COLORS.text,
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800',
     marginBottom: 4,
   },
@@ -720,5 +802,46 @@ const styles = StyleSheet.create({
     color: COLORS.neonPurple,
     fontSize: 12,
     fontWeight: '600',
+  },
+  leagueHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  teamColumn: {
+    flex: 3,
+    alignItems: 'flex-start',
+  },
+  teamColumnRight: {
+    flex: 3,
+    alignItems: 'flex-end',
+  },
+  vsColumn: {
+    flex: 1.2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  vsText: {
+    color: COLORS.gold,
+    fontSize: 16,
+    fontWeight: '800',
+    marginTop: 4,
+  },
+  teamLogo: {
+    width: 42,
+    height: 42,
+    marginBottom: 6,
+    borderRadius: 21,
+    backgroundColor: '#020617',
+  },
+  leagueLogo: {
+    width: 32,
+    height: 32,
+    marginBottom: 4,
+  },
+  formText: {
+    color: COLORS.muted,
+    fontSize: 11,
+    marginTop: 2,
   },
 });
