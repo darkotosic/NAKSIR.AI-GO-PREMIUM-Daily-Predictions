@@ -35,12 +35,22 @@ Output: Return ONE JSON object with EXACTLY these keys:
 - value_bet: {  # prioritize Double Chance + Over/Under goals combos
     "market": string,
     "selection": string,
-    "bookmaker_odd": float|null,
-    "model_probability_pct": float|null,
-    "edge_pct": float|null,
-    "comment": string
+  "bookmaker_odd": float|null,
+  "model_probability_pct": float|null,
+  "edge_pct": float|null,
+  "comment": string
   }
-- correct_scores_top2: array of { "score": string, "probability_pct": float|null }
+- correct_scores_top2: array of the two most probable scorelines { "score": string, "probability_pct": float|null }
+- corners_probabilities: {
+    "over_8_5_pct": float|null,
+    "over_9_5_pct": float|null,
+    "over_10_5_pct": float|null
+  }
+- cards_probabilities: {
+    "over_3_5_pct": float|null,
+    "over_4_5_pct": float|null,
+    "over_5_5_pct": float|null
+  }
 - risk_flags: array of strings (data quality, volatility, injuries, etc.).
 - disclaimer: string that clearly states this is NOT financial advice.
 
@@ -80,6 +90,16 @@ def _fallback_response(reason: str) -> Dict[str, Any]:
             "comment": "",
         },
         "correct_scores_top2": [],
+        "corners_probabilities": {
+            "over_8_5_pct": None,
+            "over_9_5_pct": None,
+            "over_10_5_pct": None,
+        },
+        "cards_probabilities": {
+            "over_3_5_pct": None,
+            "over_4_5_pct": None,
+            "over_5_5_pct": None,
+        },
         "risk_flags": [reason],
         "disclaimer": "Ovo nije finansijski savet, već AI analiza zasnovana na dostupnoj statistici.",
     }
@@ -183,6 +203,18 @@ def run_ai_analysis(
             "comment": "",
         },
         "correct_scores_top2": parsed.get("correct_scores_top2", []) or [],
+        "corners_probabilities": parsed.get("corners_probabilities", {})
+        or {
+            "over_8_5_pct": None,
+            "over_9_5_pct": None,
+            "over_10_5_pct": None,
+        },
+        "cards_probabilities": parsed.get("cards_probabilities", {})
+        or {
+            "over_3_5_pct": None,
+            "over_4_5_pct": None,
+            "over_5_5_pct": None,
+        },
         "risk_flags": parsed.get("risk_flags", []) or [],
         "disclaimer": parsed.get(
             "disclaimer",

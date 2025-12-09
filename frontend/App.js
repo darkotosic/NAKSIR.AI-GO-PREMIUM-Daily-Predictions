@@ -521,6 +521,13 @@ const AIAnalysisScreen = ({ route }) => {
       : null;
 
   const valueBet = analysis?.value_bet;
+  const correctScores =
+    Array.isArray(analysis?.correct_scores_top2) &&
+    analysis.correct_scores_top2.length > 0
+      ? analysis.correct_scores_top2
+      : null;
+  const cornerProbabilities = analysis?.corners_probabilities;
+  const cardProbabilities = analysis?.cards_probabilities;
   const formatPct = (value) =>
     value === null || value === undefined ? '-' : `${value}%`;
   const risks =
@@ -610,6 +617,44 @@ const AIAnalysisScreen = ({ route }) => {
                   Market: {valueBet.market}{'\n'}
                   Selection: {valueBet.selection}{'\n'}
                   Success probability: {formatPct(valueBet.model_probability_pct)}
+                </Text>
+              </View>
+            )}
+
+            {correctScores && (
+              <View style={styles.sectionBlock}>
+                <Text style={styles.sectionLabel}>Most probable correct scores</Text>
+                <Text style={styles.sectionValue}>
+                  {correctScores
+                    .map(
+                      (item, idx) =>
+                        `${idx + 1}. ${item.score || 'N/A'} (${formatPct(
+                          item.probability_pct,
+                        )})`,
+                    )
+                    .join('\n')}
+                </Text>
+              </View>
+            )}
+
+            {cornerProbabilities && (
+              <View style={styles.sectionBlock}>
+                <Text style={styles.sectionLabel}>Corners probability</Text>
+                <Text style={styles.sectionValue}>
+                  Over 8.5: {formatPct(cornerProbabilities.over_8_5_pct)}{'\n'}
+                  Over 9.5: {formatPct(cornerProbabilities.over_9_5_pct)}{'\n'}
+                  Over 10.5: {formatPct(cornerProbabilities.over_10_5_pct)}
+                </Text>
+              </View>
+            )}
+
+            {cardProbabilities && (
+              <View style={styles.sectionBlock}>
+                <Text style={styles.sectionLabel}>Yellow cards probability</Text>
+                <Text style={styles.sectionValue}>
+                  Over 3.5: {formatPct(cardProbabilities.over_3_5_pct)}{'\n'}
+                  Over 4.5: {formatPct(cardProbabilities.over_4_5_pct)}{'\n'}
+                  Over 5.5: {formatPct(cardProbabilities.over_5_5_pct)}
                 </Text>
               </View>
             )}
