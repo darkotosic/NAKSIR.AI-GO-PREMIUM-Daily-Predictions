@@ -80,12 +80,18 @@ const SortBar = ({ sortOption, onSortChange }) => (
 );
 
 const MatchCard = ({ match, onPress }) => {
-  const kickoff = match.fixture?.date
-    ? new Date(match.fixture.date).toLocaleTimeString([], {
+  const kickoffSource = match.fixture?.date
+    ? new Date(match.fixture.date)
+    : match.fixture?.timestamp
+      ? new Date(match.fixture.timestamp * 1000)
+      : null;
+
+  const kickoff = kickoffSource
+    ? kickoffSource.toLocaleTimeString([], {
         hour: '2-digit',
         minute: '2-digit',
       })
-    : 'TBD';
+    : '-';
 
   return (
     <TouchableOpacity
@@ -693,7 +699,7 @@ const legalLinks = [
   },
   { label: 'Naksir Website', url: 'https://naksirpredictions.top' },
   {
-    label: 'Nakir Apps',
+    label: 'Naksir Apps',
     url: 'https://play.google.com/store/apps/dev?id=6165954326742483653',
   },
   { label: 'Telegram', url: 'https://t.me/naksiranalysis' },
@@ -862,7 +868,7 @@ const styles = StyleSheet.create({
   },
   teamName: {
     color: COLORS.text,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
     flex: 1,
   },
