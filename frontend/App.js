@@ -54,6 +54,73 @@ const TelegramBanner = () => (
   </TouchableOpacity>
 );
 
+const NeonAnalysisButton = ({ onPress }) => {
+  const glow = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glow, {
+          toValue: 1,
+          duration: 1200,
+          useNativeDriver: false,
+        }),
+        Animated.timing(glow, {
+          toValue: 0,
+          duration: 1200,
+          useNativeDriver: false,
+        }),
+      ]),
+    );
+
+    loop.start();
+
+    return () => loop.stop();
+  }, [glow]);
+
+  const scale = glow.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.03],
+  });
+
+  const shadowRadius = glow.interpolate({
+    inputRange: [0, 1],
+    outputRange: [18, 28],
+  });
+
+  const glowOpacity = glow.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.4, 0.85],
+  });
+
+  return (
+    <Animated.View
+      style={[
+        styles.analysisGlowWrap,
+        {
+          transform: [{ scale }],
+          shadowRadius,
+          shadowOpacity: glowOpacity,
+        },
+      ]}
+    >
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.analysisGlowHalo, { opacity: glowOpacity }]}
+      />
+
+      <TouchableOpacity
+        style={styles.analysisButton}
+        onPress={onPress}
+        activeOpacity={0.9}
+      >
+        <Text style={styles.analysisButtonText}>Naksir In-depth Analysis</Text>
+        <Text style={styles.analysisButtonSub}>Neon boosted AI insights</Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
 const SortBar = ({ sortOption, onSortChange }) => (
   <View style={styles.sortRow}>
     <Text style={styles.filterLabel}>Sort by</Text>
@@ -488,17 +555,13 @@ const MatchDetailsScreen = ({ route, navigation }) => {
           </View>
         )}
 
-        <TouchableOpacity
-          style={styles.analysisButton}
+        <NeonAnalysisButton
           onPress={() =>
             navigation.navigate('Naksir In-depth Analysis', {
               fixtureId,
             })
           }
-          activeOpacity={0.88}
-        >
-          <Text style={styles.analysisButtonText}>Naksir In-depth Analysis</Text>
-        </TouchableOpacity>
+        />
 
         {loading && (
           <ActivityIndicator
@@ -591,50 +654,67 @@ const MatchDetailsScreen = ({ route, navigation }) => {
             {flatOdds && (
               <View style={styles.sectionBlock}>
                 <Text style={styles.sectionLabel}>Odds snapshot</Text>
-                <Text style={styles.sectionValue}>
-                  1: {flatOdds.match_winner?.home ?? '-'} | X:{' '}
-                  {flatOdds.match_winner?.draw ?? '-'} | 2:{' '}
-                  {flatOdds.match_winner?.away ?? '-'}
-                </Text>
-                <Text style={styles.sectionValue}>
-                  1X: {flatOdds.double_chance?.['1X'] ?? '-'} | 12:{' '}
-                  {flatOdds.double_chance?.['12'] ?? '-'} | X2:{' '}
-                  {flatOdds.double_chance?.['X2'] ?? '-'}
-                </Text>
-                <Text style={styles.sectionValue}>
-                  BTTS Yes: {flatOdds.btts?.yes ?? '-'} | No:{' '}
-                  {flatOdds.btts?.no ?? '-'}
-                </Text>
-                <Text style={styles.sectionValue}>
-                  O1.5: {flatOdds.totals?.over_1_5 ?? '-'} | O2.5:{' '}
-                  {flatOdds.totals?.over_2_5 ?? '-'} | O3.5:{' '}
-                  {flatOdds.totals?.over_3_5 ?? '-'}
-                </Text>
-                <Text style={styles.sectionValue}>
-                  U3.5: {flatOdds.totals?.under_3_5 ?? '-'} | U4.5:{' '}
-                  {flatOdds.totals?.under_4_5 ?? '-'}
-                </Text>
-                <Text style={styles.sectionValue}>
-                  HT over 0.5: {flatOdds.ht_over_0_5 ?? '-'} | Home O0.5:{' '}
-                  {flatOdds.home_goals_over_0_5 ?? '-'} | Away O0.5:{' '}
-                  {flatOdds.away_goals_over_0_5 ?? '-'}
-                </Text>
+                <View style={styles.oddsGrid}>
+                  <View style={styles.oddsTile}>
+                    <Text style={styles.oddsTileLabel}>Match Winner</Text>
+                    <View style={styles.oddsChipRow}>
+                      <Text style={styles.oddsChip}>1 • {flatOdds.match_winner?.home ?? '-'}</Text>
+                      <Text style={styles.oddsChip}>X • {flatOdds.match_winner?.draw ?? '-'}</Text>
+                      <Text style={styles.oddsChip}>2 • {flatOdds.match_winner?.away ?? '-'}</Text>
+                    </View>
+                    <Text style={styles.oddsMeta}>Pulse shows instant 3-way moneyline</Text>
+                  </View>
+
+                  <View style={styles.oddsTile}>
+                    <Text style={styles.oddsTileLabel}>Double Chance</Text>
+                    <View style={styles.oddsChipRow}>
+                      <Text style={styles.oddsChipAlt}>1X • {flatOdds.double_chance?.['1X'] ?? '-'}</Text>
+                      <Text style={styles.oddsChipAlt}>12 • {flatOdds.double_chance?.['12'] ?? '-'}</Text>
+                      <Text style={styles.oddsChipAlt}>X2 • {flatOdds.double_chance?.['X2'] ?? '-'}</Text>
+                    </View>
+                    <Text style={styles.oddsMeta}>Safety nets for volatile fixtures</Text>
+                  </View>
+
+                  <View style={styles.oddsTile}>
+                    <Text style={styles.oddsTileLabel}>Goals & BTTS</Text>
+                    <View style={styles.oddsChipRow}>
+                      <Text style={styles.oddsChip}>BTTS ✓ {flatOdds.btts?.yes ?? '-'}</Text>
+                      <Text style={styles.oddsChip}>BTTS ✕ {flatOdds.btts?.no ?? '-'}</Text>
+                    </View>
+                    <View style={styles.oddsChipRow}>
+                      <Text style={styles.oddsChipAlt}>O1.5 {flatOdds.totals?.over_1_5 ?? '-'}</Text>
+                      <Text style={styles.oddsChipAlt}>O2.5 {flatOdds.totals?.over_2_5 ?? '-'}</Text>
+                      <Text style={styles.oddsChipAlt}>O3.5 {flatOdds.totals?.over_3_5 ?? '-'}</Text>
+                    </View>
+                    <View style={styles.oddsChipRow}>
+                      <Text style={styles.oddsChipAlt}>U3.5 {flatOdds.totals?.under_3_5 ?? '-'}</Text>
+                      <Text style={styles.oddsChipAlt}>U4.5 {flatOdds.totals?.under_4_5 ?? '-'}</Text>
+                      <Text style={styles.oddsChipAlt}>HT O0.5 {flatOdds.ht_over_0_5 ?? '-'}</Text>
+                    </View>
+                    <Text style={styles.oddsMeta}>Overlay combines goals ladder + halftime</Text>
+                  </View>
+
+                  <View style={styles.oddsTile}>
+                    <Text style={styles.oddsTileLabel}>Team Over 0.5</Text>
+                    <View style={styles.oddsChipRow}>
+                      <Text style={styles.oddsChip}>Home • {flatOdds.home_goals_over_0_5 ?? '-'}</Text>
+                      <Text style={styles.oddsChip}>Away • {flatOdds.away_goals_over_0_5 ?? '-'}</Text>
+                    </View>
+                    <Text style={styles.oddsMeta}>Quick glance at single team strike potential</Text>
+                  </View>
+                </View>
               </View>
             )}
           </View>
         )}
 
-        <TouchableOpacity
-          style={styles.analysisButton}
+        <NeonAnalysisButton
           onPress={() =>
             navigation.navigate('Naksir In-depth Analysis', {
               fixtureId,
             })
           }
-          activeOpacity={0.88}
-        >
-          <Text style={styles.analysisButtonText}>Naksir In-depth Analysis</Text>
-        </TouchableOpacity>
+        />
       </ScrollView>
     </SafeAreaView>
   );
@@ -656,6 +736,15 @@ const AIAnalysisScreen = ({ route }) => {
   const [error, setError] = useState('');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [oddsProbabilities, setOddsProbabilities] = useState(null);
+  const depthWords = useMemo(
+    () => 'NAKSIR GO IN DEPTH OF DATA'.split(' '),
+    [],
+  );
+  const depthWordAnim = useMemo(
+    () => depthWords.map(() => new Animated.Value(0)),
+    [depthWords],
+  );
+  const loadingBar = useRef(new Animated.Value(0)).current;
 
   const formatTimer = (seconds) => {
     const mins = Math.floor(seconds / 60)
@@ -681,6 +770,56 @@ const AIAnalysisScreen = ({ route }) => {
       }
     };
   }, [loading]);
+
+  useEffect(() => {
+    if (!loading) {
+      depthWordAnim.forEach((anim) => anim.setValue(0));
+      loadingBar.setValue(0);
+      return undefined;
+    }
+
+    const wordLoops = depthWordAnim.map((anim, idx) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(anim, {
+            toValue: 1,
+            duration: 900,
+            delay: idx * 120,
+            useNativeDriver: true,
+          }),
+          Animated.timing(anim, {
+            toValue: 0.2,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+        ]),
+      ),
+    );
+
+    wordLoops.forEach((loop) => loop.start());
+
+    const barLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(loadingBar, {
+          toValue: 1,
+          duration: 1600,
+          useNativeDriver: false,
+        }),
+        Animated.timing(loadingBar, {
+          toValue: 0,
+          duration: 400,
+          useNativeDriver: false,
+        }),
+      ]),
+    );
+
+    barLoop.start();
+
+    return () => {
+      wordLoops.forEach((loop) => loop.stop && loop.stop());
+      barLoop.stop && barLoop.stop();
+    };
+  }, [loading, depthWordAnim, loadingBar]);
 
   useEffect(() => {
     const url = aiUrl(fixtureId);
@@ -734,6 +873,39 @@ const AIAnalysisScreen = ({ route }) => {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {loading && (
           <View style={styles.loadingState}>
+            <View style={styles.depthWordRow}>
+              {depthWords.map((word, idx) => {
+                const animatedStyle = {
+                  opacity: depthWordAnim[idx].interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.35, 1],
+                  }),
+                  transform: [
+                    {
+                      translateY: depthWordAnim[idx].interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [10, -6],
+                      }),
+                    },
+                    {
+                      scale: depthWordAnim[idx].interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.94, 1.08],
+                      }),
+                    },
+                  ],
+                };
+
+                return (
+                  <Animated.Text
+                    key={`${word}-${idx}`}
+                    style={[styles.depthWord, animatedStyle]}
+                  >
+                    {word}
+                  </Animated.Text>
+                );
+              })}
+            </View>
             <ActivityIndicator
               color={COLORS.neonPurple}
               size="large"
@@ -742,7 +914,23 @@ const AIAnalysisScreen = ({ route }) => {
             <Text style={styles.loadingText}>
               Analyzing odds, recent team form, goals trends, and value-bet signals...
             </Text>
-            <Text style={styles.timerText}>Time elapsed: {formatTimer(elapsedSeconds)}</Text>
+            <View style={styles.loadingBarTrack}>
+              <Animated.View
+                style={[
+                  styles.loadingBarFill,
+                  {
+                    width: loadingBar.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['18%', '100%'],
+                    }),
+                  },
+                ]}
+              />
+            </View>
+            <View style={styles.timerPill}>
+              <Text style={styles.timerLabel}>Time elapsed</Text>
+              <Text style={styles.timerValue}>{formatTimer(elapsedSeconds)}</Text>
+            </View>
           </View>
         )}
 
@@ -1176,16 +1364,69 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
+  depthWordRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+    rowGap: 8,
+    columnGap: 8,
+  },
+  depthWord: {
+    color: COLORS.neonPurple,
+    fontWeight: '900',
+    fontSize: 14,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    textShadowColor: 'rgba(176,107,255,0.8)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 12,
+  },
   loadingText: {
     color: COLORS.muted,
     textAlign: 'center',
     marginTop: 8,
     paddingHorizontal: 12,
   },
-  timerText: {
-    color: COLORS.neonPurple,
+  loadingBarTrack: {
+    marginTop: 12,
+    width: '100%',
+    height: 10,
+    borderRadius: 999,
+    backgroundColor: '#0b1024',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.borderSoft,
+  },
+  loadingBarFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: COLORS.neonPurple,
+    shadowColor: COLORS.neonPurple,
+    shadowOpacity: 0.9,
+    shadowRadius: 12,
+  },
+  timerPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#0c1028',
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: COLORS.neonPurple,
+  },
+  timerLabel: {
+    color: COLORS.muted,
     fontWeight: '700',
-    marginTop: 6,
+    letterSpacing: 0.5,
+  },
+  timerValue: {
+    color: COLORS.neonPurple,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
   },
   errorText: {
     color: COLORS.neonViolet,
@@ -1197,23 +1438,52 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginVertical: 12,
   },
-  analysisButton: {
-    backgroundColor: COLORS.card,
-    borderRadius: 20,
-    paddingVertical: 14,
-    borderWidth: 1.5,
-    borderColor: COLORS.neonViolet,
+  analysisGlowWrap: {
+    position: 'relative',
     marginBottom: 16,
     shadowColor: COLORS.neonPurple,
-    shadowOpacity: 0.75,
-    shadowRadius: 18,
-    elevation: 7,
+    shadowOffset: { width: 0, height: 14 },
+  },
+  analysisGlowHalo: {
+    position: 'absolute',
+    top: -6,
+    left: -6,
+    right: -6,
+    bottom: -6,
+    borderRadius: 26,
+    backgroundColor: 'rgba(176,107,255,0.16)',
+    shadowColor: COLORS.neonPurple,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 32,
+    elevation: 14,
+  },
+  analysisButton: {
+    backgroundColor: '#120a2f',
+    borderRadius: 22,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    borderWidth: 2,
+    borderColor: '#c084fc',
+    shadowColor: COLORS.neonPurple,
+    shadowOpacity: 0.95,
+    shadowRadius: 22,
+    elevation: 10,
   },
   analysisButtonText: {
-    color: COLORS.text,
+    color: '#f5f3ff',
     textAlign: 'center',
-    fontWeight: '800',
-    letterSpacing: 0.8,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+    fontSize: 16,
+  },
+  analysisButtonSub: {
+    color: COLORS.muted,
+    textAlign: 'center',
+    fontWeight: '600',
+    fontSize: 12,
+    marginTop: 4,
+    letterSpacing: 0.6,
   },
   detailHero: {
     backgroundColor: '#0c0f25',
@@ -1400,6 +1670,65 @@ const styles = StyleSheet.create({
   sectionValue: {
     color: COLORS.text,
     lineHeight: 20,
+  },
+  oddsGrid: {
+    gap: 10,
+    rowGap: 10,
+  },
+  oddsTile: {
+    backgroundColor: '#0c1025',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: COLORS.borderSoft,
+    shadowColor: COLORS.neonPurple,
+    shadowOpacity: 0.45,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  oddsTileLabel: {
+    color: COLORS.text,
+    fontWeight: '800',
+    marginBottom: 8,
+    letterSpacing: 0.6,
+  },
+  oddsChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    columnGap: 8,
+    rowGap: 6,
+    marginBottom: 6,
+  },
+  oddsChip: {
+    flexGrow: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: '#141a3c',
+    color: COLORS.text,
+    fontWeight: '800',
+    textAlign: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.neonPurple,
+  },
+  oddsChipAlt: {
+    flexGrow: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: '#0e162f',
+    color: COLORS.text,
+    fontWeight: '800',
+    textAlign: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.borderSoft,
+  },
+  oddsMeta: {
+    color: COLORS.muted,
+    marginTop: 2,
+    fontSize: 12,
+    letterSpacing: 0.4,
   },
   sortRow: {
     marginBottom: 12,
