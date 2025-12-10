@@ -11,7 +11,8 @@ kartice mečeva, detalje i AI analize.
 
 - `GET /` i `GET /health` – osnovni meta/health check odgovori.
 - `GET /matches/today` – lista današnjih mečeva za allow‑listed lige (liga,
-  timovi, kickoff u `Europe/Belgrade`, status, skor, osnovni odds snapshot).
+  timovi, kickoff u `Europe/Belgrade`, status, skor, standings snapshot i
+  osnovni odds snapshot za kartice).
 - `GET /matches/{fixture_id}` – isti card format kao gore, ali za konkretan
   fixture.
 - `GET /matches/{fixture_id}/full` – kompletan kontekst meča: forma, standings,
