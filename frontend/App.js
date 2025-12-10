@@ -1,5 +1,5 @@
 import 'react-native-gesture-handler';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -11,6 +11,8 @@ import {
   TouchableOpacity,
   View,
   Image,
+  RefreshControl,
+  Animated,
 } from 'react-native';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import {
@@ -28,6 +30,7 @@ const COLORS = {
   neonPurple: '#b06bff',
   neonViolet: '#8b5cf6',
   deepViolet: '#6d28d9',
+  neonOrange: '#fb923c',
   text: '#f8fafc',
   muted: '#a5b4fc',
   accentBlue: '#0ea5e9',
@@ -55,31 +58,38 @@ const SortBar = ({ sortOption, onSortChange }) => (
   <View style={styles.sortRow}>
     <Text style={styles.filterLabel}>Sort by</Text>
     <View style={styles.sortButtons}>
-      {[
-        { key: 'time', label: 'Kickoff time' },
-        { key: 'name', label: 'Team name' },
-      ].map((option) => {
-        const isActive = sortOption === option.key;
-        return (
-          <TouchableOpacity
-            key={option.key}
-            style={[styles.sortChip, isActive && styles.sortChipActive]}
-            onPress={() => onSortChange(option.key)}
-            activeOpacity={0.85}
-          >
-            <Text
-              style={[styles.sortChipText, isActive && styles.sortChipTextActive]}
+      {
+        [
+          { key: 'time', label: 'Kickoff time' },
+          { key: 'team', label: 'Team name' },
+        ].map((option) => {
+          const isActive = sortOption === option.key;
+          return (
+            <TouchableOpacity
+              key={option.key}
+              style={[styles.sortChip, isActive && styles.sortChipActive]}
+              onPress={() => onSortChange(option.key)}
+              activeOpacity={0.85}
             >
-              {option.label}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
+              <Text
+                style={[styles.sortChipText, isActive && styles.sortChipTextActive]}
+              >
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })
+      }
     </View>
   </View>
 );
 
 const MatchCard = ({ match, onPress }) => {
+  const home = match.teams?.home || {};
+  const away = match.teams?.away || {};
+  const league = match.league || {};
+  const odds = match.odds?.full_time || {};
+
   const kickoffSource = match.fixture?.date
     ? new Date(match.fixture.date)
     : match.fixture?.timestamp
@@ -93,65 +103,128 @@ const MatchCard = ({ match, onPress }) => {
       })
     : '-';
 
+  const scale = useRef(new Animated.Value(1)).current;
+  const numericOdds = [odds.home, odds.draw, odds.away]
+    .map((value) => Number(value))
+    .filter((value) => !Number.isNaN(value));
+  const minOdd = numericOdds.length ? Math.min(...numericOdds) : null;
+
+  const renderLogo = (logo) => {
+    if (logo) {
+      return (
+        <Image source={{ uri: logo }} style={styles.teamLogo} resizeMode="contain" />
+      );
+    }
+
+    return <View style={[styles.teamLogo, styles.teamLogoPlaceholder]} />;
+  };
+
+  const animateTo = (value) => {
+    Animated.spring(scale, {
+      toValue: value,
+      useNativeDriver: true,
+      friction: 6,
+      tension: 80,
+    }).start();
+  };
+
   return (
-    <TouchableOpacity
-      style={styles.card}
-      activeOpacity={0.9}
-      onPress={onPress}
-    >
-      <Text style={styles.leagueText}>
-        {match.league?.name} • {match.league?.country}
-      </Text>
-
-      <View style={styles.teamsRow}>
-        <View style={styles.teamPill}>
-          {match.teams?.home?.logo ? (
-            <Image
-              source={{ uri: match.teams.home.logo }}
-              style={styles.teamLogoSmall}
-            />
-          ) : (
-            <View style={styles.teamLogoSmallPlaceholder} />
-          )}
-          <Text style={styles.teamName} numberOfLines={1}>
-            {match.teams?.home?.name}
-          </Text>
+    <Animated.View style={[styles.card, { transform: [{ scale }] }]}> 
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPress={onPress}
+        onPressIn={() => animateTo(0.97)}
+        onPressOut={() => animateTo(1)}
+      >
+        {/* Header */}
+        <View style={styles.cardHeaderRow}>
+          <View style={styles.leaguePillsRow}>
+            <Text style={styles.leaguePill} numberOfLines={1}>
+              {league.name || 'League'}
+            </Text>
+            {!!league.country && (
+              <Text style={styles.countryPill} numberOfLines={1}>
+                {league.country}
+              </Text>
+            )}
+          </View>
+          <Text style={styles.kickoffPill}>{kickoff}</Text>
         </View>
 
-        <View style={styles.kickoffPill}>
-          <Text style={styles.kickoff}>{kickoff}</Text>
+        {/* Teams */}
+        <View style={styles.teamsRow}>
+          <View style={styles.teamCol}>
+            {renderLogo(home.logo)}
+            <Text style={styles.teamName} numberOfLines={1}>
+              {home.name}
+            </Text>
+          </View>
+
+          <View style={styles.vsCol}>
+            <Text style={styles.vsBadge}>vs</Text>
+          </View>
+
+          <View style={styles.teamCol}>
+            {renderLogo(away.logo)}
+            <Text style={[styles.teamName, { textAlign: 'right' }]} numberOfLines={1}>
+              {away.name}
+            </Text>
+          </View>
         </View>
 
-        <View style={[styles.teamPill, { justifyContent: 'flex-end' }]}>
-          <Text
-            style={[styles.teamName, { textAlign: 'right', marginRight: 6 }]}
-            numberOfLines={1}
-          >
-            {match.teams?.away?.name}
-          </Text>
-          {match.teams?.away?.logo ? (
-            <Image
-              source={{ uri: match.teams.away.logo }}
-              style={styles.teamLogoSmall}
-            />
-          ) : (
-            <View style={styles.teamLogoSmallPlaceholder} />
-          )}
-        </View>
-      </View>
-
-      {match.odds?.full_time && (
-        <Text style={styles.oddsText}>
-          1: {match.odds.full_time.home ?? '-'} | X:{' '}
-          {match.odds.full_time.draw ?? '-'} | 2:{' '}
-          {match.odds.full_time.away ?? '-'}
-        </Text>
-      )}
-    </TouchableOpacity>
+        {/* Odds row */}
+        {odds && (
+          <View style={styles.oddsRow}>
+            <Text
+              style={[
+                styles.oddsChip,
+                minOdd !== null && Number(odds.home) === minOdd && styles.oddsChipHighlight,
+              ]}
+            >
+              1 {odds.home ?? '-'}
+            </Text>
+            <Text
+              style={[
+                styles.oddsChip,
+                minOdd !== null && Number(odds.draw) === minOdd && styles.oddsChipHighlight,
+              ]}
+            >
+              X {odds.draw ?? '-'}
+            </Text>
+            <Text
+              style={[
+                styles.oddsChip,
+                minOdd !== null && Number(odds.away) === minOdd && styles.oddsChipHighlight,
+              ]}
+            >
+              2 {odds.away ?? '-'}
+            </Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    </Animated.View>
   );
 };
 
 // --- Screens -----------------------------------------------------------------
+
+const SkeletonCard = () => (
+  <View style={styles.skeletonCard}>
+    <View style={styles.skeletonHeader} />
+    <View style={styles.skeletonRow}>
+      <View style={styles.skeletonLogo} />
+      <View style={styles.skeletonName} />
+      <View style={styles.skeletonVs} />
+      <View style={styles.skeletonName} />
+      <View style={styles.skeletonLogo} />
+    </View>
+    <View style={styles.skeletonChipsRow}>
+      <View style={styles.skeletonChip} />
+      <View style={styles.skeletonChip} />
+      <View style={styles.skeletonChip} />
+    </View>
+  </View>
+);
 
 const MatchesScreen = ({ navigation }) => {
   const [matches, setMatches] = useState([]);
@@ -179,7 +252,7 @@ const MatchesScreen = ({ navigation }) => {
   const sortedMatches = useMemo(() => {
     const list = [...matches];
     return list.sort((a, b) => {
-      if (sortOption === 'name') {
+      if (sortOption === 'team') {
         const nameA = (a.teams?.home?.name || '').toLowerCase();
         const nameB = (b.teams?.home?.name || '').toLowerCase();
         return nameA.localeCompare(nameB);
@@ -194,7 +267,16 @@ const MatchesScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" />
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={loadMatches}
+            tintColor={COLORS.neonPurple}
+          />
+        }
+      >
         <TelegramBanner />
 
         <SortBar sortOption={sortOption} onSortChange={setSortOption} />
@@ -205,19 +287,23 @@ const MatchesScreen = ({ navigation }) => {
             onPress={loadMatches}
             activeOpacity={0.85}
           >
-            <Text style={styles.refreshText}>Refresh matches</Text>
+            <Text style={styles.refreshText}>↻ Refresh</Text>
           </TouchableOpacity>
         </View>
 
         {loading && (
-          <ActivityIndicator
-            color={COLORS.neonPurple}
-            size="large"
-            style={styles.loader}
-          />
+          <View>
+            {[0, 1, 2].map((item) => (
+              <SkeletonCard key={`skeleton-${item}`} />
+            ))}
+          </View>
         )}
 
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {error ? (
+          <TouchableOpacity onPress={loadMatches} activeOpacity={0.85}>
+            <Text style={styles.errorText}>{error} Tap to retry.</Text>
+          </TouchableOpacity>
+        ) : null}
 
         {!loading &&
           !error &&
@@ -234,7 +320,9 @@ const MatchesScreen = ({ navigation }) => {
           ))}
 
         {!loading && !error && sortedMatches.length === 0 && (
-          <Text style={styles.errorText}>No matches to display.</Text>
+          <Text style={styles.errorText}>
+            Nema mečeva za danas u filteru. Ukloni filter ili pokušaj kasnije.
+          </Text>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -330,7 +418,7 @@ const MatchDetailsScreen = ({ route, navigation }) => {
                 {teams.home?.logo && (
                   <Image
                     source={{ uri: teams.home.logo }}
-                    style={styles.teamLogo}
+                    style={styles.teamLogoLarge}
                   />
                 )}
                 <Text style={styles.detailTitle}>
@@ -358,7 +446,7 @@ const MatchDetailsScreen = ({ route, navigation }) => {
                 {teams.away?.logo && (
                   <Image
                     source={{ uri: teams.away.logo }}
-                    style={styles.teamLogo}
+                    style={styles.teamLogoLarge}
                   />
                 )}
                 <Text style={[styles.detailTitle, { textAlign: 'right' }]}>
@@ -786,13 +874,15 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   telegramButton: {
-    backgroundColor: COLORS.accentBlue,
+    backgroundColor: COLORS.neonPurple,
     paddingVertical: 18,
     paddingHorizontal: 20,
     borderRadius: 18,
     marginBottom: 18,
+    borderWidth: 1,
+    borderColor: COLORS.accentBlue,
     shadowColor: COLORS.accentBlue,
-    shadowOpacity: 0.6,
+    shadowOpacity: 0.5,
     shadowOffset: { width: 0, height: 12 },
     shadowRadius: 20,
     elevation: 6,
@@ -811,60 +901,80 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: COLORS.card,
-    borderRadius: 18,
-    padding: 16,
+    borderRadius: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
     marginBottom: 14,
-    borderColor: COLORS.neonViolet,
     borderWidth: 1,
+    borderColor: COLORS.borderSoft,
     shadowColor: COLORS.neonPurple,
-    shadowOpacity: 0.65,
-    shadowOffset: { width: 0, height: 12 },
-    shadowRadius: 22,
-    elevation: 6,
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 5,
   },
-  leagueText: {
-    color: COLORS.muted,
-    marginBottom: 8,
-    fontSize: 13,
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  leaguePillsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  leaguePill: {
+    fontSize: 11,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: '#111827',
+    color: COLORS.text,
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 1,
+  },
+  countryPill: {
+    fontSize: 11,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: '#020617',
+    color: COLORS.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  kickoffPill: {
+    fontSize: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.neonPurple,
+    color: COLORS.text,
   },
   teamsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
-    gap: 10,
+    justifyContent: 'space-between',
+    marginBottom: 10,
   },
-  teamPill: {
-    flex: 1,
+  teamCol: {
+    flex: 4,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
-  teamLogoSmall: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#0f0f2d',
-    borderWidth: 1,
-    borderColor: COLORS.neonViolet,
-  },
-  teamLogoSmallPlaceholder: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#0f0f2d',
-    borderWidth: 1,
-    borderColor: COLORS.borderSoft,
-  },
-  kickoffPill: {
-    backgroundColor: '#141334',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+  teamLogo: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: 8,
     borderWidth: 1,
     borderColor: COLORS.neonPurple,
+    backgroundColor: '#020617',
+  },
+  teamLogoPlaceholder: {
+    borderColor: COLORS.borderSoft,
   },
   teamName: {
     color: COLORS.text,
@@ -872,15 +982,92 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     flex: 1,
   },
-  kickoff: {
-    color: COLORS.neonPurple,
-    fontSize: 14,
-    fontWeight: '700',
-    marginHorizontal: 10,
+  vsCol: {
+    flex: 2,
+    alignItems: 'center',
   },
-  oddsText: {
-    color: COLORS.muted,
-    marginTop: 4,
+  vsBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.neonOrange,
+    color: COLORS.neonOrange,
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  oddsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
+  oddsChip: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 12,
+    paddingVertical: 6,
+    marginHorizontal: 2,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.borderSoft,
+    color: COLORS.text,
+  },
+  oddsChipHighlight: {
+    backgroundColor: 'rgba(176, 107, 255, 0.12)',
+    fontWeight: '800',
+    borderColor: COLORS.neonPurple,
+  },
+  skeletonCard: {
+    backgroundColor: '#0a0f1f',
+    borderRadius: 20,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: COLORS.borderSoft,
+  },
+  skeletonHeader: {
+    height: 14,
+    width: '45%',
+    backgroundColor: COLORS.borderSoft,
+    borderRadius: 10,
+    marginBottom: 12,
+  },
+  skeletonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  skeletonLogo: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.borderSoft,
+  },
+  skeletonName: {
+    flex: 1,
+    height: 14,
+    marginHorizontal: 8,
+    backgroundColor: COLORS.borderSoft,
+    borderRadius: 10,
+  },
+  skeletonVs: {
+    width: 36,
+    height: 18,
+    borderRadius: 10,
+    backgroundColor: COLORS.borderSoft,
+  },
+  skeletonChipsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  skeletonChip: {
+    flex: 1,
+    height: 26,
+    marginHorizontal: 3,
+    borderRadius: 999,
+    backgroundColor: COLORS.borderSoft,
   },
   loader: {
     marginVertical: 24,
@@ -1047,7 +1234,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginTop: 4,
   },
-  teamLogo: {
+  teamLogoLarge: {
     width: 42,
     height: 42,
     marginBottom: 6,
