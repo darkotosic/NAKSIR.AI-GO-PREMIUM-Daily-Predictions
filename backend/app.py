@@ -167,7 +167,37 @@ def get_today_matches() -> List[Dict[str, Any]]:
     da Expo/React Native može direktno da map-uje niz.
     """
     fixtures = get_fixtures_today()
-    cards = [build_match_summary(fx) for fx in fixtures]
+    cards: List[Dict[str, Any]] = []
+
+    for fx in fixtures:
+        fixture_id = (fx.get("fixture") or {}).get("id")
+
+        try:
+            full_context = build_full_match(fx)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "Failed to build full context for fixture_id=%s: %s", fixture_id, exc
+            )
+            full_context = None
+
+        if not full_context:
+            cards.append(build_match_summary(fx))
+            continue
+
+        odds_block = full_context.get("odds") or {}
+
+        cards.append(
+            {
+                "fixture_id": fixture_id,
+                "summary": full_context.get("summary"),
+                "standings": full_context.get("standings"),
+                # Lagani snapshot za kartice – frontu je dovoljan "flat" deo
+                "odds": {
+                    "flat": odds_block.get("flat"),
+                    "flat_probabilities": odds_block.get("flat_probabilities"),
+                },
+            }
+        )
 
     logger.info("Today matches requested -> %s cards", len(cards))
 

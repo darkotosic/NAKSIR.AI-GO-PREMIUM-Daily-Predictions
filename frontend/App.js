@@ -255,26 +255,9 @@ const MatchesScreen = ({ navigation }) => {
       const data = await response.json();
       const list = Array.isArray(data) ? data : data?.matches || [];
 
-      const fullDetails = await Promise.all(
-        list.map(async (match) => {
-          if (!match?.fixture_id) {
-            return null;
-          }
+      setMatches(list.filter((item) => item?.summary));
 
-          try {
-            const res = await fetch(fullUrl(match.fixture_id));
-            const details = await res.json();
-            return { ...details, fixture_id: match.fixture_id };
-          } catch (err) {
-            return null;
-          }
-        }),
-      );
-
-      const hydrated = fullDetails.filter(Boolean);
-      setMatches(hydrated);
-
-      if (!hydrated.length) {
+      if (!list.length) {
         setError('No detailed matches available right now.');
       }
     } catch (err) {
