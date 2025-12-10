@@ -556,7 +556,7 @@ const AIAnalysisScreen = ({ route }) => {
 
         {analysis && (
           <View style={styles.detailCard}>
-            <Text style={styles.detailTitle}>AI Match Analysis</Text>
+            <Text style={styles.detailTitle}>Naksir In-depth Analysis</Text>
 
             <View style={styles.sectionBlock}>
               <Text style={styles.sectionLabel}>Summary</Text>
