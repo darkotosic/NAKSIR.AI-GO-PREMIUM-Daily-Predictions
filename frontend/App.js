@@ -297,7 +297,7 @@ const MatchDetailsScreen = ({ route, navigation }) => {
         <TouchableOpacity
           style={styles.analysisButton}
           onPress={() =>
-            navigation.navigate('AIAnalysis', {
+            navigation.navigate('Naksir In-depth Analysis', {
               fixtureId,
             })
           }
@@ -433,7 +433,7 @@ const MatchDetailsScreen = ({ route, navigation }) => {
         <TouchableOpacity
           style={styles.analysisButton}
           onPress={() =>
-            navigation.navigate('AIAnalysis', {
+            navigation.navigate('Naksir In-depth Analysis', {
               fixtureId,
             })
           }
@@ -756,11 +756,11 @@ export default function App() {
           }}
         />
         <Drawer.Screen
-          name="AIAnalysis"
+          name="Naksir In-depth Analysis"
           component={AIAnalysisScreen}
           options={{
             drawerItemStyle: { display: 'none' },
-            title: 'AI Analysis',
+            title: 'Naksir In-depth Analysis',
           }}
         />
       </Drawer.Navigator>
