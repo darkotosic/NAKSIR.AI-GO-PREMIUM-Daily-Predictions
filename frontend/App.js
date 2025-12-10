@@ -1,5 +1,11 @@
 import 'react-native-gesture-handler';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -41,6 +47,50 @@ const API_BASE = 'https://naksir-go-premium-api.onrender.com';
 const TODAY_URL = `${API_BASE}/matches/today`;
 const fullUrl = (fixtureId) => `${API_BASE}/matches/${fixtureId}/full`;
 const aiUrl = (fixtureId) => `${API_BASE}/matches/${fixtureId}/ai-analysis`;
+
+const extractTeamStandings = (details) => {
+  const rows = details?.standings?.[0]?.league?.standings?.[0] || [];
+  const homeId = details?.teams?.home?.id;
+  const awayId = details?.teams?.away?.id;
+  return rows.filter((r) => r.team?.id === homeId || r.team?.id === awayId);
+};
+
+const mapOddsSections = (details) => {
+  const flat = details?.odds?.flat || {};
+  return [
+    {
+      title: 'Match winner',
+      items: [
+        { label: 'Home win', value: flat.match_winner?.home },
+        { label: 'Draw', value: flat.match_winner?.draw },
+        { label: 'Away win', value: flat.match_winner?.away },
+      ],
+    },
+    {
+      title: 'Double chance',
+      items: [
+        { label: '1X (Home or Draw)', value: flat.double_chance?.['1X'] },
+        { label: '12 (Home or Away)', value: flat.double_chance?.['12'] },
+        { label: 'X2 (Draw or Away)', value: flat.double_chance?.['X2'] },
+      ],
+    },
+    {
+      title: 'Goals over/under',
+      items: [
+        { label: 'Over 1.5 goals', value: flat.over_under?.O15 },
+        { label: 'Over 2.5 goals', value: flat.over_under?.O25 },
+        { label: 'Under 3.5 goals', value: flat.over_under?.U35 },
+      ],
+    },
+    {
+      title: 'Both teams to score',
+      items: [
+        { label: 'BTTS – Yes', value: flat.btts?.yes },
+        { label: 'BTTS – No', value: flat.btts?.no },
+      ],
+    },
+  ];
+};
 
 // --- Reusable UI blocks ------------------------------------------------------
 
@@ -344,7 +394,7 @@ const MatchDetailsScreen = ({ route, navigation }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
+  const loadDetails = useCallback(() => {
     const url = fullUrl(fixtureId);
 
     setLoading(true);
@@ -358,6 +408,10 @@ const MatchDetailsScreen = ({ route, navigation }) => {
       .catch(() => setError('Unable to load match details.'))
       .finally(() => setLoading(false));
   }, [fixtureId]);
+
+  useEffect(() => {
+    loadDetails();
+  }, [loadDetails]);
 
   // --- Map backend → UI model -----------------------------------------------
   const summary = rawDetails?.summary || {};
@@ -384,94 +438,137 @@ const MatchDetailsScreen = ({ route, navigation }) => {
   );
 
   const flatOdds = rawDetails?.odds?.flat || null;
+  const oddsSnapshot =
+    rawDetails?.odds?.match_winner || rawDetails?.odds?.full_time || null;
+
+  const miniStandings = useMemo(
+    () => extractTeamStandings(rawDetails),
+    [rawDetails],
+  );
+
+  const oddsSections = useMemo(() => mapOddsSections(rawDetails), [rawDetails]);
+
+  const formatShortName = (name) => {
+    if (!name) return '—';
+    const parts = name.split(' ');
+    const initials = parts
+      .slice(0, 2)
+      .map((p) => p[0])
+      .join('')
+      .toUpperCase();
+    return initials || name.slice(0, 2).toUpperCase();
+  };
+
+  const formatKickoff = () => {
+    if (!fixture?.date) return '—';
+    const dateObj = new Date(fixture.date);
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const time = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return `${day}.${month} • ${time}`;
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <TouchableOpacity
-          style={styles.analysisButton}
-          onPress={() =>
-            navigation.navigate('Naksir In-depth Analysis', {
-              fixtureId,
-            })
-          }
-          activeOpacity={0.88}
-        >
-          <Text style={styles.analysisButtonText}>Naksir In-depth Analysis</Text>
-        </TouchableOpacity>
+        <View style={styles.headerRow}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.backText}>← Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>
+            {league.name || 'Match Details'}
+          </Text>
+        </View>
 
         {loading && (
-          <ActivityIndicator
-            color={COLORS.neonViolet}
-            size="large"
-            style={styles.loader}
-          />
+          <View style={styles.loadingState}>
+            <ActivityIndicator
+              color={COLORS.neonViolet}
+              size="large"
+              style={styles.loader}
+            />
+            <Text style={styles.loadingText}>Loading match details…</Text>
+          </View>
         )}
 
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {error ? (
+          <View style={styles.sectionBlock}>
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={loadDetails}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.retryText}>Try again</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
         {rawDetails && (
           <View style={styles.detailCard}>
-            {/* League & logos */}
-            <View style={styles.leagueHeaderRow}>
+            <View style={styles.heroRow}>
               <View style={styles.teamColumn}>
-                {teams.home?.logo && (
-                  <Image
-                    source={{ uri: teams.home.logo }}
-                    style={styles.teamLogoLarge}
-                  />
-                )}
-                <Text style={styles.detailTitle}>
+                <View style={styles.teamLogoCircle}>
+                  <Text style={styles.teamShortName}>
+                    {formatShortName(teams.home?.name)}
+                  </Text>
+                </View>
+                <Text style={styles.detailTitle} numberOfLines={2}>
                   {teams.home?.name || 'Home team'}
                 </Text>
-                {homeStanding && (
-                  <Text style={styles.formText}>
-                    #{homeStanding.rank} • {homeStanding.points} pts •{' '}
-                    {homeStanding.form}
-                  </Text>
-                )}
+                <Text style={styles.teamMetaText} numberOfLines={2}>
+                  {homeStanding
+                    ? `#${homeStanding.rank} • ${homeStanding.points} pts • ${homeStanding.form}`
+                    : 'Standings data unavailable'}
+                </Text>
               </View>
 
               <View style={styles.vsColumn}>
-                {league.logo && (
-                  <Image
-                    source={{ uri: league.logo }}
-                    style={styles.leagueLogo}
-                  />
-                )}
-                <Text style={styles.vsText}>VS</Text>
+                <View style={styles.vsBadge}> 
+                  <Text style={styles.vsText}>VS</Text>
+                </View>
               </View>
 
               <View style={styles.teamColumnRight}>
-                {teams.away?.logo && (
-                  <Image
-                    source={{ uri: teams.away.logo }}
-                    style={styles.teamLogoLarge}
-                  />
-                )}
-                <Text style={[styles.detailTitle, { textAlign: 'right' }]}>
+                <View style={styles.teamLogoCircle}>
+                  <Text style={styles.teamShortName}>
+                    {formatShortName(teams.away?.name)}
+                  </Text>
+                </View>
+                <Text style={[styles.detailTitle, { textAlign: 'right' }]} numberOfLines={2}>
                   {teams.away?.name || 'Away team'}
                 </Text>
-                {awayStanding && (
-                  <Text style={[styles.formText, { textAlign: 'right' }]}>
-                    #{awayStanding.rank} • {awayStanding.points} pts •{' '}
-                    {awayStanding.form}
-                  </Text>
-                )}
+                <Text style={[styles.teamMetaText, { textAlign: 'right' }]} numberOfLines={2}>
+                  {awayStanding
+                    ? `#${awayStanding.rank} • ${awayStanding.points} pts • ${awayStanding.form}`
+                    : 'Standings data unavailable'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.statusRow}>
+              <View style={styles.statusPill}>
+                <Text style={[styles.sectionLabel, styles.statusText]}>
+                  {summary.status_long ||
+                    summary?.fixture?.status?.long ||
+                    rawDetails?.fixture?.status?.long ||
+                    'Not Started'}
+                </Text>
+              </View>
+              <View style={styles.kickoffPill}>
+                <Text style={[styles.sectionLabel, styles.statusText]}>
+                  {formatKickoff()}
+                </Text>
               </View>
             </View>
 
             <Text style={styles.detailSubtitle}>
               {league.name || 'League'} • {league.country || 'Country'}
             </Text>
-
-            {/* Basic info */}
-            <View style={styles.sectionRow}>
-              <Text style={styles.sectionLabel}>Date</Text>
-              <Text style={styles.sectionValue}>
-                {fixture?.date ? new Date(fixture.date).toLocaleString() : 'Not available'}
-              </Text>
-            </View>
 
             <View style={styles.sectionRow}>
               <Text style={styles.sectionLabel}>Stadium</Text>
@@ -487,40 +584,84 @@ const MatchDetailsScreen = ({ route, navigation }) => {
               </Text>
             </View>
 
-            {/* Rich odds from odds.flat */}
-            {flatOdds && (
+            {miniStandings && miniStandings.length > 0 && (
               <View style={styles.sectionBlock}>
-                <Text style={styles.sectionLabel}>Odds snapshot</Text>
-                <Text style={styles.sectionValue}>
-                  1: {flatOdds.match_winner?.home ?? '-'} | X:{' '}
-                  {flatOdds.match_winner?.draw ?? '-'} | 2:{' '}
-                  {flatOdds.match_winner?.away ?? '-'}
+                <Text style={styles.sectionLabel}>
+                  Champions League standings snapshot
                 </Text>
-                <Text style={styles.sectionValue}>
-                  1X: {flatOdds.double_chance?.['1X'] ?? '-'} | 12:{' '}
-                  {flatOdds.double_chance?.['12'] ?? '-'} | X2:{' '}
-                  {flatOdds.double_chance?.['X2'] ?? '-'}
-                </Text>
-                <Text style={styles.sectionValue}>
-                  BTTS Yes: {flatOdds.btts?.yes ?? '-'} | No:{' '}
-                  {flatOdds.btts?.no ?? '-'}
-                </Text>
-                <Text style={styles.sectionValue}>
-                  O1.5: {flatOdds.totals?.over_1_5 ?? '-'} | O2.5:{' '}
-                  {flatOdds.totals?.over_2_5 ?? '-'} | O3.5:{' '}
-                  {flatOdds.totals?.over_3_5 ?? '-'}
-                </Text>
-                <Text style={styles.sectionValue}>
-                  U3.5: {flatOdds.totals?.under_3_5 ?? '-'} | U4.5:{' '}
-                  {flatOdds.totals?.under_4_5 ?? '-'}
-                </Text>
-                <Text style={styles.sectionValue}>
-                  HT over 0.5: {flatOdds.ht_over_0_5 ?? '-'} | Home O0.5:{' '}
-                  {flatOdds.home_goals_over_0_5 ?? '-'} | Away O0.5:{' '}
-                  {flatOdds.away_goals_over_0_5 ?? '-'}
-                </Text>
+                <View style={styles.miniTableHeader}>
+                  <Text style={styles.miniTableColSmall}>#</Text>
+                  <Text style={styles.miniTableColTeam}>Team</Text>
+                  <Text style={styles.miniTableColSmall}>Pts</Text>
+                  <Text style={styles.miniTableColSmall}>GD</Text>
+                  <Text style={styles.miniTableColForm}>Form</Text>
+                </View>
+                {miniStandings.map((row) => (
+                  <View key={row.team.id} style={styles.miniTableRow}>
+                    <Text style={styles.miniTableColSmall}>{row.rank}</Text>
+                    <Text style={styles.miniTableColTeam}>{row.team.name}</Text>
+                    <Text style={styles.miniTableColSmall}>{row.points}</Text>
+                    <Text style={styles.miniTableColSmall}>{row.goalsDiff}</Text>
+                    <Text style={styles.miniTableColForm}>{row.form}</Text>
+                  </View>
+                ))}
               </View>
             )}
+
+            {flatOdds ? (
+              <View style={styles.sectionBlock}>
+                <Text style={styles.sectionLabel}>Odds breakdown</Text>
+                {oddsSections.map((section) => (
+                  <View key={section.title} style={styles.oddsSection}>
+                    <Text style={styles.oddsSectionTitle}>{section.title}</Text>
+                    <View style={styles.oddsPillRow}>
+                      {section.items.map(
+                        (item) =>
+                          !!item.value && (
+                            <View key={item.label} style={styles.oddsPill}>
+                              <Text style={styles.oddsPillLabel}>{item.label}</Text>
+                              <Text style={styles.oddsPillValue}>{item.value}</Text>
+                            </View>
+                          ),
+                      )}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.sectionBlock}>
+                <Text style={styles.sectionLabel}>Odds snapshot</Text>
+                {oddsSnapshot ? (
+                  <Text style={styles.sectionValue}>
+                    1: {oddsSnapshot.home ?? '-'} | X: {oddsSnapshot.draw ?? '-'} | 2:{' '}
+                    {oddsSnapshot.away ?? '-'}
+                  </Text>
+                ) : (
+                  <Text style={styles.sectionValue}>Odds data unavailable.</Text>
+                )}
+              </View>
+            )}
+
+            <View style={styles.sectionBlock}>
+              <Text style={styles.sectionLabel}>Stats preview</Text>
+              {rawDetails?.stats?.key_metrics ? (
+                <View style={styles.statsRow}>
+                  {['avg_goals_for', 'avg_goals_against', 'clean_sheets_pct'].map((key) => (
+                    <View key={key} style={styles.oddsPill}>
+                      <Text style={styles.oddsPillLabel}>{key.replace(/_/g, ' ')}</Text>
+                      <Text style={styles.oddsPillValue}>
+                        {rawDetails.stats.key_metrics[key]?.home ?? '-'} /{' '}
+                        {rawDetails.stats.key_metrics[key]?.away ?? '-'}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <Text style={styles.sectionValueMono}>
+                  {JSON.stringify(rawDetails?.stats || {}, null, 2).slice(0, 220)}
+                </Text>
+              )}
+            </View>
           </View>
         )}
 
@@ -534,6 +675,7 @@ const MatchDetailsScreen = ({ route, navigation }) => {
           activeOpacity={0.88}
         >
           <Text style={styles.analysisButtonText}>Naksir In-depth Analysis</Text>
+          <Text style={styles.analysisButtonSub}>tap to open AI probabilities & value bets</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -873,6 +1015,38 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 32,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: COLORS.neonPurple,
+    backgroundColor: COLORS.card,
+    shadowColor: COLORS.neonPurple,
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  backText: {
+    color: COLORS.text,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  headerTitle: {
+    flex: 1,
+    textAlign: 'right',
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: '800',
+  },
   telegramButton: {
     backgroundColor: COLORS.neonPurple,
     paddingVertical: 18,
@@ -1092,28 +1266,49 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginVertical: 12,
   },
+  retryButton: {
+    alignSelf: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.neonPurple,
+    backgroundColor: '#0a0f1f',
+  },
+  retryText: {
+    color: COLORS.text,
+    fontWeight: '700',
+  },
   warningText: {
     color: COLORS.neonViolet,
     textAlign: 'center',
     marginVertical: 12,
   },
   analysisButton: {
-    backgroundColor: COLORS.card,
-    borderRadius: 20,
-    paddingVertical: 14,
+    backgroundColor: COLORS.neonPurple,
+    borderRadius: 24,
+    paddingVertical: 16,
     borderWidth: 1.5,
-    borderColor: COLORS.neonViolet,
+    borderColor: COLORS.neonPurple,
     marginBottom: 16,
     shadowColor: COLORS.neonPurple,
-    shadowOpacity: 0.75,
-    shadowRadius: 18,
-    elevation: 7,
+    shadowOpacity: 0.8,
+    shadowRadius: 20,
+    elevation: 8,
   },
   analysisButtonText: {
-    color: COLORS.text,
+    color: '#0b0c1f',
     textAlign: 'center',
-    fontWeight: '800',
+    fontWeight: '900',
     letterSpacing: 0.8,
+    fontSize: 16,
+  },
+  analysisButtonSub: {
+    color: '#0b0c1f',
+    textAlign: 'center',
+    marginTop: 4,
+    fontSize: 12,
+    opacity: 0.9,
   },
   detailCard: {
     backgroundColor: COLORS.card,
@@ -1148,6 +1343,9 @@ const styles = StyleSheet.create({
     color: COLORS.neonViolet,
     fontWeight: '700',
     marginBottom: 6,
+  },
+  statusText: {
+    marginBottom: 0,
   },
   sectionValue: {
     color: COLORS.text,
@@ -1210,45 +1408,182 @@ const styles = StyleSheet.create({
   sortChipTextActive: {
     color: COLORS.text,
   },
-  leagueHeaderRow: {
+  heroRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 12,
+    gap: 10,
   },
   teamColumn: {
     flex: 3,
     alignItems: 'flex-start',
+    gap: 4,
   },
   teamColumnRight: {
     flex: 3,
     alignItems: 'flex-end',
+    gap: 4,
+  },
+  teamLogoCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#0f172a',
+    borderWidth: 1.5,
+    borderColor: COLORS.neonPurple,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: COLORS.neonPurple,
+    shadowOpacity: 0.55,
+    shadowRadius: 12,
+  },
+  teamShortName: {
+    color: COLORS.text,
+    fontWeight: '800',
+    fontSize: 16,
+  },
+  teamMetaText: {
+    color: COLORS.muted,
+    fontSize: 11,
+    marginTop: 2,
   },
   vsColumn: {
     flex: 1.2,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  vsBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: COLORS.neonOrange,
+    shadowColor: COLORS.neonOrange,
+    shadowOpacity: 0.7,
+    shadowRadius: 12,
+  },
   vsText: {
-    color: COLORS.neonViolet,
+    color: '#0a0a0f',
     fontSize: 16,
     fontWeight: '800',
-    marginTop: 4,
   },
-  teamLogoLarge: {
-    width: 42,
-    height: 42,
-    marginBottom: 6,
-    borderRadius: 21,
+  statusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  statusPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.neonViolet,
+    backgroundColor: '#0a0f1f',
+  },
+  kickoffPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.neonPurple,
+    backgroundColor: '#0a0f1f',
+  },
+  miniTableHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#020617',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    borderWidth: 1,
+    borderColor: COLORS.borderSoft,
   },
-  leagueLogo: {
+  miniTableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: COLORS.borderSoft,
+    backgroundColor: '#0b1220',
+  },
+  miniTableColSmall: {
     width: 32,
-    height: 32,
+    color: COLORS.text,
+    fontWeight: '700',
+  },
+  miniTableColTeam: {
+    flex: 1,
+    color: COLORS.text,
+    fontWeight: '700',
+  },
+  miniTableColForm: {
+    width: 80,
+    color: COLORS.muted,
+    textAlign: 'right',
+  },
+  oddsSection: {
+    marginBottom: 10,
+    padding: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: COLORS.neonPurple,
+    backgroundColor: COLORS.card,
+    shadowColor: COLORS.neonPurple,
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+  },
+  oddsSectionTitle: {
+    color: COLORS.text,
+    fontWeight: '800',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  oddsPillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  oddsPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.neonOrange,
+    backgroundColor: COLORS.card,
+    shadowColor: COLORS.neonPurple,
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+  },
+  oddsPillLabel: {
+    color: COLORS.muted,
+    fontSize: 12,
     marginBottom: 4,
   },
-  formText: {
-    color: COLORS.muted,
-    fontSize: 11,
-    marginTop: 2,
+  oddsPillValue: {
+    color: COLORS.text,
+    fontWeight: '800',
+    fontSize: 16,
+  },
+  sectionValueMono: {
+    color: COLORS.text,
+    backgroundColor: '#0a0f1f',
+    borderWidth: 1,
+    borderColor: COLORS.borderSoft,
+    borderRadius: 14,
+    padding: 12,
+    fontFamily: 'monospace',
+    lineHeight: 18,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
   },
 });
