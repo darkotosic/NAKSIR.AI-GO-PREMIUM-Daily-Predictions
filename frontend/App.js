@@ -384,10 +384,88 @@ const MatchDetailsScreen = ({ route, navigation }) => {
   );
 
   const flatOdds = rawDetails?.odds?.flat || null;
+  const kickoffDate = fixture?.date ? new Date(fixture.date) : null;
+  const kickoffTimeLabel = kickoffDate
+    ? kickoffDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : 'Kickoff TBD';
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        {rawDetails && (
+          <View style={styles.detailHero}>
+            <View style={styles.heroTopRow}>
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => navigation.goBack()}
+                activeOpacity={0.9}
+              >
+                <Text style={styles.backIcon}>←</Text>
+                <Text style={styles.backLabel}>Nazad</Text>
+              </TouchableOpacity>
+
+              <View style={styles.heroLeagueBlock}>
+                {league.logo && (
+                  <Image
+                    source={{ uri: league.logo }}
+                    style={styles.heroLeagueLogo}
+                    resizeMode="contain"
+                  />
+                )}
+                <View>
+                  <Text style={styles.heroLeagueText}>{league.name || 'League'}</Text>
+                  <Text style={styles.heroMetaText}>
+                    {league.country || 'Country'} • {kickoffTimeLabel}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.heroTeamsRow}>
+              <View style={styles.heroTeamCard}>
+                {teams.home?.logo && (
+                  <Image
+                    source={{ uri: teams.home.logo }}
+                    style={styles.heroTeamLogo}
+                    resizeMode="contain"
+                  />
+                )}
+                <Text style={styles.heroTeamName} numberOfLines={1}>
+                  {teams.home?.name || 'Home'}
+                </Text>
+                <Text style={styles.heroTeamMeta} numberOfLines={1}>
+                  {homeStanding
+                    ? `#${homeStanding.rank} • ${homeStanding.points} pts`
+                    : 'Loading form...'}
+                </Text>
+              </View>
+
+              <View style={styles.heroVsPill}>
+                <Text style={styles.heroVsText}>VS</Text>
+                <Text style={styles.heroKickoff}>{kickoffTimeLabel}</Text>
+              </View>
+
+              <View style={[styles.heroTeamCard, { alignItems: 'flex-end' }]}>
+                {teams.away?.logo && (
+                  <Image
+                    source={{ uri: teams.away.logo }}
+                    style={styles.heroTeamLogo}
+                    resizeMode="contain"
+                  />
+                )}
+                <Text style={[styles.heroTeamName, { textAlign: 'right' }]} numberOfLines={1}>
+                  {teams.away?.name || 'Away'}
+                </Text>
+                <Text style={[styles.heroTeamMeta, { textAlign: 'right' }]} numberOfLines={1}>
+                  {awayStanding
+                    ? `#${awayStanding.rank} • ${awayStanding.points} pts`
+                    : 'Loading form...'}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
         <TouchableOpacity
           style={styles.analysisButton}
           onPress={() =>
@@ -905,13 +983,13 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 14,
     marginBottom: 14,
-    borderWidth: 1,
-    borderColor: COLORS.borderSoft,
+    borderWidth: 1.4,
+    borderColor: COLORS.neonPurple,
     shadowColor: COLORS.neonPurple,
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 5,
+    shadowOpacity: 0.6,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
   },
   cardHeaderRow: {
     flexDirection: 'row',
@@ -1114,6 +1192,119 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '800',
     letterSpacing: 0.8,
+  },
+  detailHero: {
+    backgroundColor: '#0c0f25',
+    borderRadius: 22,
+    padding: 16,
+    borderWidth: 1.6,
+    borderColor: COLORS.neonViolet,
+    marginBottom: 16,
+    shadowColor: COLORS.neonPurple,
+    shadowOpacity: 0.75,
+    shadowRadius: 22,
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+    gap: 10,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0b1220',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.neonPurple,
+    shadowColor: COLORS.accentBlue,
+    shadowOpacity: 0.6,
+    shadowRadius: 12,
+  },
+  backIcon: {
+    color: COLORS.text,
+    fontSize: 16,
+    marginRight: 6,
+  },
+  backLabel: {
+    color: COLORS.text,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  heroLeagueBlock: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  heroLeagueLogo: {
+    width: 36,
+    height: 36,
+  },
+  heroLeagueText: {
+    color: COLORS.text,
+    fontWeight: '800',
+    fontSize: 16,
+  },
+  heroMetaText: {
+    color: COLORS.muted,
+    fontSize: 12,
+  },
+  heroTeamsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  heroTeamCard: {
+    flex: 1,
+    backgroundColor: '#0f162b',
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.borderSoft,
+    shadowColor: COLORS.accentBlue,
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+  },
+  heroTeamLogo: {
+    width: 56,
+    height: 56,
+    marginBottom: 8,
+  },
+  heroTeamName: {
+    color: COLORS.text,
+    fontWeight: '800',
+    fontSize: 15,
+  },
+  heroTeamMeta: {
+    color: COLORS.muted,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  heroVsPill: {
+    backgroundColor: COLORS.neonPurple,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 18,
+    shadowColor: COLORS.neonOrange,
+    shadowOpacity: 0.7,
+    shadowRadius: 14,
+    minWidth: 86,
+    alignItems: 'center',
+  },
+  heroVsText: {
+    color: COLORS.text,
+    fontWeight: '900',
+    fontSize: 16,
+    letterSpacing: 1,
+  },
+  heroKickoff: {
+    color: '#fef3c7',
+    fontSize: 12,
+    marginTop: 6,
   },
   detailCard: {
     backgroundColor: COLORS.card,
