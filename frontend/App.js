@@ -756,7 +756,7 @@ export default function App() {
           }}
         />
         <Drawer.Screen
-          name="AIAnalysis"
+          name="Naksir In-depth Analysis"
           component={AIAnalysisScreen}
           options={{
             drawerItemStyle: { display: 'none' },
