@@ -85,39 +85,27 @@ const SortBar = ({ sortOption, onSortChange }) => (
 );
 
 const MatchCard = ({ match, onPress }) => {
-  const home = match.teams?.home || {};
-  const away = match.teams?.away || {};
-  const league = match.league || {};
-  const odds = match.odds?.full_time || {};
+  const summary = match?.summary || {};
+  const league = summary.league || {};
+  const teams = summary.teams || {};
+  const standingsLeague = match?.standings?.[0]?.league;
+  const standingGroups = standingsLeague?.standings || [];
+  const tableRows = standingGroups.reduce((acc, group) => acc.concat(group), []);
 
-  const kickoffSource = match.fixture?.date
-    ? new Date(match.fixture.date)
-    : match.fixture?.timestamp
-      ? new Date(match.fixture.timestamp * 1000)
-      : null;
+  const homeStanding = tableRows.find((row) => row.team?.id === teams.home?.id);
+  const awayStanding = tableRows.find((row) => row.team?.id === teams.away?.id);
 
-  const kickoff = kickoffSource
-    ? kickoffSource.toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    : '-';
+  const kickoffDate = summary.kickoff ? new Date(summary.kickoff) : null;
+  const kickoffTimeLabel = kickoffDate
+    ? kickoffDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : 'Kickoff TBD';
 
+  const oddsFlat = match?.odds?.flat?.match_winner || match?.odds?.full_time || {};
   const scale = useRef(new Animated.Value(1)).current;
-  const numericOdds = [odds.home, odds.draw, odds.away]
+  const numericOdds = [oddsFlat.home, oddsFlat.draw, oddsFlat.away]
     .map((value) => Number(value))
     .filter((value) => !Number.isNaN(value));
   const minOdd = numericOdds.length ? Math.min(...numericOdds) : null;
-
-  const renderLogo = (logo) => {
-    if (logo) {
-      return (
-        <Image source={{ uri: logo }} style={styles.teamLogo} resizeMode="contain" />
-      );
-    }
-
-    return <View style={[styles.teamLogo, styles.teamLogoPlaceholder]} />;
-  };
 
   const animateTo = (value) => {
     Animated.spring(scale, {
@@ -129,78 +117,104 @@ const MatchCard = ({ match, onPress }) => {
   };
 
   return (
-    <Animated.View style={[styles.card, { transform: [{ scale }] }]}> 
+    <Animated.View style={[styles.detailHero, styles.todayCard, { transform: [{ scale }] }]}>
       <TouchableOpacity
-        activeOpacity={0.9}
+        activeOpacity={0.92}
         onPress={onPress}
         onPressIn={() => animateTo(0.97)}
         onPressOut={() => animateTo(1)}
       >
-        {/* Header */}
-        <View style={styles.cardHeaderRow}>
-          <View style={styles.leaguePillsRow}>
-            <Text style={styles.leaguePill} numberOfLines={1}>
-              {league.name || 'League'}
-            </Text>
-            {!!league.country && (
-              <Text style={styles.countryPill} numberOfLines={1}>
-                {league.country}
-              </Text>
+        <View style={styles.heroTopRow}>
+          <View style={styles.heroLeagueBlock}>
+            {league.logo && (
+              <Image
+                source={{ uri: league.logo }}
+                style={styles.heroLeagueLogo}
+                resizeMode="contain"
+              />
             )}
-          </View>
-          <Text style={styles.kickoffPill}>{kickoff}</Text>
-        </View>
-
-        {/* Teams */}
-        <View style={styles.teamsRow}>
-          <View style={styles.teamCol}>
-            {renderLogo(home.logo)}
-            <Text style={styles.teamName} numberOfLines={1}>
-              {home.name}
-            </Text>
+            <View>
+              <Text style={styles.heroLeagueText}>{league.name || 'League'}</Text>
+              <Text style={styles.heroMetaText} numberOfLines={1}>
+                {league.country || 'Country'} • {kickoffTimeLabel}
+              </Text>
+            </View>
           </View>
 
-          <View style={styles.vsCol}>
-            <Text style={styles.vsBadge}>vs</Text>
-          </View>
-
-          <View style={styles.teamCol}>
-            {renderLogo(away.logo)}
-            <Text style={[styles.teamName, { textAlign: 'right' }]} numberOfLines={1}>
-              {away.name}
-            </Text>
+          <View style={styles.kickoffBadge}>
+            <Text style={styles.kickoffBadgeText}>{kickoffTimeLabel}</Text>
           </View>
         </View>
 
-        {/* Odds row */}
-        {odds && (
-          <View style={styles.oddsRow}>
-            <Text
-              style={[
-                styles.oddsChip,
-                minOdd !== null && Number(odds.home) === minOdd && styles.oddsChipHighlight,
-              ]}
-            >
-              1 {odds.home ?? '-'}
+        <View style={styles.heroTeamsRow}>
+          <View style={styles.heroTeamCard}>
+            {teams.home?.logo && (
+              <Image
+                source={{ uri: teams.home.logo }}
+                style={styles.heroTeamLogo}
+                resizeMode="contain"
+              />
+            )}
+            <Text style={styles.heroTeamName} numberOfLines={1}>
+              {teams.home?.name || 'Home'}
             </Text>
-            <Text
-              style={[
-                styles.oddsChip,
-                minOdd !== null && Number(odds.draw) === minOdd && styles.oddsChipHighlight,
-              ]}
-            >
-              X {odds.draw ?? '-'}
-            </Text>
-            <Text
-              style={[
-                styles.oddsChip,
-                minOdd !== null && Number(odds.away) === minOdd && styles.oddsChipHighlight,
-              ]}
-            >
-              2 {odds.away ?? '-'}
+            <Text style={styles.heroTeamMeta} numberOfLines={1}>
+              {homeStanding
+                ? `#${homeStanding.rank} • ${homeStanding.points} pts`
+                : 'Loading form...'}
             </Text>
           </View>
-        )}
+
+          <View style={styles.heroVsPill}>
+            <Text style={styles.heroVsText}>VS</Text>
+            <Text style={styles.heroKickoff}>{kickoffTimeLabel}</Text>
+          </View>
+
+          <View style={[styles.heroTeamCard, { alignItems: 'flex-end' }]}>
+            {teams.away?.logo && (
+              <Image
+                source={{ uri: teams.away.logo }}
+                style={styles.heroTeamLogo}
+                resizeMode="contain"
+              />
+            )}
+            <Text style={[styles.heroTeamName, { textAlign: 'right' }]} numberOfLines={1}>
+              {teams.away?.name || 'Away'}
+            </Text>
+            <Text style={[styles.heroTeamMeta, { textAlign: 'right' }]} numberOfLines={1}>
+              {awayStanding
+                ? `#${awayStanding.rank} • ${awayStanding.points} pts`
+                : 'Loading form...'}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.heroOddsRow}>
+          <Text
+            style={[
+              styles.heroOddsChip,
+              minOdd !== null && Number(oddsFlat.home) === minOdd && styles.oddsChipHighlight,
+            ]}
+          >
+            1 {oddsFlat.home ?? '-'}
+          </Text>
+          <Text
+            style={[
+              styles.heroOddsChip,
+              minOdd !== null && Number(oddsFlat.draw) === minOdd && styles.oddsChipHighlight,
+            ]}
+          >
+            X {oddsFlat.draw ?? '-'}
+          </Text>
+          <Text
+            style={[
+              styles.heroOddsChip,
+              minOdd !== null && Number(oddsFlat.away) === minOdd && styles.oddsChipHighlight,
+            ]}
+          >
+            2 {oddsFlat.away ?? '-'}
+          </Text>
+        </View>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -232,17 +246,42 @@ const MatchesScreen = ({ navigation }) => {
   const [error, setError] = useState('');
   const [sortOption, setSortOption] = useState('time');
 
-  const loadMatches = () => {
-    setLoading(true);
-    setError('');
-    fetch(TODAY_URL)
-      .then((res) => res.json())
-      .then((data) => {
-        const list = Array.isArray(data) ? data : data?.matches || [];
-        setMatches(list);
-      })
-      .catch(() => setError('Unable to load matches.'))
-      .finally(() => setLoading(false));
+  const loadMatches = async () => {
+    try {
+      setLoading(true);
+      setError('');
+
+      const response = await fetch(TODAY_URL);
+      const data = await response.json();
+      const list = Array.isArray(data) ? data : data?.matches || [];
+
+      const fullDetails = await Promise.all(
+        list.map(async (match) => {
+          if (!match?.fixture_id) {
+            return null;
+          }
+
+          try {
+            const res = await fetch(fullUrl(match.fixture_id));
+            const details = await res.json();
+            return { ...details, fixture_id: match.fixture_id };
+          } catch (err) {
+            return null;
+          }
+        }),
+      );
+
+      const hydrated = fullDetails.filter(Boolean);
+      setMatches(hydrated);
+
+      if (!hydrated.length) {
+        setError('No detailed matches available right now.');
+      }
+    } catch (err) {
+      setError('Unable to load matches.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -253,13 +292,13 @@ const MatchesScreen = ({ navigation }) => {
     const list = [...matches];
     return list.sort((a, b) => {
       if (sortOption === 'team') {
-        const nameA = (a.teams?.home?.name || '').toLowerCase();
-        const nameB = (b.teams?.home?.name || '').toLowerCase();
+        const nameA = (a?.summary?.teams?.home?.name || '').toLowerCase();
+        const nameB = (b?.summary?.teams?.home?.name || '').toLowerCase();
         return nameA.localeCompare(nameB);
       }
 
-      const dateA = a.fixture?.date ? new Date(a.fixture.date).getTime() : Infinity;
-      const dateB = b.fixture?.date ? new Date(b.fixture.date).getTime() : Infinity;
+      const dateA = a?.summary?.kickoff ? new Date(a.summary.kickoff).getTime() : Infinity;
+      const dateB = b?.summary?.kickoff ? new Date(b.summary.kickoff).getTime() : Infinity;
       return dateA - dateB;
     });
   }, [matches, sortOption]);
@@ -309,11 +348,11 @@ const MatchesScreen = ({ navigation }) => {
           !error &&
           sortedMatches.map((match, index) => (
             <MatchCard
-              key={match.fixture_id ?? `${match.league?.id || 'match'}-${index}`}
+              key={match.fixture_id ?? `${match.summary?.league?.id || 'match'}-${index}`}
               match={match}
               onPress={() =>
                 navigation.navigate('MatchDetails', {
-                  fixtureId: match.fixture_id,
+                  fixtureId: match.fixture_id || match.summary?.fixture_id,
                 })
               }
             />
@@ -321,7 +360,7 @@ const MatchesScreen = ({ navigation }) => {
 
         {!loading && !error && sortedMatches.length === 0 && (
           <Text style={styles.errorText}>
-            Nema mečeva za danas u filteru. Ukloni filter ili pokušaj kasnije.
+            No matches available for today. Try refreshing or come back later.
           </Text>
         )}
       </ScrollView>
@@ -401,7 +440,7 @@ const MatchDetailsScreen = ({ route, navigation }) => {
                 activeOpacity={0.9}
               >
                 <Text style={styles.backIcon}>←</Text>
-                <Text style={styles.backLabel}>Nazad</Text>
+                <Text style={styles.backLabel}>Back</Text>
               </TouchableOpacity>
 
               <View style={styles.heroLeagueBlock}>
@@ -1204,12 +1243,29 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.75,
     shadowRadius: 22,
   },
+  todayCard: {
+    overflow: 'hidden',
+    position: 'relative',
+  },
   heroTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 14,
     gap: 10,
+  },
+  kickoffBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.neonPurple,
+    backgroundColor: '#11182c',
+  },
+  kickoffBadgeText: {
+    color: COLORS.text,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   backButton: {
     flexDirection: 'row',
@@ -1305,6 +1361,24 @@ const styles = StyleSheet.create({
     color: '#fef3c7',
     fontSize: 12,
     marginTop: 6,
+  },
+  heroOddsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 14,
+    gap: 8,
+  },
+  heroOddsChip: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 13,
+    fontWeight: '800',
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.borderSoft,
+    backgroundColor: '#0f172a',
+    color: COLORS.text,
   },
   detailCard: {
     backgroundColor: COLORS.card,
