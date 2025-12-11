@@ -4,6 +4,7 @@ export type RootDrawerParamList = {
   TodayMatches: undefined;
   MatchDetails: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
   AIAnalysis: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
+  H2H: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
   GoPremium: undefined;
   NaksirAccount: undefined;
 };

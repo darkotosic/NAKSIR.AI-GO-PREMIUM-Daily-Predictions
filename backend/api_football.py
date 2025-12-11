@@ -4,6 +4,7 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+import logging
 import requests
 from zoneinfo import ZoneInfo
 
