@@ -987,7 +987,7 @@ const AIAnalysisScreen = ({ route }) => {
               style={styles.loader}
             />
             <Text style={styles.loadingText}>
-              Analyzing odds, recent team form, goals trends, and value-bet signals...
+              Analyzing odds, recent team form, goals trends, h2h, standings...
             </Text>
             <View style={styles.loadingBarTrack}>
               <Animated.View
