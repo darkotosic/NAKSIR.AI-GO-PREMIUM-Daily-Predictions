@@ -115,7 +115,7 @@ const NeonAnalysisButton = ({ onPress }) => {
         activeOpacity={0.9}
       >
         <Text style={styles.analysisButtonText}>Naksir In-depth Analysis</Text>
-        <Text style={styles.analysisButtonSub}>Neon boosted AI insights</Text>
+        <Text style={styles.analysisButtonSub}>AI insights</Text>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -630,49 +630,49 @@ const MatchDetailsScreen = ({ route, navigation }) => {
                   <View style={styles.oddsTile}>
                     <Text style={styles.oddsTileLabel}>Match Winner</Text>
                     <View style={styles.oddsChipRow}>
-                      <Text style={styles.oddsChip}>1 • {flatOdds.match_winner?.home ?? '-'}</Text>
-                      <Text style={styles.oddsChip}>X • {flatOdds.match_winner?.draw ?? '-'}</Text>
-                      <Text style={styles.oddsChip}>2 • {flatOdds.match_winner?.away ?? '-'}</Text>
+                      <Text style={styles.oddsChip}>Home: {flatOdds.match_winner?.home ?? '-'}</Text>
+                      <Text style={styles.oddsChip}>Draw: {flatOdds.match_winner?.draw ?? '-'}</Text>
+                      <Text style={styles.oddsChip}>Away: {flatOdds.match_winner?.away ?? '-'}</Text>
                     </View>
-                    <Text style={styles.oddsMeta}>Pulse shows instant 3-way moneyline</Text>
+                    <Text style={styles.oddsMeta}>Match Winner odds</Text>
                   </View>
 
                   <View style={styles.oddsTile}>
                     <Text style={styles.oddsTileLabel}>Double Chance</Text>
                     <View style={styles.oddsChipRow}>
-                      <Text style={styles.oddsChipAlt}>1X • {flatOdds.double_chance?.['1X'] ?? '-'}</Text>
-                      <Text style={styles.oddsChipAlt}>12 • {flatOdds.double_chance?.['12'] ?? '-'}</Text>
-                      <Text style={styles.oddsChipAlt}>X2 • {flatOdds.double_chance?.['X2'] ?? '-'}</Text>
+                      <Text style={styles.oddsChipAlt}>1X: {flatOdds.double_chance?.['1X'] ?? '-'}</Text>
+                      <Text style={styles.oddsChipAlt}>12: {flatOdds.double_chance?.['12'] ?? '-'}</Text>
+                      <Text style={styles.oddsChipAlt}>X2: {flatOdds.double_chance?.['X2'] ?? '-'}</Text>
                     </View>
-                    <Text style={styles.oddsMeta}>Safety nets for volatile fixtures</Text>
+                    <Text style={styles.oddsMeta}>Double chance odds</Text>
                   </View>
 
                   <View style={styles.oddsTile}>
-                    <Text style={styles.oddsTileLabel}>Goals & BTTS</Text>
+                    <Text style={styles.oddsTileLabel}>BTTS & Goals</Text>
                     <View style={styles.oddsChipRow}>
-                      <Text style={styles.oddsChip}>BTTS ✓ {flatOdds.btts?.yes ?? '-'}</Text>
-                      <Text style={styles.oddsChip}>BTTS ✕ {flatOdds.btts?.no ?? '-'}</Text>
+                      <Text style={styles.oddsChip}>BTTS YES: {flatOdds.btts?.yes ?? '-'}</Text>
+                      <Text style={styles.oddsChip}>BTTS NO: {flatOdds.btts?.no ?? '-'}</Text>
                     </View>
                     <View style={styles.oddsChipRow}>
-                      <Text style={styles.oddsChipAlt}>O1.5 {flatOdds.totals?.over_1_5 ?? '-'}</Text>
-                      <Text style={styles.oddsChipAlt}>O2.5 {flatOdds.totals?.over_2_5 ?? '-'}</Text>
-                      <Text style={styles.oddsChipAlt}>O3.5 {flatOdds.totals?.over_3_5 ?? '-'}</Text>
+                      <Text style={styles.oddsChipAlt}>Over 1.5: {flatOdds.totals?.over_1_5 ?? '-'}</Text>
+                      <Text style={styles.oddsChipAlt}>Over 2.5: {flatOdds.totals?.over_2_5 ?? '-'}</Text>
+                      <Text style={styles.oddsChipAlt}>Over 3.5: {flatOdds.totals?.over_3_5 ?? '-'}</Text>
                     </View>
                     <View style={styles.oddsChipRow}>
-                      <Text style={styles.oddsChipAlt}>U3.5 {flatOdds.totals?.under_3_5 ?? '-'}</Text>
-                      <Text style={styles.oddsChipAlt}>U4.5 {flatOdds.totals?.under_4_5 ?? '-'}</Text>
-                      <Text style={styles.oddsChipAlt}>HT O0.5 {flatOdds.ht_over_0_5 ?? '-'}</Text>
+                      <Text style={styles.oddsChipAlt}>Under 3.5: {flatOdds.totals?.under_3_5 ?? '-'}</Text>
+                      <Text style={styles.oddsChipAlt}>Under 4.5: {flatOdds.totals?.under_4_5 ?? '-'}</Text>
+                      <Text style={styles.oddsChipAlt}>HT Over 0.5: {flatOdds.ht_over_0_5 ?? '-'}</Text>
                     </View>
-                    <Text style={styles.oddsMeta}>Overlay combines goals ladder + halftime</Text>
+                    <Text style={styles.oddsMeta}>BTTS & Over/Under odds</Text>
                   </View>
 
                   <View style={styles.oddsTile}>
                     <Text style={styles.oddsTileLabel}>Team Over 0.5</Text>
                     <View style={styles.oddsChipRow}>
-                      <Text style={styles.oddsChip}>Home • {flatOdds.home_goals_over_0_5 ?? '-'}</Text>
-                      <Text style={styles.oddsChip}>Away • {flatOdds.away_goals_over_0_5 ?? '-'}</Text>
+                      <Text style={styles.oddsChip}>Home: {flatOdds.home_goals_over_0_5 ?? '-'}</Text>
+                      <Text style={styles.oddsChip}>Away: {flatOdds.away_goals_over_0_5 ?? '-'}</Text>
                     </View>
-                    <Text style={styles.oddsMeta}>Quick glance at single team strike potential</Text>
+                    <Text style={styles.oddsMeta}>Home/Away Goals Over 0.5 odds</Text>
                   </View>
                 </View>
               </View>
@@ -1231,7 +1231,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
     borderWidth: 1,
     borderColor: COLORS.neonPurple,
-    backgroundColor: '#020617',
+    backgroundColor: '#ffffffff',
   },
   teamLogoPlaceholder: {
     borderColor: COLORS.borderSoft,
@@ -1423,12 +1423,12 @@ const styles = StyleSheet.create({
     right: -6,
     bottom: -6,
     borderRadius: 26,
-    backgroundColor: 'rgba(176,107,255,0.16)',
+    backgroundColor: 'rgba(215, 34, 252, 0.56)',
     shadowColor: COLORS.neonPurple,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 32,
-    elevation: 14,
+    elevation: 24,
   },
   analysisButton: {
     backgroundColor: '#120a2f',
