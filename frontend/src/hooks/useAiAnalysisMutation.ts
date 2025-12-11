@@ -1,8 +1,13 @@
-import { useMutation } from '@tanstack/react-query';
-import { postAiAnalysis } from '@api/analysis';
-import { MatchAnalysis } from '@types/analysis';
+import { useMutation, type UseMutationResult } from '@tanstack/react-query';
+import { postAiAnalysis, type AiAnalysisParams } from '@api/analysis';
+import type { MatchAnalysis } from '@naksir-types/analysis';
 
-export const useAiAnalysisMutation = () =>
-  useMutation<MatchAnalysis, Error, { fixtureId: number | string; userQuestion?: string }>(
-    ({ fixtureId, userQuestion }) => postAiAnalysis({ fixtureId, userQuestion }),
-  );
+export function useAiAnalysisMutation(): UseMutationResult<
+  MatchAnalysis,
+  Error,
+  AiAnalysisParams
+> {
+  return useMutation<MatchAnalysis, Error, AiAnalysisParams>({
+    mutationFn: (vars) => postAiAnalysis(vars),
+  });
+}
