@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { FullMatch, MatchListItem } from '@types/match';
+import { FullMatch, MatchListItem } from '@naksir-types/match';
 
 export const fetchTodayMatches = async (): Promise<MatchListItem[]> => {
   const response = await apiClient.get('/matches/today');

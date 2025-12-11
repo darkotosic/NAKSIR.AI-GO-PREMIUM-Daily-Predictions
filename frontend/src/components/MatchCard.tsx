@@ -1,6 +1,6 @@
 import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { MatchListItem } from '@types/match';
+import { MatchListItem } from '@naksir-types/match';
 
 interface Props {
   match: MatchListItem;
