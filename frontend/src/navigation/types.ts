@@ -1,4 +1,4 @@
-import { MatchSummary } from '@types/match';
+import { MatchSummary } from '@naksir-types/match';
 
 export type RootDrawerParamList = {
   TodayMatches: undefined;
