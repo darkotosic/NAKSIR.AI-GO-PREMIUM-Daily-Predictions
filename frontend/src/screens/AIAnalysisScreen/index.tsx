@@ -12,12 +12,20 @@ const AIAnalysisScreen: React.FC = () => {
   const [question, setQuestion] = useState('');
   const mutation = useAiAnalysisMutation();
 
+  const handleRunAnalysis = () => {
+    if (!fixtureId) return;
+    mutation.mutate({
+      fixtureId,
+      userQuestion: question || undefined,
+    });
+  };
+
   useEffect(() => {
     if (fixtureId) {
       trackEvent('OpenAnalysis', { fixture_id: fixtureId });
       mutation.mutate({ fixtureId });
     }
-  }, [fixtureId]);
+  }, [fixtureId, mutation]);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -37,15 +45,15 @@ const AIAnalysisScreen: React.FC = () => {
           multiline
         />
         <TouchableOpacity
-          onPress={() => fixtureId && mutation.mutate({ fixtureId, userQuestion: question })}
-          style={styles.button}
-          disabled={!fixtureId || mutation.isLoading}
+          style={[styles.button, !fixtureId || mutation.isPending ? styles.buttonDisabled : null]}
+          disabled={!fixtureId || mutation.isPending}
+          onPress={handleRunAnalysis}
         >
-          <Text style={styles.buttonText}>{mutation.isLoading ? 'Asking...' : 'Run analysis'}</Text>
+          <Text style={styles.buttonText}>{mutation.isPending ? 'Asking...' : 'Run analysis'}</Text>
         </TouchableOpacity>
       </View>
 
-      {mutation.isLoading && <LoadingState message="Generating analysis" />}
+      {mutation.isPending && <LoadingState message="Generating analysis" />}
 
       {mutation.data ? (
         <View style={styles.card}>
@@ -127,6 +135,9 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 12,
     alignItems: 'center',
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   buttonText: {
     color: '#f8fafc',

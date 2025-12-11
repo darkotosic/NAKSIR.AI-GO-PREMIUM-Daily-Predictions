@@ -1,17 +1,17 @@
-import { apiClient } from './client';
-import { MatchAnalysis } from '@types/analysis';
+import { apiClient } from '@api/client';
+import type { MatchAnalysis } from '@naksir-types/analysis';
 
-interface AnalysisPayload {
+export interface AiAnalysisParams {
   fixtureId: number | string;
   userQuestion?: string;
 }
 
-export const postAiAnalysis = async ({
+export async function postAiAnalysis({
   fixtureId,
   userQuestion,
-}: AnalysisPayload): Promise<MatchAnalysis> => {
-  const response = await apiClient.post(`/matches/${fixtureId}/ai-analysis`, {
-    user_question: userQuestion,
+}: AiAnalysisParams): Promise<MatchAnalysis> {
+  const res = await apiClient.post(`/matches/${fixtureId}/ai-analysis`, {
+    question: userQuestion ?? null,
   });
-  return response.data;
-};
+  return res.data;
+}
