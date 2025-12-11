@@ -167,12 +167,7 @@ const MatchCard = ({ match, onPress }) => {
     ? kickoffDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : 'Kickoff TBD';
 
-  const oddsFlat = match?.odds?.flat?.match_winner || match?.odds?.full_time || {};
   const scale = useRef(new Animated.Value(1)).current;
-  const numericOdds = [oddsFlat.home, oddsFlat.draw, oddsFlat.away]
-    .map((value) => Number(value))
-    .filter((value) => !Number.isNaN(value));
-  const minOdd = numericOdds.length ? Math.min(...numericOdds) : null;
 
   const animateTo = (value) => {
     Animated.spring(scale, {
@@ -256,32 +251,9 @@ const MatchCard = ({ match, onPress }) => {
           </View>
         </View>
 
-        <View style={styles.heroOddsRow}>
-          <Text
-            style={[
-              styles.heroOddsChip,
-              minOdd !== null && Number(oddsFlat.home) === minOdd && styles.oddsChipHighlight,
-            ]}
-          >
-            1 {oddsFlat.home ?? '-'}
-          </Text>
-          <Text
-            style={[
-              styles.heroOddsChip,
-              minOdd !== null && Number(oddsFlat.draw) === minOdd && styles.oddsChipHighlight,
-            ]}
-          >
-            X {oddsFlat.draw ?? '-'}
-          </Text>
-          <Text
-            style={[
-              styles.heroOddsChip,
-              minOdd !== null && Number(oddsFlat.away) === minOdd && styles.oddsChipHighlight,
-            ]}
-          >
-            2 {oddsFlat.away ?? '-'}
-          </Text>
-        </View>
+        <TouchableOpacity style={styles.fullMatchButton} onPress={onPress} activeOpacity={0.88}>
+          <Text style={styles.fullMatchButtonText}>Full Match details --&gt;</Text>
+        </TouchableOpacity>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -1614,6 +1586,25 @@ const styles = StyleSheet.create({
     color: '#fef3c7',
     fontSize: 12,
     marginTop: 6,
+  },
+  fullMatchButton: {
+    marginTop: 14,
+    backgroundColor: COLORS.neonPurple,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    borderWidth: 1.2,
+    borderColor: COLORS.accentBlue,
+    shadowColor: COLORS.neonPurple,
+    shadowOpacity: 0.6,
+    shadowRadius: 14,
+  },
+  fullMatchButtonText: {
+    color: COLORS.text,
+    fontWeight: '800',
+    fontSize: 14,
+    letterSpacing: 0.5,
   },
   heroOddsRow: {
     flexDirection: 'row',
