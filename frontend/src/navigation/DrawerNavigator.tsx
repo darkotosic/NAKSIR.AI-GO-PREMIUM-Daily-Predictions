@@ -1,43 +1,114 @@
 import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import { createDrawerNavigator } from '@react-navigation/drawer';
+import { Linking } from 'react-native';
+import {
+  DefaultTheme,
+  NavigationContainer,
+} from '@react-navigation/native';
+import {
+  createDrawerNavigator,
+  DrawerContentScrollView,
+  DrawerItem,
+  DrawerItemList,
+} from '@react-navigation/drawer';
 import TodayMatchesScreen from '@screens/TodayMatchesScreen';
 import MatchDetailsScreen from '@screens/MatchDetailsScreen';
 import AIAnalysisScreen from '@screens/AIAnalysisScreen';
 import GoPremiumScreen from '@screens/GoPremiumScreen';
 import NaksirAccountScreen from '@screens/NaksirAccountScreen';
-import { RootDrawerParamList } from './types';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { RootDrawerParamList } from './types';
+
+const COLORS = {
+  background: '#040312',
+  card: '#0b0c1f',
+  neonPurple: '#b06bff',
+  neonViolet: '#8b5cf6',
+  text: '#f8fafc',
+  borderSoft: '#1f1f3a',
+};
+
+const legalLinks = [
+  { label: 'Terms of Use', url: 'https://naksirpredictions.top/terms-of-use' },
+  {
+    label: 'Privacy Policy',
+    url: 'https://naksirpredictions.top/privacy-policy',
+  },
+  {
+    label: 'Legal Disclaimer',
+    url: 'https://naksirpredictions.top/legal-disclaimer',
+  },
+  { label: 'Naksir Website', url: 'https://naksirpredictions.top' },
+  {
+    label: 'Naksir Apps',
+    url: 'https://play.google.com/store/apps/dev?id=6165954326742483653',
+  },
+  { label: 'Telegram', url: 'https://t.me/naksiranalysis' },
+];
+
+function CustomDrawerContent(props) {
+  return (
+    <DrawerContentScrollView {...props} style={{ backgroundColor: COLORS.background }}>
+      <DrawerItemList {...props} />
+      <DrawerItem
+        label="Links"
+        labelStyle={{ color: COLORS.text, fontWeight: '700' }}
+        onPress={() => null}
+        style={{ display: 'none' }}
+      />
+      {legalLinks.map((link) => (
+        <DrawerItem
+          key={link.label}
+          label={link.label}
+          labelStyle={{ color: COLORS.text, fontWeight: '700' }}
+          onPress={() => Linking.openURL(link.url)}
+        />
+      ))}
+    </DrawerContentScrollView>
+  );
+}
 
 const Drawer = createDrawerNavigator<RootDrawerParamList>();
 
+const navigationTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    background: COLORS.background,
+    card: COLORS.card,
+    primary: COLORS.neonPurple,
+    text: COLORS.text,
+    border: COLORS.borderSoft,
+  },
+};
+
 const DrawerNavigator = () => (
   <GestureHandlerRootView style={{ flex: 1 }}>
-    <NavigationContainer>
+    <NavigationContainer theme={navigationTheme}>
       <Drawer.Navigator
         initialRouteName="TodayMatches"
+        drawerContent={(props) => <CustomDrawerContent {...props} />}
         screenOptions={{
-          headerStyle: { backgroundColor: '#0b0c1f' },
-          headerTintColor: '#f8fafc',
-          drawerActiveTintColor: '#8b5cf6',
-          drawerInactiveTintColor: '#e5e7eb',
-          drawerStyle: { backgroundColor: '#040312' },
+          headerStyle: { backgroundColor: COLORS.card },
+          headerTintColor: COLORS.text,
+          drawerActiveTintColor: COLORS.neonViolet,
+          drawerInactiveTintColor: COLORS.text,
+          drawerStyle: { backgroundColor: COLORS.background },
         }}
       >
         <Drawer.Screen
           name="TodayMatches"
           component={TodayMatchesScreen}
-          options={{ title: 'Today matches' }}
+          options={{ title: "Today's Matches" }}
         />
         <Drawer.Screen
           name="MatchDetails"
           component={MatchDetailsScreen}
-          options={{ title: 'Match details', drawerItemStyle: { display: 'none' } }}
+          options={{ title: 'Match Details', drawerItemStyle: { display: 'none' } }}
         />
         <Drawer.Screen
           name="AIAnalysis"
           component={AIAnalysisScreen}
-          options={{ title: 'AI Analysis', drawerItemStyle: { display: 'none' } }}
+          options={{ title: 'Naksir In-depth Analysis', drawerItemStyle: { display: 'none' } }}
         />
         <Drawer.Screen
           name="GoPremium"
