@@ -115,7 +115,7 @@ const NeonAnalysisButton = ({ onPress }) => {
         activeOpacity={0.9}
       >
         <Text style={styles.analysisButtonText}>Naksir In-depth Analysis</Text>
-        <Text style={styles.analysisButtonSub}>AI insights</Text>
+        <Text style={styles.analysisButtonSub}>AI insights summary, Key factors, DC + Goals, Probabilities: Correct scores, Corners, Yellow cards, Risks</Text>
       </TouchableOpacity>
     </Animated.View>
   );
