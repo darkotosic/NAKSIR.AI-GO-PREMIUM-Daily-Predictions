@@ -77,3 +77,18 @@ export interface MatchListItem {
   fixture_id?: number;
   summary?: MatchSummary;
 }
+
+export interface H2HMatch {
+  fixture?: { id?: number; date?: string };
+  league?: LeagueSummary & { season?: number };
+  teams?: { home?: TeamSummary; away?: TeamSummary };
+  goals?: { home?: number; away?: number };
+}
+
+export interface H2HResponse {
+  fixture_id?: number;
+  h2h_param?: string;
+  matches: H2HMatch[];
+  home_team_id?: number;
+  away_team_id?: number;
+}

@@ -4,11 +4,12 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from fastapi import Body, FastAPI, HTTPException, Path, Request
+from fastapi import Body, FastAPI, HTTPException, Path, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from . import api_football
 from .api_football import get_fixtures_today, get_fixture_by_id
 from .match_full import build_full_match, build_match_summary
 from .ai_analysis import run_ai_analysis
@@ -250,6 +251,52 @@ def get_match_full(
     full_context = build_full_match(fixture)
 
     return full_context
+
+
+@app.get(
+    "/h2h",
+    tags=["matches"],
+    summary="Head-to-head lista za dati fixture (core sekcija)",
+)
+def get_h2h_for_fixture(
+    fixture_id: int = Query(..., description="API-Football fixture ID"),
+) -> Dict[str, Any]:
+    """Vraća samo H2H blok za fixture – lagani helper za dedicated ekran."""
+
+    fixture = get_fixture_by_id(fixture_id)
+    if not fixture:
+        raise HTTPException(status_code=404, detail="Fixture not found")
+
+    teams = fixture.get("teams") or {}
+    home_team = teams.get("home") or {}
+    away_team = teams.get("away") or {}
+    home_team_id = home_team.get("id")
+    away_team_id = away_team.get("id")
+
+    if not home_team_id or not away_team_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing team IDs for fixture; cannot fetch head-to-head data.",
+        )
+
+    h2h_helper = getattr(api_football, "get_fixture_h2h", None) or getattr(
+        api_football, "get_h2h", None
+    )
+    if h2h_helper is None:
+        raise HTTPException(status_code=503, detail="H2H helper not available")
+
+    try:
+        h2h_block = h2h_helper(fixture_id, home_team_id, away_team_id)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Failed to fetch h2h for fixture_id=%s: %s", fixture_id, exc)
+        raise HTTPException(status_code=502, detail="Failed to fetch h2h data")
+
+    return {
+        "fixture_id": fixture_id,
+        "home_team_id": home_team_id,
+        "away_team_id": away_team_id,
+        **(h2h_block or {}),
+    }
 
 
 @app.post(

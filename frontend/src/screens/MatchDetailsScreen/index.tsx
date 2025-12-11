@@ -74,6 +74,17 @@ const MatchDetailsScreen: React.FC = () => {
   const homeStanding = tableRows.find((row) => row.team?.id === teams?.home?.id);
   const awayStanding = tableRows.find((row) => row.team?.id === teams?.away?.id);
   const flatOdds = data?.odds?.flat || null;
+  const h2hBlock = (data as any)?.h2h;
+  const h2hMatches = Array.isArray(h2hBlock?.matches)
+    ? h2hBlock.matches
+    : Array.isArray(h2hBlock)
+      ? h2hBlock
+      : [];
+  const lastMeeting = h2hMatches[0];
+  const lastMeetingGoals = lastMeeting?.goals || {};
+  const lastMeetingDate = lastMeeting?.fixture?.date
+    ? new Date(lastMeeting.fixture.date).toLocaleDateString()
+    : null;
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -189,6 +200,33 @@ const MatchDetailsScreen: React.FC = () => {
           <View style={styles.sectionRow}>
             <Text style={styles.sectionLabel}>Referee</Text>
             <Text style={styles.sectionValue}>{summary?.referee || 'Not assigned'}</Text>
+          </View>
+
+          <View style={styles.sectionBlock}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionLabel}>Head-to-head</Text>
+              <TouchableOpacity
+                onPress={() =>
+                  navigation.navigate('H2H', {
+                    fixtureId,
+                    summary,
+                  })
+                }
+              >
+                <Text style={styles.linkText}>Open full H2H</Text>
+              </TouchableOpacity>
+            </View>
+            {lastMeeting ? (
+              <Text style={styles.sectionValue}>
+                Last meeting{lastMeetingDate ? ` (${lastMeetingDate})` : ''}: {teams?.home?.name || 'Home'}{' '}
+                {lastMeetingGoals.home ?? '-'} : {lastMeetingGoals.away ?? '-'} {teams?.away?.name || 'Away'}
+              </Text>
+            ) : (
+              <Text style={styles.sectionValue}>No head-to-head results available.</Text>
+            )}
+            {h2hMatches.length > 0 ? (
+              <Text style={styles.sectionMeta}>Showing last {h2hMatches.length} meetings.</Text>
+            ) : null}
           </View>
 
           {flatOdds ? (
@@ -459,14 +497,27 @@ const styles = StyleSheet.create({
   sectionBlock: {
     marginBottom: 12,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   sectionLabel: {
     color: COLORS.neonViolet,
     fontWeight: '700',
     marginBottom: 6,
   },
+  sectionMeta: {
+    color: COLORS.muted,
+    fontSize: 12,
+  },
   sectionValue: {
     color: COLORS.text,
     lineHeight: 20,
+  },
+  linkText: {
+    color: COLORS.neonViolet,
+    fontWeight: '800',
   },
   oddsGrid: {
     gap: 10,

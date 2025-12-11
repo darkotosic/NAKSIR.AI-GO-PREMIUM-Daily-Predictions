@@ -6,7 +6,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -29,7 +28,6 @@ const COLORS = {
 const AIAnalysisScreen: React.FC = () => {
   const route = useRoute<RouteProp<RootDrawerParamList, 'AIAnalysis'>>();
   const fixtureId = route.params?.fixtureId;
-  const [question, setQuestion] = useState('');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const mutation = useAiAnalysisMutation();
 
@@ -111,7 +109,6 @@ const AIAnalysisScreen: React.FC = () => {
     if (!fixtureId) return;
     mutation.mutate({
       fixtureId,
-      userQuestion: question || undefined,
     });
   };
 
@@ -122,7 +119,8 @@ const AIAnalysisScreen: React.FC = () => {
     }
   }, [fixtureId]);
 
-  const analysis = mutation.data;
+  const analysisPayload = mutation.data;
+  const analysis = (analysisPayload as any)?.analysis || analysisPayload;
   const summaryText =
     analysis?.preview || analysis?.summary || 'AI has insufficient data for a summary.';
   const keyFactors =
@@ -137,7 +135,8 @@ const AIAnalysisScreen: React.FC = () => {
       : null;
   const cornerProbabilities = (analysis as any)?.corners_probabilities;
   const cardProbabilities = (analysis as any)?.cards_probabilities;
-  const oddsProbabilities = (analysis as any)?.odds_probabilities;
+  const oddsProbabilities =
+    (analysisPayload as any)?.odds_probabilities || (analysis as any)?.odds_probabilities;
   const risks =
     Array.isArray((analysis as any)?.risk_flags) && (analysis as any)?.risk_flags.length > 0
       ? (analysis as any)?.risk_flags
@@ -154,16 +153,6 @@ const AIAnalysisScreen: React.FC = () => {
           <Text style={styles.subtitle}>
             AI generated summary, probabilities, key factors and value bets for the selected match.
           </Text>
-
-          <Text style={styles.label}>Ask a follow-up question (optional)</Text>
-          <TextInput
-            placeholder="e.g. What about BTTS?"
-            placeholderTextColor="#6b7280"
-            value={question}
-            onChangeText={setQuestion}
-            style={styles.input}
-            multiline
-          />
           <TouchableOpacity
             style={[styles.button, !fixtureId || mutation.isPending ? styles.buttonDisabled : null]}
             disabled={!fixtureId || mutation.isPending}
@@ -371,19 +360,6 @@ const styles = StyleSheet.create({
     color: '#cbd5e1',
     marginBottom: 14,
     marginTop: 4,
-  },
-  label: {
-    color: '#e5e7eb',
-    marginBottom: 8,
-  },
-  input: {
-    minHeight: 60,
-    borderWidth: 1,
-    borderColor: '#1f2937',
-    borderRadius: 12,
-    padding: 10,
-    color: COLORS.text,
-    marginBottom: 12,
   },
   button: {
     backgroundColor: COLORS.neonViolet,
