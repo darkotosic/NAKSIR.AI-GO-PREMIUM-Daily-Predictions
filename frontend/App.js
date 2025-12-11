@@ -393,6 +393,11 @@ const MatchesScreen = ({ navigation }) => {
 const MatchDetailsScreen = ({ route, navigation }) => {
   const { fixtureId } = route.params || {};
 
+  const handleNavigateToAnalysis = () =>
+    navigation.navigate('Naksir In-depth Analysis', {
+      fixtureId,
+    });
+
   if (!fixtureId) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -527,14 +532,6 @@ const MatchDetailsScreen = ({ route, navigation }) => {
           </View>
         )}
 
-        <NeonAnalysisButton
-          onPress={() =>
-            navigation.navigate('Naksir In-depth Analysis', {
-              fixtureId,
-            })
-          }
-        />
-
         {loading && (
           <ActivityIndicator
             color={COLORS.neonViolet}
@@ -630,9 +627,30 @@ const MatchDetailsScreen = ({ route, navigation }) => {
                   <View style={styles.oddsTile}>
                     <Text style={styles.oddsTileLabel}>Match Winner</Text>
                     <View style={styles.oddsChipRow}>
-                      <Text style={styles.oddsChip}>Home: {flatOdds.match_winner?.home ?? '-'}</Text>
-                      <Text style={styles.oddsChip}>Draw: {flatOdds.match_winner?.draw ?? '-'}</Text>
-                      <Text style={styles.oddsChip}>Away: {flatOdds.match_winner?.away ?? '-'}</Text>
+                      <TouchableOpacity
+                        onPress={handleNavigateToAnalysis}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.oddsChip}>
+                          Home: {flatOdds.match_winner?.home ?? '-'}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={handleNavigateToAnalysis}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.oddsChip}>
+                          Draw: {flatOdds.match_winner?.draw ?? '-'}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={handleNavigateToAnalysis}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.oddsChip}>
+                          Away: {flatOdds.match_winner?.away ?? '-'}
+                        </Text>
+                      </TouchableOpacity>
                     </View>
                     <Text style={styles.oddsMeta}>Match Winner odds</Text>
                   </View>
@@ -640,9 +658,30 @@ const MatchDetailsScreen = ({ route, navigation }) => {
                   <View style={styles.oddsTile}>
                     <Text style={styles.oddsTileLabel}>Double Chance</Text>
                     <View style={styles.oddsChipRow}>
-                      <Text style={styles.oddsChipAlt}>1X: {flatOdds.double_chance?.['1X'] ?? '-'}</Text>
-                      <Text style={styles.oddsChipAlt}>12: {flatOdds.double_chance?.['12'] ?? '-'}</Text>
-                      <Text style={styles.oddsChipAlt}>X2: {flatOdds.double_chance?.['X2'] ?? '-'}</Text>
+                      <TouchableOpacity
+                        onPress={handleNavigateToAnalysis}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.oddsChipAlt}>
+                          1X: {flatOdds.double_chance?.['1X'] ?? '-'}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={handleNavigateToAnalysis}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.oddsChipAlt}>
+                          12: {flatOdds.double_chance?.['12'] ?? '-'}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={handleNavigateToAnalysis}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.oddsChipAlt}>
+                          X2: {flatOdds.double_chance?.['X2'] ?? '-'}
+                        </Text>
+                      </TouchableOpacity>
                     </View>
                     <Text style={styles.oddsMeta}>Double chance odds</Text>
                   </View>
@@ -650,18 +689,74 @@ const MatchDetailsScreen = ({ route, navigation }) => {
                   <View style={styles.oddsTile}>
                     <Text style={styles.oddsTileLabel}>BTTS & Goals</Text>
                     <View style={styles.oddsChipRow}>
-                      <Text style={styles.oddsChip}>BTTS YES: {flatOdds.btts?.yes ?? '-'}</Text>
-                      <Text style={styles.oddsChip}>BTTS NO: {flatOdds.btts?.no ?? '-'}</Text>
+                      <TouchableOpacity
+                        onPress={handleNavigateToAnalysis}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.oddsChip}>
+                          BTTS YES: {flatOdds.btts?.yes ?? '-'}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={handleNavigateToAnalysis}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.oddsChip}>
+                          BTTS NO: {flatOdds.btts?.no ?? '-'}
+                        </Text>
+                      </TouchableOpacity>
                     </View>
                     <View style={styles.oddsChipRow}>
-                      <Text style={styles.oddsChipAlt}>Over 1.5: {flatOdds.totals?.over_1_5 ?? '-'}</Text>
-                      <Text style={styles.oddsChipAlt}>Over 2.5: {flatOdds.totals?.over_2_5 ?? '-'}</Text>
-                      <Text style={styles.oddsChipAlt}>Over 3.5: {flatOdds.totals?.over_3_5 ?? '-'}</Text>
+                      <TouchableOpacity
+                        onPress={handleNavigateToAnalysis}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.oddsChipAlt}>
+                          Over 1.5: {flatOdds.totals?.over_1_5 ?? '-'}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={handleNavigateToAnalysis}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.oddsChipAlt}>
+                          Over 2.5: {flatOdds.totals?.over_2_5 ?? '-'}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={handleNavigateToAnalysis}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.oddsChipAlt}>
+                          Over 3.5: {flatOdds.totals?.over_3_5 ?? '-'}
+                        </Text>
+                      </TouchableOpacity>
                     </View>
                     <View style={styles.oddsChipRow}>
-                      <Text style={styles.oddsChipAlt}>Under 3.5: {flatOdds.totals?.under_3_5 ?? '-'}</Text>
-                      <Text style={styles.oddsChipAlt}>Under 4.5: {flatOdds.totals?.under_4_5 ?? '-'}</Text>
-                      <Text style={styles.oddsChipAlt}>HT Over 0.5: {flatOdds.ht_over_0_5 ?? '-'}</Text>
+                      <TouchableOpacity
+                        onPress={handleNavigateToAnalysis}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.oddsChipAlt}>
+                          Under 3.5: {flatOdds.totals?.under_3_5 ?? '-'}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={handleNavigateToAnalysis}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.oddsChipAlt}>
+                          Under 4.5: {flatOdds.totals?.under_4_5 ?? '-'}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={handleNavigateToAnalysis}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.oddsChipAlt}>
+                          HT Over 0.5: {flatOdds.ht_over_0_5 ?? '-'}
+                        </Text>
+                      </TouchableOpacity>
                     </View>
                     <Text style={styles.oddsMeta}>BTTS & Over/Under odds</Text>
                   </View>
@@ -669,8 +764,22 @@ const MatchDetailsScreen = ({ route, navigation }) => {
                   <View style={styles.oddsTile}>
                     <Text style={styles.oddsTileLabel}>Team Over 0.5</Text>
                     <View style={styles.oddsChipRow}>
-                      <Text style={styles.oddsChip}>Home: {flatOdds.home_goals_over_0_5 ?? '-'}</Text>
-                      <Text style={styles.oddsChip}>Away: {flatOdds.away_goals_over_0_5 ?? '-'}</Text>
+                      <TouchableOpacity
+                        onPress={handleNavigateToAnalysis}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.oddsChip}>
+                          Home: {flatOdds.home_goals_over_0_5 ?? '-'}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={handleNavigateToAnalysis}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.oddsChip}>
+                          Away: {flatOdds.away_goals_over_0_5 ?? '-'}
+                        </Text>
+                      </TouchableOpacity>
                     </View>
                     <Text style={styles.oddsMeta}>Home/Away Goals Over 0.5 odds</Text>
                   </View>
@@ -680,13 +789,7 @@ const MatchDetailsScreen = ({ route, navigation }) => {
           </View>
         )}
 
-        <NeonAnalysisButton
-          onPress={() =>
-            navigation.navigate('Naksir In-depth Analysis', {
-              fixtureId,
-            })
-          }
-        />
+        <NeonAnalysisButton onPress={handleNavigateToAnalysis} />
       </ScrollView>
     </SafeAreaView>
   );
