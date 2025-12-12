@@ -14,6 +14,7 @@ import { useMatchDetailsQuery } from '@hooks/useMatchDetailsQuery';
 import { RootDrawerParamList } from '@navigation/types';
 import { trackEvent } from '@lib/tracking';
 import { ErrorState } from '@components/ErrorState';
+import NeonAnalysisButton from '@components/NeonAnalysisButton';
 
 const COLORS = {
   background: '#040312',
@@ -26,18 +27,6 @@ const COLORS = {
   accentBlue: '#0ea5e9',
   borderSoft: '#1f1f3a',
 };
-
-const NeonAnalysisButton = ({ onPress }: { onPress: () => void }) => (
-  <View style={styles.analysisGlowWrap}>
-    <View style={styles.analysisGlowHalo} />
-    <TouchableOpacity style={styles.analysisButton} onPress={onPress} activeOpacity={0.9}>
-      <Text style={styles.analysisButtonText}>Naksir In-depth Analysis</Text>
-      <Text style={styles.analysisButtonSub}>
-        AI insights summary, Key factors, DC + Goals, Probabilities: Correct scores, Corners, Yellow cards, Risks
-      </Text>
-    </TouchableOpacity>
-  </View>
-);
 
 const MatchDetailsScreen: React.FC = () => {
   const navigation = useNavigation<DrawerNavigationProp<RootDrawerParamList>>();
@@ -680,53 +669,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontSize: 12,
     letterSpacing: 0.4,
-  },
-  analysisGlowWrap: {
-    position: 'relative',
-    marginBottom: 16,
-    shadowColor: COLORS.neonPurple,
-    shadowOffset: { width: 0, height: 14 },
-  },
-  analysisGlowHalo: {
-    position: 'absolute',
-    top: -6,
-    left: -6,
-    right: -6,
-    bottom: -6,
-    borderRadius: 26,
-    backgroundColor: '#fc22dfb0',
-    shadowColor: COLORS.neonPurple,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 32,
-    elevation: 24,
-  },
-  analysisButton: {
-    backgroundColor: '#120a2f',
-    borderRadius: 22,
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-    borderWidth: 2,
-    borderColor: '#fc22dfb0',
-    shadowColor: COLORS.neonPurple,
-    shadowOpacity: 0.95,
-    shadowRadius: 22,
-    elevation: 10,
-  },
-  analysisButtonText: {
-    color: '#f5f3ff',
-    textAlign: 'center',
-    fontWeight: '900',
-    letterSpacing: 1.2,
-    fontSize: 16,
-  },
-  analysisButtonSub: {
-    color: COLORS.muted,
-    textAlign: 'center',
-    fontWeight: '600',
-    fontSize: 12,
-    marginTop: 4,
-    letterSpacing: 0.6,
   },
 });
 
