@@ -120,13 +120,13 @@ const MatchDetailsScreen: React.FC = () => {
               {teams?.home?.logo ? (
                 <Image source={{ uri: teams.home.logo }} style={styles.heroTeamLogo} resizeMode="contain" />
               ) : null}
-              <Text style={styles.heroTeamName} numberOfLines={1}>
-                {teams?.home?.name || 'Home'}
-              </Text>
-              <Text style={styles.heroTeamMeta} numberOfLines={1}>
-                {homeStanding ? `#${homeStanding.rank} • ${homeStanding.points} pts` : 'Loading form...'}
-              </Text>
-            </View>
+            <Text style={styles.heroTeamName} numberOfLines={1}>
+              {teams?.home?.name || 'Home'}
+            </Text>
+            <Text style={styles.heroTeamMeta} numberOfLines={1}>
+              {homeStanding ? `#${homeStanding.rank} • ${homeStanding.points} pts` : ''}
+            </Text>
+          </View>
 
             <View style={styles.heroVsPill}>
               <Text style={styles.heroVsText}>VS</Text>
@@ -141,7 +141,7 @@ const MatchDetailsScreen: React.FC = () => {
                 {teams?.away?.name || 'Away'}
               </Text>
               <Text style={[styles.heroTeamMeta, { textAlign: 'right' }]} numberOfLines={1}>
-                {awayStanding ? `#${awayStanding.rank} • ${awayStanding.points} pts` : 'Loading form...'}
+                {awayStanding ? `#${awayStanding.rank} • ${awayStanding.points} pts` : ''}
               </Text>
             </View>
           </View>
