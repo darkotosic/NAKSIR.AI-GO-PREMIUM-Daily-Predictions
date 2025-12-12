@@ -86,6 +86,19 @@ const MatchDetailsScreen: React.FC = () => {
     ? new Date(lastMeeting.fixture.date).toLocaleDateString()
     : null;
 
+  const openH2H = () =>
+    navigation.navigate('H2H', {
+      fixtureId,
+      summary,
+    });
+
+  const openOdds = (selectedMarket?: string) =>
+    navigation.navigate('Odds', {
+      fixtureId,
+      summary,
+      selectedMarket,
+    });
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {summary ? (
@@ -205,14 +218,7 @@ const MatchDetailsScreen: React.FC = () => {
           <View style={styles.sectionBlock}>
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionLabel}>Head-to-head</Text>
-              <TouchableOpacity
-                onPress={() =>
-                  navigation.navigate('H2H', {
-                    fixtureId,
-                    summary,
-                  })
-                }
-              >
+              <TouchableOpacity onPress={openH2H} style={styles.linkChip} activeOpacity={0.85}>
                 <Text style={styles.linkText}>Open full H2H</Text>
               </TouchableOpacity>
             </View>
@@ -230,56 +236,152 @@ const MatchDetailsScreen: React.FC = () => {
           </View>
 
           {flatOdds ? (
-            <View style={styles.sectionBlock}>
-              <Text style={styles.sectionLabel}>Odds snapshot</Text>
-              <View style={styles.oddsGrid}>
-                <View style={styles.oddsTile}>
-                  <Text style={styles.oddsTileLabel}>Match Winner</Text>
-                  <View style={styles.oddsChipRow}>
-                    <Text style={styles.oddsChip}>Home: {flatOdds.match_winner?.home ?? '-'}</Text>
-                    <Text style={styles.oddsChip}>Draw: {flatOdds.match_winner?.draw ?? '-'}</Text>
-                    <Text style={styles.oddsChip}>Away: {flatOdds.match_winner?.away ?? '-'}</Text>
+              <View style={styles.sectionBlock}>
+                <Text style={styles.sectionLabel}>Odds snapshot</Text>
+                <View style={styles.oddsGrid}>
+                  <View style={styles.oddsTile}>
+                    <Text style={styles.oddsTileLabel}>Match Winner</Text>
+                    <View style={styles.oddsChipRow}>
+                      <TouchableOpacity
+                        style={styles.oddsChip}
+                        onPress={() => openOdds('Match Winner - Home')}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.oddsChipText}>Home: {flatOdds.match_winner?.home ?? '-'}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.oddsChip}
+                        onPress={() => openOdds('Match Winner - Draw')}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.oddsChipText}>Draw: {flatOdds.match_winner?.draw ?? '-'}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.oddsChip}
+                        onPress={() => openOdds('Match Winner - Away')}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.oddsChipText}>Away: {flatOdds.match_winner?.away ?? '-'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.oddsMeta}>Match Winner odds</Text>
                   </View>
-                  <Text style={styles.oddsMeta}>Match Winner odds</Text>
-                </View>
 
-                <View style={styles.oddsTile}>
-                  <Text style={styles.oddsTileLabel}>Double Chance</Text>
-                  <View style={styles.oddsChipRow}>
-                    <Text style={styles.oddsChipAlt}>1X: {flatOdds.double_chance?.['1X'] ?? '-'}</Text>
-                    <Text style={styles.oddsChipAlt}>12: {flatOdds.double_chance?.['12'] ?? '-'}</Text>
-                    <Text style={styles.oddsChipAlt}>X2: {flatOdds.double_chance?.['X2'] ?? '-'}</Text>
+                  <View style={styles.oddsTile}>
+                    <Text style={styles.oddsTileLabel}>Double Chance</Text>
+                    <View style={styles.oddsChipRow}>
+                      <TouchableOpacity
+                        style={styles.oddsChip}
+                        onPress={() => openOdds('Double Chance - 1X')}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.oddsChipText}>1X: {flatOdds.double_chance?.['1X'] ?? '-'}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.oddsChip}
+                        onPress={() => openOdds('Double Chance - 12')}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.oddsChipText}>12: {flatOdds.double_chance?.['12'] ?? '-'}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.oddsChip}
+                        onPress={() => openOdds('Double Chance - X2')}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.oddsChipText}>X2: {flatOdds.double_chance?.['X2'] ?? '-'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.oddsMeta}>Double chance odds</Text>
                   </View>
-                  <Text style={styles.oddsMeta}>Double chance odds</Text>
-                </View>
 
-                <View style={styles.oddsTile}>
-                  <Text style={styles.oddsTileLabel}>BTTS & Goals</Text>
-                  <View style={styles.oddsChipRow}>
-                    <Text style={styles.oddsChip}>BTTS YES: {flatOdds.btts?.yes ?? '-'}</Text>
-                    <Text style={styles.oddsChip}>BTTS NO: {flatOdds.btts?.no ?? '-'}</Text>
+                  <View style={styles.oddsTile}>
+                    <Text style={styles.oddsTileLabel}>BTTS & Goals</Text>
+                    <View style={styles.oddsChipRow}>
+                      <TouchableOpacity
+                        style={styles.oddsChip}
+                        onPress={() => openOdds('BTTS YES/NO')}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.oddsChipText}>BTTS YES: {flatOdds.btts?.yes ?? '-'}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.oddsChip}
+                        onPress={() => openOdds('BTTS YES/NO')}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.oddsChipText}>BTTS NO: {flatOdds.btts?.no ?? '-'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <View style={styles.oddsChipRow}>
+                      <TouchableOpacity
+                        style={styles.oddsChip}
+                        onPress={() => openOdds('Totals - Overs')}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.oddsChipText}>Over 1.5: {flatOdds.totals?.over_1_5 ?? '-'}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.oddsChip}
+                        onPress={() => openOdds('Totals - Overs')}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.oddsChipText}>Over 2.5: {flatOdds.totals?.over_2_5 ?? '-'}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.oddsChip}
+                        onPress={() => openOdds('Totals - Overs')}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.oddsChipText}>Over 3.5: {flatOdds.totals?.over_3_5 ?? '-'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <View style={styles.oddsChipRow}>
+                      <TouchableOpacity
+                        style={styles.oddsChip}
+                        onPress={() => openOdds('Totals - Unders')}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.oddsChipText}>Under 3.5: {flatOdds.totals?.under_3_5 ?? '-'}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.oddsChip}
+                        onPress={() => openOdds('Totals - Unders')}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.oddsChipText}>Under 4.5: {flatOdds.totals?.under_4_5 ?? '-'}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.oddsChip}
+                        onPress={() => openOdds('Half Time Totals')}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.oddsChipText}>HT Over 0.5: {flatOdds.ht_over_0_5 ?? '-'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.oddsMeta}>BTTS & Over/Under odds</Text>
                   </View>
-                  <View style={styles.oddsChipRow}>
-                    <Text style={styles.oddsChipAlt}>Over 1.5: {flatOdds.totals?.over_1_5 ?? '-'}</Text>
-                    <Text style={styles.oddsChipAlt}>Over 2.5: {flatOdds.totals?.over_2_5 ?? '-'}</Text>
-                    <Text style={styles.oddsChipAlt}>Over 3.5: {flatOdds.totals?.over_3_5 ?? '-'}</Text>
-                  </View>
-                  <View style={styles.oddsChipRow}>
-                    <Text style={styles.oddsChipAlt}>Under 3.5: {flatOdds.totals?.under_3_5 ?? '-'}</Text>
-                    <Text style={styles.oddsChipAlt}>Under 4.5: {flatOdds.totals?.under_4_5 ?? '-'}</Text>
-                    <Text style={styles.oddsChipAlt}>HT Over 0.5: {flatOdds.ht_over_0_5 ?? '-'}</Text>
-                  </View>
-                  <Text style={styles.oddsMeta}>BTTS & Over/Under odds</Text>
-                </View>
 
-                <View style={styles.oddsTile}>
-                  <Text style={styles.oddsTileLabel}>Team Over 0.5</Text>
-                  <View style={styles.oddsChipRow}>
-                    <Text style={styles.oddsChip}>Home: {flatOdds.home_goals_over_0_5 ?? '-'}</Text>
-                    <Text style={styles.oddsChip}>Away: {flatOdds.away_goals_over_0_5 ?? '-'}</Text>
+                  <View style={styles.oddsTile}>
+                    <Text style={styles.oddsTileLabel}>Team Over 0.5</Text>
+                    <View style={styles.oddsChipRow}>
+                      <TouchableOpacity
+                        style={styles.oddsChip}
+                        onPress={() => openOdds('Team Goals - Home')}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.oddsChipText}>Home: {flatOdds.home_goals_over_0_5 ?? '-'}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.oddsChip}
+                        onPress={() => openOdds('Team Goals - Away')}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.oddsChipText}>Away: {flatOdds.away_goals_over_0_5 ?? '-'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.oddsMeta}>Home/Away Goals Over 0.5 odds</Text>
                   </View>
-                  <Text style={styles.oddsMeta}>Home/Away Goals Over 0.5 odds</Text>
-                </View>
               </View>
             </View>
           ) : null}
@@ -507,6 +609,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 6,
   },
+  linkChip: {
+    backgroundColor: '#0b1220',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.neonPurple,
+  },
   sectionMeta: {
     color: COLORS.muted,
     fontSize: 12,
@@ -555,24 +665,15 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 12,
     backgroundColor: '#192248',
-    color: COLORS.text,
-    fontWeight: '800',
-    textAlign: 'center',
     borderWidth: 1,
     borderColor: COLORS.neonPurple,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  oddsChipAlt: {
-    flexGrow: 1,
-    flexBasis: '30%',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 12,
-    backgroundColor: '#192248',
+  oddsChipText: {
     color: COLORS.text,
     fontWeight: '800',
     textAlign: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.neonPurple,
   },
   oddsMeta: {
     color: COLORS.muted,
