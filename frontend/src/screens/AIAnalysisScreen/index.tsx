@@ -151,7 +151,7 @@ const AIAnalysisScreen: React.FC = () => {
         <View style={styles.card}>
           <Text style={styles.title}>Naksir In-depth Analysis</Text>
           <Text style={styles.subtitle}>
-            AI generated summary, probabilities, key factors and value bets for the selected match.
+            AI insights summary, Key factors, DC + Goals, Probabilities: Correct scores, Corners, Yellow cards, Risks.
           </Text>
           <TouchableOpacity
             style={[styles.button, !fixtureId || mutation.isPending ? styles.buttonDisabled : null]}
