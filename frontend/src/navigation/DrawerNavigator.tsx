@@ -15,6 +15,13 @@ import MatchDetailsScreen from '@screens/MatchDetailsScreen';
 import AIAnalysisScreen from '@screens/AIAnalysisScreen';
 import H2HScreen from '@screens/H2HScreen';
 import OddsScreen from '@screens/OddsScreen';
+import StatsScreen from '@screens/StatsScreen';
+import TeamStatsScreen from '@screens/TeamStatsScreen';
+import EventsScreen from '@screens/EventsScreen';
+import LineupsScreen from '@screens/LineupsScreen';
+import PlayersScreen from '@screens/PlayersScreen';
+import PredictionsScreen from '@screens/PredictionsScreen';
+import InjuriesScreen from '@screens/InjuriesScreen';
 import GoPremiumScreen from '@screens/GoPremiumScreen';
 import NaksirAccountScreen from '@screens/NaksirAccountScreen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -121,6 +128,41 @@ const DrawerNavigator = () => (
           name="Odds"
           component={OddsScreen}
           options={{ title: 'Odds Snapshot', drawerItemStyle: { display: 'none' } }}
+        />
+        <Drawer.Screen
+          name="Stats"
+          component={StatsScreen}
+          options={{ title: 'Match Stats', drawerItemStyle: { display: 'none' } }}
+        />
+        <Drawer.Screen
+          name="TeamStats"
+          component={TeamStatsScreen}
+          options={{ title: 'Team Stats', drawerItemStyle: { display: 'none' } }}
+        />
+        <Drawer.Screen
+          name="Events"
+          component={EventsScreen}
+          options={{ title: 'Match Events', drawerItemStyle: { display: 'none' } }}
+        />
+        <Drawer.Screen
+          name="Lineups"
+          component={LineupsScreen}
+          options={{ title: 'Lineups', drawerItemStyle: { display: 'none' } }}
+        />
+        <Drawer.Screen
+          name="Players"
+          component={PlayersScreen}
+          options={{ title: 'Players', drawerItemStyle: { display: 'none' } }}
+        />
+        <Drawer.Screen
+          name="Predictions"
+          component={PredictionsScreen}
+          options={{ title: 'Predictions', drawerItemStyle: { display: 'none' } }}
+        />
+        <Drawer.Screen
+          name="Injuries"
+          component={InjuriesScreen}
+          options={{ title: 'Injuries', drawerItemStyle: { display: 'none' } }}
         />
         <Drawer.Screen
           name="GoPremium"
