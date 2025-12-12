@@ -14,6 +14,7 @@ import TodayMatchesScreen from '@screens/TodayMatchesScreen';
 import MatchDetailsScreen from '@screens/MatchDetailsScreen';
 import AIAnalysisScreen from '@screens/AIAnalysisScreen';
 import H2HScreen from '@screens/H2HScreen';
+import OddsScreen from '@screens/OddsScreen';
 import GoPremiumScreen from '@screens/GoPremiumScreen';
 import NaksirAccountScreen from '@screens/NaksirAccountScreen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -115,6 +116,11 @@ const DrawerNavigator = () => (
           name="H2H"
           component={H2HScreen}
           options={{ title: 'Head to Head', drawerItemStyle: { display: 'none' } }}
+        />
+        <Drawer.Screen
+          name="Odds"
+          component={OddsScreen}
+          options={{ title: 'Odds Snapshot', drawerItemStyle: { display: 'none' } }}
         />
         <Drawer.Screen
           name="GoPremium"
