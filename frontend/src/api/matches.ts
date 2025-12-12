@@ -1,11 +1,21 @@
 import { apiClient } from './client';
-import { FullMatch, MatchListItem } from '@naksir-types/match';
+import { FullMatch, MatchListItem, TodayMatchesPage } from '@naksir-types/match';
 
-export const fetchTodayMatches = async (): Promise<MatchListItem[]> => {
-  const response = await apiClient.get('/matches/today');
-  const data = response.data;
-  const list = Array.isArray(data) ? data : data?.matches || [];
-  return list.filter((item: MatchListItem) => item?.summary);
+export const fetchTodayMatchesPage = async (
+  cursor = 0,
+  limit = 10,
+): Promise<TodayMatchesPage> => {
+  const response = await apiClient.get('/matches/today', {
+    params: { cursor, limit },
+  });
+  const data = response.data || {};
+  const items = Array.isArray(data.items) ? data.items : [];
+
+  return {
+    items: items.filter((item: MatchListItem) => item?.summary),
+    next_cursor: data.next_cursor ?? null,
+    total: data.total ?? items.length,
+  };
 };
 
 export const fetchMatchDetails = async (fixtureId: number | string): Promise<FullMatch> => {

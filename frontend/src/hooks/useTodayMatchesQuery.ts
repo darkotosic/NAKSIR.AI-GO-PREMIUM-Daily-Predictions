@@ -1,10 +1,12 @@
-import { useQuery } from '@tanstack/react-query';
-import { fetchTodayMatches } from '@api/matches';
-import { MatchListItem } from '@naksir-types/match';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { fetchTodayMatchesPage } from '@api/matches';
+import { TodayMatchesPage } from '@naksir-types/match';
 
 export const useTodayMatchesQuery = () =>
-  useQuery<MatchListItem[]>({
+  useInfiniteQuery<TodayMatchesPage>({
     queryKey: ['todayMatches'],
-    queryFn: fetchTodayMatches,
+    queryFn: ({ pageParam = 0 }) => fetchTodayMatchesPage(pageParam as number, 10),
+    getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
     staleTime: 5 * 60 * 1000,
+    initialPageParam: 0,
   });
