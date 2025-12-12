@@ -81,7 +81,7 @@ export const MatchCard: React.FC<Props> = ({ match, onPress, onToggleFavorite, i
               {teams?.home?.name || 'Home'}
             </Text>
             <Text style={styles.teamMeta} numberOfLines={1}>
-              {homeStanding ? `#${homeStanding.rank} • ${homeStanding.points} pts` : 'Loading form...'}
+              {homeStanding ? `#${homeStanding.rank} • ${homeStanding.points} pts` : ''}
             </Text>
           </View>
 
@@ -98,13 +98,13 @@ export const MatchCard: React.FC<Props> = ({ match, onPress, onToggleFavorite, i
               {teams?.away?.name || 'Away'}
             </Text>
             <Text style={[styles.teamMeta, { textAlign: 'right' }]} numberOfLines={1}>
-              {awayStanding ? `#${awayStanding.rank} • ${awayStanding.points} pts` : 'Loading form...'}
+              {awayStanding ? `#${awayStanding.rank} • ${awayStanding.points} pts` : ''}
             </Text>
           </View>
         </View>
 
         <TouchableOpacity style={styles.fullMatchButton} onPress={onPress} activeOpacity={0.88}>
-          <Text style={styles.fullMatchText}>Full Match details --&gt;</Text>
+          <Text style={styles.fullMatchText}>Full Match details →</Text>
         </TouchableOpacity>
       </TouchableOpacity>
     </Animated.View>
