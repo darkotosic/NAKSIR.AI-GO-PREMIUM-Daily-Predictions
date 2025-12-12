@@ -112,6 +112,11 @@ const MatchDetailsScreen: React.FC = () => {
   const openPlayers = () => navigation.navigate('Players', { fixtureId, summary });
   const openPredictions = () => navigation.navigate('Predictions', { fixtureId, summary });
   const openInjuries = () => navigation.navigate('Injuries', { fixtureId, summary });
+  const openAnalysis = () =>
+    navigation.navigate('AIAnalysis', {
+      fixtureId,
+      summary,
+    });
 
   const deepDiveSections = [
     { key: 'stats', label: 'Match stats', visible: hasStats, onPress: openStats },
@@ -126,61 +131,65 @@ const MatchDetailsScreen: React.FC = () => {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {summary ? (
-        <View style={styles.detailHero}>
-          <View style={styles.heroTopRow}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => navigation.goBack()}
-              activeOpacity={0.9}
-            >
-              <Text style={styles.backIcon}>←</Text>
-              <Text style={styles.backLabel}>Back</Text>
-            </TouchableOpacity>
+        <>
+          <View style={styles.detailHero}>
+            <View style={styles.heroTopRow}>
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => navigation.goBack()}
+                activeOpacity={0.9}
+              >
+                <Text style={styles.backIcon}>←</Text>
+                <Text style={styles.backLabel}>Back</Text>
+              </TouchableOpacity>
 
-            <View style={styles.heroLeagueBlock}>
-              {league?.logo ? (
-                <Image source={{ uri: league.logo }} style={styles.heroLeagueLogo} resizeMode="contain" />
-              ) : null}
-              <View>
-                <Text style={styles.heroLeagueText}>{league?.name || 'League'}</Text>
-                <Text style={styles.heroMetaText}>
-                  {league?.country || 'Country'} • {kickoffTimeLabel}
+              <View style={styles.heroLeagueBlock}>
+                {league?.logo ? (
+                  <Image source={{ uri: league.logo }} style={styles.heroLeagueLogo} resizeMode="contain" />
+                ) : null}
+                <View>
+                  <Text style={styles.heroLeagueText}>{league?.name || 'League'}</Text>
+                  <Text style={styles.heroMetaText}>
+                    {league?.country || 'Country'} • {kickoffTimeLabel}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.heroTeamsRow}>
+              <View style={styles.heroTeamCard}>
+                {teams?.home?.logo ? (
+                  <Image source={{ uri: teams.home.logo }} style={styles.heroTeamLogo} resizeMode="contain" />
+                ) : null}
+                <Text style={styles.heroTeamName} numberOfLines={1}>
+                  {teams?.home?.name || 'Home'}
+                </Text>
+                <Text style={styles.heroTeamMeta} numberOfLines={1}>
+                  {homeStanding ? `#${homeStanding.rank} • ${homeStanding.points} pts` : ''}
+                </Text>
+              </View>
+
+              <View style={styles.heroVsPill}>
+                <Text style={styles.heroVsText}>VS</Text>
+                <Text style={styles.heroKickoff}>{kickoffTimeLabel}</Text>
+              </View>
+
+              <View style={[styles.heroTeamCard, { alignItems: 'flex-end' }]}>
+                {teams?.away?.logo ? (
+                  <Image source={{ uri: teams.away.logo }} style={styles.heroTeamLogo} resizeMode="contain" />
+                ) : null}
+                <Text style={[styles.heroTeamName, { textAlign: 'right' }]} numberOfLines={1}>
+                  {teams?.away?.name || 'Away'}
+                </Text>
+                <Text style={[styles.heroTeamMeta, { textAlign: 'right' }]} numberOfLines={1}>
+                  {awayStanding ? `#${awayStanding.rank} • ${awayStanding.points} pts` : ''}
                 </Text>
               </View>
             </View>
           </View>
 
-          <View style={styles.heroTeamsRow}>
-            <View style={styles.heroTeamCard}>
-              {teams?.home?.logo ? (
-                <Image source={{ uri: teams.home.logo }} style={styles.heroTeamLogo} resizeMode="contain" />
-              ) : null}
-            <Text style={styles.heroTeamName} numberOfLines={1}>
-              {teams?.home?.name || 'Home'}
-            </Text>
-            <Text style={styles.heroTeamMeta} numberOfLines={1}>
-              {homeStanding ? `#${homeStanding.rank} • ${homeStanding.points} pts` : ''}
-            </Text>
-          </View>
-
-            <View style={styles.heroVsPill}>
-              <Text style={styles.heroVsText}>VS</Text>
-              <Text style={styles.heroKickoff}>{kickoffTimeLabel}</Text>
-            </View>
-
-            <View style={[styles.heroTeamCard, { alignItems: 'flex-end' }]}>
-              {teams?.away?.logo ? (
-                <Image source={{ uri: teams.away.logo }} style={styles.heroTeamLogo} resizeMode="contain" />
-              ) : null}
-              <Text style={[styles.heroTeamName, { textAlign: 'right' }]} numberOfLines={1}>
-                {teams?.away?.name || 'Away'}
-              </Text>
-              <Text style={[styles.heroTeamMeta, { textAlign: 'right' }]} numberOfLines={1}>
-                {awayStanding ? `#${awayStanding.rank} • ${awayStanding.points} pts` : ''}
-              </Text>
-            </View>
-          </View>
-        </View>
+          <NeonAnalysisButton onPress={openAnalysis} />
+        </>
       ) : null}
 
       {isLoading && (
@@ -434,12 +443,7 @@ const MatchDetailsScreen: React.FC = () => {
       ) : null}
 
       <NeonAnalysisButton
-        onPress={() =>
-          navigation.navigate('AIAnalysis', {
-            fixtureId,
-            summary,
-          })
-        }
+        onPress={openAnalysis}
       />
     </ScrollView>
   );
