@@ -12,7 +12,7 @@ export const AnalysisPreview: React.FC<Props> = ({ analysis, onPress }) => (
     <View style={{ flex: 1 }}>
       <Text style={styles.title}>AI Analysis</Text>
       <Text style={styles.subtitle} numberOfLines={3}>
-        {analysis?.summary || 'AI powered breakdown of key factors, value bets and risks.'}
+        {analysis?.summary || 'AI insights summary, Key factors, DC + Goals, Probabilities: Correct scores, Corners, Yellow cards, Risks'}
       </Text>
     </View>
     <TouchableOpacity onPress={onPress} style={styles.button}>
