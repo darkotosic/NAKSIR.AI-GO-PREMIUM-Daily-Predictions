@@ -69,6 +69,23 @@ const MatchDetailsScreen: React.FC = () => {
     : Array.isArray(h2hBlock)
       ? h2hBlock
       : [];
+  const hasStats = Array.isArray(data?.stats) && data.stats.length > 0;
+  const hasTeamStats = Boolean(data?.team_stats?.home || data?.team_stats?.away);
+  const hasEvents = Array.isArray(data?.events) && data.events.length > 0;
+  const hasLineups = Array.isArray(data?.lineups) && data.lineups.length > 0;
+  const hasPlayers = Array.isArray(data?.players) && data.players.length > 0;
+  const predictionsBlock = data?.predictions as any;
+  const hasPredictions = Array.isArray(predictionsBlock)
+    ? predictionsBlock.length > 0
+    : predictionsBlock && typeof predictionsBlock === 'object'
+      ? Object.keys(predictionsBlock).length > 0
+      : Boolean(predictionsBlock);
+  const injuriesBlock = data?.injuries as any;
+  const hasInjuries = Array.isArray(injuriesBlock)
+    ? injuriesBlock.length > 0
+    : injuriesBlock && typeof injuriesBlock === 'object'
+      ? Object.keys(injuriesBlock).length > 0
+      : Boolean(injuriesBlock);
   const lastMeeting = h2hMatches[0];
   const lastMeetingGoals = lastMeeting?.goals || {};
   const lastMeetingDate = lastMeeting?.fixture?.date
@@ -87,6 +104,24 @@ const MatchDetailsScreen: React.FC = () => {
       summary,
       selectedMarket,
     });
+
+  const openStats = () => navigation.navigate('Stats', { fixtureId, summary });
+  const openTeamStats = () => navigation.navigate('TeamStats', { fixtureId, summary });
+  const openEvents = () => navigation.navigate('Events', { fixtureId, summary });
+  const openLineups = () => navigation.navigate('Lineups', { fixtureId, summary });
+  const openPlayers = () => navigation.navigate('Players', { fixtureId, summary });
+  const openPredictions = () => navigation.navigate('Predictions', { fixtureId, summary });
+  const openInjuries = () => navigation.navigate('Injuries', { fixtureId, summary });
+
+  const deepDiveSections = [
+    { key: 'stats', label: 'Match stats', visible: hasStats, onPress: openStats },
+    { key: 'team_stats', label: 'Team stats', visible: hasTeamStats, onPress: openTeamStats },
+    { key: 'events', label: 'Events', visible: hasEvents, onPress: openEvents },
+    { key: 'lineups', label: 'Lineups', visible: hasLineups, onPress: openLineups },
+    { key: 'players', label: 'Players', visible: hasPlayers, onPress: openPlayers },
+    { key: 'predictions', label: 'Predictions', visible: hasPredictions, onPress: openPredictions },
+    { key: 'injuries', label: 'Injuries', visible: hasInjuries, onPress: openInjuries },
+  ].filter((section) => section.visible);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -223,6 +258,27 @@ const MatchDetailsScreen: React.FC = () => {
               <Text style={styles.sectionMeta}>Showing last {h2hMatches.length} meetings.</Text>
             ) : null}
           </View>
+
+          {deepDiveSections.length ? (
+            <View style={styles.sectionBlock}>
+              <View style={[styles.sectionHeaderRow, { marginBottom: 4 }]}>
+                <Text style={styles.sectionLabel}>Full match breakdown</Text>
+                <Text style={styles.sectionMeta}>Tap to open dedicated screens</Text>
+              </View>
+              <View style={styles.sectionChipRow}>
+                {deepDiveSections.map((section) => (
+                  <TouchableOpacity
+                    key={section.key}
+                    style={styles.sectionChip}
+                    onPress={section.onPress}
+                    activeOpacity={0.88}
+                  >
+                    <Text style={styles.sectionChipText}>{section.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          ) : null}
 
           {flatOdds ? (
               <View style={styles.sectionBlock}>
@@ -616,6 +672,24 @@ const styles = StyleSheet.create({
   },
   linkText: {
     color: COLORS.neonViolet,
+    fontWeight: '800',
+  },
+  sectionChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    rowGap: 10,
+  },
+  sectionChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: '#0f162b',
+    borderWidth: 1,
+    borderColor: COLORS.neonPurple,
+  },
+  sectionChipText: {
+    color: COLORS.text,
     fontWeight: '800',
   },
   oddsGrid: {

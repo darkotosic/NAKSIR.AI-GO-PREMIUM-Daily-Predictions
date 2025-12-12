@@ -77,6 +77,8 @@ const H2HScreen: React.FC = () => {
   const { data, isLoading, isError, refetch } = useH2HQuery(fixtureId);
   const matches = useMemo(() => data?.matches ?? [], [data?.matches]);
 
+  const goBackToMatch = () => navigation.navigate('MatchDetails', { fixtureId, summary });
+
   if (!fixtureId) {
     return <ErrorState message="Fixture ID is missing." onRetry={() => navigation.navigate('TodayMatches')} />;
   }
@@ -84,7 +86,7 @@ const H2HScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+        <TouchableOpacity style={styles.backButton} onPress={goBackToMatch}>
           <Text style={styles.backIcon}>←</Text>
           <Text style={styles.backLabel}>Back to match</Text>
         </TouchableOpacity>
