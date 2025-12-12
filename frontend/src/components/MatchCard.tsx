@@ -33,8 +33,12 @@ export const MatchCard: React.FC<Props> = ({ match, onPress, onToggleFavorite, i
   const standingsLeague = match?.standings?.[0]?.league;
   const standingGroups = standingsLeague?.standings || [];
   const tableRows = standingGroups.reduce((acc, group) => acc.concat(group), [] as any[]);
-  const homeStanding = tableRows.find((row) => row.team?.id === teams?.home?.id);
-  const awayStanding = tableRows.find((row) => row.team?.id === teams?.away?.id);
+  const homeStanding = match?.standings_snapshot?.home || tableRows.find((row) => row.team?.id === teams?.home?.id);
+  const awayStanding = match?.standings_snapshot?.away || tableRows.find((row) => row.team?.id === teams?.away?.id);
+
+  const formatForm = (value?: string | null) => (value ? value.toUpperCase() : undefined);
+  const homeForm = formatForm(homeStanding?.form as string | undefined);
+  const awayForm = formatForm(awayStanding?.form as string | undefined);
 
   const scale = useRef(new Animated.Value(1)).current;
 
@@ -83,6 +87,12 @@ export const MatchCard: React.FC<Props> = ({ match, onPress, onToggleFavorite, i
             <Text style={styles.teamMeta} numberOfLines={1}>
               {homeStanding ? `#${homeStanding.rank} • ${homeStanding.points} pts` : ''}
             </Text>
+            {homeForm ? (
+              <View style={styles.formRow}>
+                <Text style={styles.formLabel}>Form</Text>
+                <Text style={styles.formValue}>{homeForm}</Text>
+              </View>
+            ) : null}
           </View>
 
           <View style={styles.vsPill}>
@@ -100,6 +110,12 @@ export const MatchCard: React.FC<Props> = ({ match, onPress, onToggleFavorite, i
             <Text style={[styles.teamMeta, { textAlign: 'right' }]} numberOfLines={1}>
               {awayStanding ? `#${awayStanding.rank} • ${awayStanding.points} pts` : ''}
             </Text>
+            {awayForm ? (
+              <View style={[styles.formRow, styles.formRowRight]}>
+                <Text style={styles.formLabel}>Form</Text>
+                <Text style={styles.formValue}>{awayForm}</Text>
+              </View>
+            ) : null}
           </View>
         </View>
 
@@ -210,6 +226,33 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     fontSize: 12,
     marginTop: 2,
+  },
+  formRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+  },
+  formRowRight: {
+    justifyContent: 'flex-end',
+  },
+  formLabel: {
+    color: COLORS.muted,
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  formValue: {
+    color: COLORS.text,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    backgroundColor: '#11182c',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.borderSoft,
   },
   vsPill: {
     backgroundColor: COLORS.neonPurple,

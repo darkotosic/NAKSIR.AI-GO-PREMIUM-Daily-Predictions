@@ -62,6 +62,11 @@ export interface StandingsGroup {
   };
 }
 
+export interface StandingsSnapshot {
+  home?: StandingsRow;
+  away?: StandingsRow;
+}
+
 export interface FullMatch {
   fixture_id?: number;
   summary?: MatchSummary;
@@ -77,6 +82,7 @@ export interface MatchListItem {
   fixture_id?: number;
   summary?: MatchSummary;
   odds?: FullOdds;
+  standings_snapshot?: StandingsSnapshot;
 }
 
 export interface TodayMatchesPage {

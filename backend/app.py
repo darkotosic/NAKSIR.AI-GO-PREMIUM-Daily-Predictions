@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from . import api_football
-from .api_football import get_fixtures_today, get_fixture_by_id
+from .api_football import get_fixtures_today, get_fixture_by_id, get_standings
 from .cache import cache_get, make_cache_key
 from .match_full import build_full_match, build_match_summary
 from .ai_analysis import build_fallback_analysis, run_ai_analysis
@@ -173,10 +173,15 @@ def get_today_matches(
 
     fixtures = get_fixtures_today()
     cards: List[Dict[str, Any]] = []
+    standings_cache: Dict[tuple[int, int], List[Dict[str, Any]]] = {}
 
     for fx in fixtures:
         fixture_id = (fx.get("fixture") or {}).get("id")
         summary = build_match_summary(fx)
+        league_id = summary.get("league", {}).get("id")
+        season = summary.get("league", {}).get("season")
+        home_team_id = (summary.get("teams", {}).get("home") or {}).get("id")
+        away_team_id = (summary.get("teams", {}).get("away") or {}).get("id")
 
         odds_flat = None
         if fixture_id:
@@ -195,6 +200,42 @@ def get_today_matches(
             "fixture_id": fixture_id,
             "summary": summary,
         }
+
+        if league_id and season and (home_team_id or away_team_id):
+            cache_key = (league_id, season)
+            standings_payload = standings_cache.get(cache_key)
+            if standings_payload is None:
+                standings_payload = get_standings(league_id, season)
+                standings_cache[cache_key] = standings_payload
+
+            league_block = (standings_payload[0].get("league") or {}) if standings_payload else {}
+            standings_groups = league_block.get("standings") or []
+            table_rows = [row for group in standings_groups for row in (group or [])]
+
+            def _find_row(team_id: Optional[int]) -> Optional[Dict[str, Any]]:
+                if not team_id:
+                    return None
+                row = next(
+                    (item for item in table_rows if (item.get("team") or {}).get("id") == team_id),
+                    None,
+                )
+                if not row:
+                    return None
+                return {
+                    "rank": row.get("rank"),
+                    "points": row.get("points"),
+                    "form": row.get("form"),
+                    "team": row.get("team"),
+                }
+
+            home_standing = _find_row(home_team_id)
+            away_standing = _find_row(away_team_id)
+            if home_standing or away_standing:
+                card["standings_snapshot"] = {
+                    "home": home_standing,
+                    "away": away_standing,
+                }
+
         if odds_flat:
             card["odds"] = {"flat": odds_flat}
         cards.append(card)
