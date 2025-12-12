@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from . import api_football
 from .api_football import get_fixtures_today, get_fixture_by_id
 from .match_full import build_full_match, build_match_summary
-from .ai_analysis import run_ai_analysis
+from .ai_analysis import build_fallback_analysis, run_ai_analysis
 from .config import TIMEZONE
 
 # ---------------------------------------------------------------------
@@ -319,17 +319,6 @@ def post_match_ai_analysis(
     2) Od njega se napravi full kontekst (`build_full_match`).
     3) Taj kontekst + opcioni `question` se šalju u `run_ai_analysis`.
     """
-    fixture = get_fixture_by_id(fixture_id)
-    if not fixture:
-        raise HTTPException(status_code=404, detail="Fixture not found")
-
-    full_context = build_full_match(fixture)
-
-    odds_probabilities = None
-    odds_section = full_context.get("odds") or {}
-    if isinstance(odds_section, dict):
-        odds_probabilities = odds_section.get("flat_probabilities")
-
     user_question = payload.question.strip() if payload.question else None
     logger.info(
         "AI analysis requested for fixture_id=%s (custom_question=%s)",
@@ -337,10 +326,41 @@ def post_match_ai_analysis(
         bool(user_question),
     )
 
-    analysis = run_ai_analysis(
-        full_match=full_context,
-        user_question=user_question,
-    )
+    fixture = None
+    try:
+        fixture = get_fixture_by_id(fixture_id)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "Failed to fetch fixture_id=%s from API-Football: %s", fixture_id, exc
+        )
+
+    if not fixture:
+        analysis = build_fallback_analysis("fixture not found or API-Football unavailable")
+        odds_probabilities = None
+    else:
+        try:
+            full_context = build_full_match(fixture)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "Failed to build full match context for fixture_id=%s: %s",
+                fixture_id,
+                exc,
+            )
+            full_context = None
+
+        if not full_context:
+            analysis = build_fallback_analysis("context build failed")
+            odds_probabilities = None
+        else:
+            odds_section = full_context.get("odds") or {}
+            odds_probabilities = None
+            if isinstance(odds_section, dict):
+                odds_probabilities = odds_section.get("flat_probabilities")
+
+            analysis = run_ai_analysis(
+                full_match=full_context,
+                user_question=user_question,
+            )
 
     return {
         "fixture_id": fixture_id,
