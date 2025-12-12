@@ -383,15 +383,19 @@ def post_match_ai_analysis(
     )
 
     fixture = None
+    fixture_error_reason: str | None = None
     try:
         fixture = get_fixture_by_id(fixture_id)
     except Exception as exc:  # noqa: BLE001
         logger.warning(
             "Failed to fetch fixture_id=%s from API-Football: %s", fixture_id, exc
         )
+        fixture_error_reason = f"API-Football fetch failed: {exc}"
 
     if not fixture:
-        analysis = build_fallback_analysis("fixture not found or API-Football unavailable")
+        analysis = build_fallback_analysis(
+            fixture_error_reason or "fixture not found or API-Football unavailable"
+        )
         odds_probabilities = None
     else:
         try:
@@ -403,9 +407,14 @@ def post_match_ai_analysis(
                 exc,
             )
             full_context = None
+            context_error_reason = f"context build failed: {exc}"
+        else:
+            context_error_reason = None
 
         if not full_context:
-            analysis = build_fallback_analysis("context build failed")
+            analysis = build_fallback_analysis(
+                context_error_reason or "context build failed"
+            )
             odds_probabilities = None
         else:
             odds_section = full_context.get("odds") or {}
