@@ -1,8 +1,8 @@
 import React, { useCallback, useMemo } from 'react';
 import {
+  FlatList,
   Linking,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -91,7 +91,17 @@ const SkeletonCard = () => (
 
 const TodayMatchesScreen: React.FC = () => {
   const navigation = useNavigation<DrawerNavigationProp<RootDrawerParamList>>();
-  const { data, isLoading, isError, refetch, error } = useTodayMatchesQuery();
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isRefetching,
+  } = useTodayMatchesQuery();
   const { toggleFavorite, isFavorite } = useFavorites();
   const [sortOption, setSortOption] = React.useState<'time' | 'team'>('time');
 
@@ -100,8 +110,13 @@ const TodayMatchesScreen: React.FC = () => {
     refetch();
   }, [refetch]);
 
+  const allMatches = useMemo(
+    () => data?.pages.flatMap((page) => page.items ?? []) ?? [],
+    [data],
+  );
+
   const sortedMatches = useMemo(() => {
-    const list = [...(data || [])];
+    const list = [...allMatches];
     return list.sort((a, b) => {
       if (sortOption === 'team') {
         const nameA = (a?.summary?.teams?.home?.name || '').toLowerCase();
@@ -113,59 +128,91 @@ const TodayMatchesScreen: React.FC = () => {
       const dateB = b?.summary?.kickoff ? new Date(b.summary.kickoff).getTime() : Infinity;
       return dateA - dateB;
     });
-  }, [data, sortOption]);
+  }, [allMatches, sortOption]);
 
-  return (
-    <ScrollView
-      contentContainerStyle={styles.container}
-      refreshControl={<RefreshControl refreshing={isLoading} onRefresh={onRefresh} tintColor={COLORS.neonPurple} />}
-    >
+  const renderHeader = () => (
+    <View>
       <TelegramBanner />
-
       <SortBar sortOption={sortOption} onSortChange={setSortOption} />
-
       <View style={styles.refreshRow}>
         <TouchableOpacity style={styles.refreshButton} onPress={onRefresh} activeOpacity={0.85}>
           <Text style={styles.refreshText}>↻ Refresh</Text>
         </TouchableOpacity>
       </View>
+    </View>
+  );
 
-      {isLoading && (
+  const renderItem = ({ item }: { item: any }) => {
+    const fixtureId = item.fixture_id || item.summary?.fixture_id;
+    return (
+      <MatchCard
+        match={item}
+        isFavorite={isFavorite(fixtureId)}
+        onToggleFavorite={() => fixtureId && toggleFavorite(fixtureId)}
+        onPress={() =>
+          navigation.navigate('MatchDetails', {
+            fixtureId,
+            summary: item.summary,
+          })
+        }
+      />
+    );
+  };
+
+  const renderFooter = () => {
+    if (!isFetchingNextPage) return null;
+    return (
+      <View style={{ marginTop: 8 }}>
+        <SkeletonCard />
+      </View>
+    );
+  };
+
+  const emptyComponent = () => {
+    if (isLoading) {
+      return (
         <View>
           {[0, 1, 2].map((item) => (
             <SkeletonCard key={`skeleton-${item}`} />
           ))}
         </View>
-      )}
+      );
+    }
 
-      {isError && <ErrorState message={error?.message || 'Unable to load matches'} onRetry={onRefresh} />}
+    if (isError) {
+      return <ErrorState message={error?.message || 'Unable to load matches'} onRetry={onRefresh} />;
+    }
 
-      {!isLoading && !isError && data?.length === 0 && (
-        <View style={styles.emptyBox}>
-          <Text style={styles.emptyText}>No matches available right now.</Text>
-        </View>
-      )}
+    return (
+      <View style={styles.emptyBox}>
+        <Text style={styles.emptyText}>No matches available right now.</Text>
+      </View>
+    );
+  };
 
-      {!isLoading && !isError
-        ? sortedMatches?.map((match) => {
-            const fixtureId = match.fixture_id || match.summary?.fixture_id;
-            return (
-              <MatchCard
-                key={fixtureId ?? Math.random().toString()}
-                match={match}
-                isFavorite={isFavorite(fixtureId)}
-                onToggleFavorite={() => fixtureId && toggleFavorite(fixtureId)}
-                onPress={() =>
-                  navigation.navigate('MatchDetails', {
-                    fixtureId,
-                    summary: match.summary,
-                  })
-                }
-              />
-            );
-          })
-        : null}
-    </ScrollView>
+  return (
+    <FlatList
+      contentContainerStyle={styles.container}
+      data={sortedMatches}
+      renderItem={renderItem}
+      keyExtractor={(item) => `${item.fixture_id || item.summary?.fixture_id || Math.random()}`}
+      ListHeaderComponent={renderHeader}
+      ListFooterComponent={renderFooter}
+      ListEmptyComponent={emptyComponent}
+      refreshControl={
+        <RefreshControl refreshing={isLoading || isRefetching} onRefresh={onRefresh} tintColor={COLORS.neonPurple} />
+      }
+      onEndReached={() => {
+        if (hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      }}
+      onEndReachedThreshold={0.5}
+      initialNumToRender={8}
+      maxToRenderPerBatch={8}
+      windowSize={5}
+      removeClippedSubviews
+    />
   );
 };
 

@@ -76,6 +76,13 @@ export interface FullMatch {
 export interface MatchListItem {
   fixture_id?: number;
   summary?: MatchSummary;
+  odds?: FullOdds;
+}
+
+export interface TodayMatchesPage {
+  items: MatchListItem[];
+  next_cursor?: number | null;
+  total?: number;
 }
 
 export interface H2HMatch {

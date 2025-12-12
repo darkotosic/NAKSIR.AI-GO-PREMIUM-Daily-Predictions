@@ -11,9 +11,11 @@ from pydantic import BaseModel, Field
 
 from . import api_football
 from .api_football import get_fixtures_today, get_fixture_by_id
+from .cache import cache_get, make_cache_key
 from .match_full import build_full_match, build_match_summary
-from .ai_analysis import run_ai_analysis
+from .ai_analysis import build_fallback_analysis, run_ai_analysis
 from .config import TIMEZONE
+from .odds_summary import build_odds_summary
 
 # ---------------------------------------------------------------------
 # Logging setup
@@ -154,55 +156,58 @@ def list_routes() -> List[Dict[str, Any]]:
     tags=["matches"],
     summary="Svi današnji mečevi (card format)",
 )
-def get_today_matches() -> List[Dict[str, Any]]:
+def get_today_matches(
+    cursor: int = Query(0, ge=0, description="Pagination cursor"),
+    limit: int = Query(10, ge=1, le=100, description="Page size"),
+) -> Dict[str, Any]:
     """
-    Vrati listu svih *dozvoljenih* mečeva za današnji dan.
+    Vrati listu svih *dozvoljenih* mečeva za današnji dan u paginiranom wrapper-u.
 
     Interno:
     - `get_fixtures_today()` radi poziv ka API-Football i filtriranje
       (allowlist liga + izbacivanje završenih / otkazanih statusa).
     - `build_match_summary()` pretvara raw fixture u lagani JSON
       spreman za karticu na frontu (liga, timovi, kickoff, status, skor, flagovi...).
-
-    Response je čist `List[card]` bez dodatnog wrapper-a,
-    da Expo/React Native može direktno da map-uje niz.
+    - Lagani odds snapshot se doda samo ako već postoji u cache-u (bez novih API poziva).
     """
+
     fixtures = get_fixtures_today()
     cards: List[Dict[str, Any]] = []
 
     for fx in fixtures:
         fixture_id = (fx.get("fixture") or {}).get("id")
+        summary = build_match_summary(fx)
 
-        try:
-            full_context = build_full_match(fx)
-        except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "Failed to build full context for fixture_id=%s: %s", fixture_id, exc
-            )
-            full_context = None
+        odds_flat = None
+        if fixture_id:
+            odds_key = make_cache_key("odds", {"fixture": fixture_id, "page": 1})
+            odds_payload = cache_get(odds_key)
+            odds_response = odds_payload.get("response") if isinstance(odds_payload, dict) else None
+            if isinstance(odds_response, list) and odds_response:
+                try:
+                    odds_flat = build_odds_summary(odds_response)
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "Failed to build odds snapshot for fixture_id=%s: %s", fixture_id, exc
+                    )
 
-        if not full_context:
-            cards.append(build_match_summary(fx))
-            continue
+        card: Dict[str, Any] = {
+            "fixture_id": fixture_id,
+            "summary": summary,
+        }
+        if odds_flat:
+            card["odds"] = {"flat": odds_flat}
+        cards.append(card)
 
-        odds_block = full_context.get("odds") or {}
+    total = len(cards)
+    start = min(cursor, total)
+    end = min(start + limit, total)
+    items = cards[start:end]
+    next_cursor = end if end < total else None
 
-        cards.append(
-            {
-                "fixture_id": fixture_id,
-                "summary": full_context.get("summary"),
-                "standings": full_context.get("standings"),
-                # Lagani snapshot za kartice – frontu je dovoljan "flat" deo
-                "odds": {
-                    "flat": odds_block.get("flat"),
-                    "flat_probabilities": odds_block.get("flat_probabilities"),
-                },
-            }
-        )
+    logger.info("Today matches requested -> %s cards (cursor=%s, limit=%s)", total, cursor, limit)
 
-    logger.info("Today matches requested -> %s cards", len(cards))
-
-    return cards
+    return {"items": items, "next_cursor": next_cursor, "total": total}
 
 
 @app.get(
@@ -232,6 +237,10 @@ def get_match_summary(
 )
 def get_match_full(
     fixture_id: int = Path(..., description="API-Football fixture ID"),
+    sections: Optional[str] = Query(
+        default=None,
+        description="Comma-separated list of sections to include (summary,odds,standings,stats,team_stats,h2h,events,lineups,players,predictions,injuries)",
+    ),
 ) -> Dict[str, Any]:
     """
     Dubinski kontekst jednog meča.
@@ -248,7 +257,13 @@ def get_match_full(
     if not fixture:
         raise HTTPException(status_code=404, detail="Fixture not found")
 
-    full_context = build_full_match(fixture)
+    section_set = (
+        {part.strip() for part in sections.split(",") if part.strip()}
+        if sections
+        else None
+    )
+
+    full_context = build_full_match(fixture, sections=section_set)
 
     return full_context
 
@@ -319,17 +334,6 @@ def post_match_ai_analysis(
     2) Od njega se napravi full kontekst (`build_full_match`).
     3) Taj kontekst + opcioni `question` se šalju u `run_ai_analysis`.
     """
-    fixture = get_fixture_by_id(fixture_id)
-    if not fixture:
-        raise HTTPException(status_code=404, detail="Fixture not found")
-
-    full_context = build_full_match(fixture)
-
-    odds_probabilities = None
-    odds_section = full_context.get("odds") or {}
-    if isinstance(odds_section, dict):
-        odds_probabilities = odds_section.get("flat_probabilities")
-
     user_question = payload.question.strip() if payload.question else None
     logger.info(
         "AI analysis requested for fixture_id=%s (custom_question=%s)",
@@ -337,10 +341,41 @@ def post_match_ai_analysis(
         bool(user_question),
     )
 
-    analysis = run_ai_analysis(
-        full_match=full_context,
-        user_question=user_question,
-    )
+    fixture = None
+    try:
+        fixture = get_fixture_by_id(fixture_id)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "Failed to fetch fixture_id=%s from API-Football: %s", fixture_id, exc
+        )
+
+    if not fixture:
+        analysis = build_fallback_analysis("fixture not found or API-Football unavailable")
+        odds_probabilities = None
+    else:
+        try:
+            full_context = build_full_match(fixture)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "Failed to build full match context for fixture_id=%s: %s",
+                fixture_id,
+                exc,
+            )
+            full_context = None
+
+        if not full_context:
+            analysis = build_fallback_analysis("context build failed")
+            odds_probabilities = None
+        else:
+            odds_section = full_context.get("odds") or {}
+            odds_probabilities = None
+            if isinstance(odds_section, dict):
+                odds_probabilities = odds_section.get("flat_probabilities")
+
+            analysis = run_ai_analysis(
+                full_match=full_context,
+                user_question=user_question,
+            )
 
     return {
         "fixture_id": fixture_id,

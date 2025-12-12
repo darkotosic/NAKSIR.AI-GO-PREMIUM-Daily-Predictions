@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import logging
+import time
+from collections import deque
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Deque, Dict, List, Optional
 
-import logging
 import requests
 from zoneinfo import ZoneInfo
 
@@ -16,9 +17,24 @@ from .config import (
     SKIP_STATUS,
 )
 
+from .cache import (
+    begin_inflight,
+    cache_get,
+    cache_set,
+    make_cache_key,
+    resolve_inflight,
+    wait_for_inflight,
+)
+
 logger = logging.getLogger("naksir.go_premium.api_football")
 
 DEFAULT_TIMEOUT = 15  # seconds
+RATE_LIMIT_WINDOW = 60  # seconds
+RATE_LIMIT_THRESHOLD = 5
+MAX_BACKOFF = 10
+
+SESSION = requests.Session()
+RATE_LIMIT_EVENTS: Deque[float] = deque()
 
 
 # ---------------------------------------------------------------------------
@@ -30,6 +46,44 @@ def _build_url(endpoint: str) -> str:
     endpoint = endpoint.lstrip("/")
     base = API_FOOTBALL_BASE_URL.rstrip("/")
     return f"{base}/{endpoint}"
+
+
+def _prune_rate_limits(now: float) -> None:
+    while RATE_LIMIT_EVENTS and RATE_LIMIT_EVENTS[0] < now - RATE_LIMIT_WINDOW:
+        RATE_LIMIT_EVENTS.popleft()
+
+
+def _get_ttl_for_endpoint(endpoint: str) -> int:
+    endpoint = endpoint.strip("/")
+    if endpoint == "fixtures":
+        return 45
+    if endpoint == "standings":
+        return 6 * 60 * 60
+    if endpoint == "teams/statistics":
+        return 6 * 60 * 60
+    if endpoint == "fixtures/headtohead":
+        return 6 * 60 * 60
+    if endpoint == "odds":
+        return 120
+    if endpoint in {
+        "fixtures/events",
+        "fixtures/lineups",
+        "fixtures/players",
+        "injuries",
+        "predictions",
+    }:
+        return 10 * 60
+    if endpoint == "fixtures/statistics":
+        return 10 * 60
+    return 0
+
+
+def _circuit_open(endpoint: str) -> bool:
+    now = time.time()
+    _prune_rate_limits(now)
+    if endpoint.strip("/") == "fixtures":
+        return False
+    return len(RATE_LIMIT_EVENTS) >= RATE_LIMIT_THRESHOLD
 
 
 def _call_api(
@@ -47,47 +101,109 @@ def _call_api(
     """
     params = dict(params or {})
     url = _build_url(endpoint)
+    cache_key = make_cache_key(endpoint, params)
+    cached = cache_get(cache_key)
 
+    if cached and _circuit_open(endpoint):
+        logger.warning("API-Football circuit open for %s, serving cached payload", endpoint)
+        return cached
+    if _circuit_open(endpoint):
+        logger.warning("API-Football circuit open for %s, no cache available", endpoint)
+        return cached or {}
+
+    if cached:
+        return cached
+
+    inflight, owns_execution = begin_inflight(cache_key)
+    if not owns_execution:
+        try:
+            return wait_for_inflight(inflight)
+        except Exception:
+            if safe:
+                return cached or {}
+            raise
+
+    backoff_seconds = 1
     try:
-        resp = requests.get(url, headers=HEADERS, params=params, timeout=DEFAULT_TIMEOUT)
-    except Exception as exc:  # network / timeout / SSL...
-        logger.warning(
-            "API-Football request failed (%s, params=%s): %s",
-            endpoint,
-            params,
-            exc,
-        )
-        if safe:
-            return {}
-        raise
+        while True:
+            try:
+                resp = SESSION.get(
+                    url, headers=HEADERS, params=params, timeout=DEFAULT_TIMEOUT
+                )
+            except Exception as exc:  # network / timeout / SSL...
+                logger.warning(
+                    "API-Football request failed (%s, params=%s): %s",
+                    endpoint,
+                    params,
+                    exc,
+                )
+                if safe:
+                    resolve_inflight(cache_key, value=cached or {})
+                    return cached or {}
+                resolve_inflight(cache_key, error=exc)
+                raise
 
-    if resp.status_code != 200:
-        snippet = resp.text[:500].replace("\n", " ")
-        logger.warning(
-            "API-Football non-200 (%s) for %s params=%s: %s",
-            resp.status_code,
-            endpoint,
-            params,
-            snippet,
-        )
-        if safe:
-            return {}
-        resp.raise_for_status()
+            if resp.status_code == 429:
+                RATE_LIMIT_EVENTS.append(time.time())
+                if cached:
+                    logger.warning(
+                        "API-Football 429 for %s params=%s; serving cached payload", endpoint, params
+                    )
+                    resolve_inflight(cache_key, value=cached)
+                    return cached
+                if backoff_seconds > MAX_BACKOFF:
+                    message = f"API-Football rate limited {endpoint} beyond backoff"
+                    logger.warning(message)
+                    if safe:
+                        resolve_inflight(cache_key, value=cached or {})
+                        return cached or {}
+                    error = RuntimeError(message)
+                    resolve_inflight(cache_key, error=error)
+                    raise error
+                time.sleep(backoff_seconds)
+                backoff_seconds = min(backoff_seconds * 2, MAX_BACKOFF)
+                continue
 
-    try:
-        data = resp.json()
-    except ValueError as exc:
-        logger.warning(
-            "API-Football invalid JSON for %s params=%s: %s",
-            endpoint,
-            params,
-            exc,
-        )
-        if safe:
-            return {}
-        raise
+            if resp.status_code != 200:
+                snippet = resp.text[:500].replace("\n", " ")
+                logger.warning(
+                    "API-Football non-200 (%s) for %s params=%s: %s",
+                    resp.status_code,
+                    endpoint,
+                    params,
+                    snippet,
+                )
+                if safe:
+                    resolve_inflight(cache_key, value=cached or {})
+                    return cached or {}
+                try:
+                    resp.raise_for_status()
+                except Exception as exc:  # noqa: BLE001
+                    resolve_inflight(cache_key, error=exc)
+                    raise
 
-    return data or {}
+            try:
+                data = resp.json()
+            except ValueError as exc:  # noqa: BLE001
+                logger.warning(
+                    "API-Football invalid JSON for %s params=%s: %s",
+                    endpoint,
+                    params,
+                    exc,
+                )
+                if safe:
+                    resolve_inflight(cache_key, value=cached or {})
+                    return cached or {}
+                resolve_inflight(cache_key, error=exc)
+                raise
+
+            ttl = _get_ttl_for_endpoint(endpoint)
+            if data:
+                cache_set(cache_key, data, ttl)
+            resolve_inflight(cache_key, value=data or {})
+            return data or {}
+    finally:
+        resolve_inflight(cache_key, value=cached or {})
 
 
 def _extract_response_list(payload: Dict[str, Any]) -> List[Dict[str, Any]]:

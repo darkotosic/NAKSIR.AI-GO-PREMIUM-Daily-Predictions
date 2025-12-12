@@ -105,6 +105,12 @@ def _fallback_response(reason: str) -> Dict[str, Any]:
     }
 
 
+def build_fallback_analysis(reason: str) -> Dict[str, Any]:
+    """Public wrapper for returning a safe, validated fallback block."""
+
+    return _fallback_response(reason)
+
+
 def run_ai_analysis(
     full_match: Dict[str, Any],
     user_question: Optional[str] = None,

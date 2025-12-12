@@ -63,7 +63,7 @@ def normalize_odds(odds_raw: List[Dict[str, Any]]) -> Dict[str, Any]:
     for row in odds_raw:
         for bm in row.get("bookmakers", []):
             for bet in bm.get("bets", []):
-                name = (bet.get("name") or "").lower()
+                name = str(bet.get("name") or "").lower()
 
                 # 1X2 / Match winner
                 if "match winner" in name or name in {"1x2", "winner"}:
@@ -96,7 +96,7 @@ def normalize_odds(odds_raw: List[Dict[str, Any]]) -> Dict[str, Any]:
 
 def _apply_match_winner(result: Dict[str, Any], bet: Dict[str, Any]) -> None:
     for v in bet.get("values", []):
-        label = (v.get("value") or "").strip().lower()
+        label = str(v.get("value") or "").strip().lower()
         odd = _parse_float(v.get("odd"))
         if odd is None:
             continue
@@ -110,7 +110,7 @@ def _apply_match_winner(result: Dict[str, Any], bet: Dict[str, Any]) -> None:
 
 def _apply_double_chance(result: Dict[str, Any], bet: Dict[str, Any]) -> None:
     for v in bet.get("values", []):
-        label = (v.get("value") or "").replace(" ", "").upper()
+        label = str(v.get("value") or "").replace(" ", "").upper()
         odd = _parse_float(v.get("odd"))
         if odd is None:
             continue
@@ -124,7 +124,7 @@ def _apply_double_chance(result: Dict[str, Any], bet: Dict[str, Any]) -> None:
 
 def _apply_btts(result: Dict[str, Any], bet: Dict[str, Any]) -> None:
     for v in bet.get("values", []):
-        label = (v.get("value") or "").strip().lower()
+        label = str(v.get("value") or "").strip().lower()
         odd = _parse_float(v.get("odd"))
         if odd is None:
             continue
@@ -136,7 +136,7 @@ def _apply_btts(result: Dict[str, Any], bet: Dict[str, Any]) -> None:
 
 def _apply_totals(result: Dict[str, Any], bet: Dict[str, Any], *, half_time: bool) -> None:
     for v in bet.get("values", []):
-        label = (v.get("value") or "").lower().replace(" ", "")
+        label = str(v.get("value") or "").lower().replace(" ", "")
         odd = _parse_float(v.get("odd"))
         if odd is None:
             continue
@@ -162,7 +162,7 @@ def _apply_totals(result: Dict[str, Any], bet: Dict[str, Any], *, half_time: boo
 
 def _apply_team_totals(result: Dict[str, Any], bet: Dict[str, Any], *, side: str) -> None:
     for v in bet.get("values", []):
-        label = (v.get("value") or "").lower().replace(" ", "")
+        label = str(v.get("value") or "").lower().replace(" ", "")
         odd = _parse_float(v.get("odd"))
         if odd is None:
             continue

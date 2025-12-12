@@ -139,7 +139,15 @@ def build_match_summary(fixture: Dict[str, Any]) -> Dict[str, Any]:
 # ---------------------------------------------------------------------
 
 
-def build_full_match(fixture: Dict[str, Any]) -> Dict[str, Any]:
+def _should_include(section: str, sections: Optional[set[str]]) -> bool:
+    if sections is None:
+        return True
+    if "all" in sections:
+        return True
+    return section in sections
+
+
+def build_full_match(fixture: Dict[str, Any], sections: Optional[set[str]] = None) -> Dict[str, Any]:
     """
     OPTION A – CLEAN STRUCTURED
 
@@ -186,41 +194,52 @@ full_context = {
 
     # ---- Basic stats & standings -------------------------------------------------
 
-    stats = _safe_call(
-        "fixture_stats",
-        getattr(api_football, "get_fixture_stats", None),
-        fixture_id,
-    )
-
-    team_stats_home = (
+    stats = (
         _safe_call(
-            "team_stats_home",
-            getattr(api_football, "get_team_stats", None),
-            league_id,
-            season,
-            home_team_id,
+            "fixture_stats",
+            getattr(api_football, "get_fixture_stats", None),
+            fixture_id,
         )
-        if home_team_id
+        if _should_include("stats", sections)
         else None
     )
 
-    team_stats_away = (
+    team_stats_home = None
+    team_stats_away = None
+    if _should_include("team_stats", sections):
+        team_stats_home = (
+            _safe_call(
+                "team_stats_home",
+                getattr(api_football, "get_team_stats", None),
+                league_id,
+                season,
+                home_team_id,
+            )
+            if home_team_id
+            else None
+        )
+
+        team_stats_away = (
+            _safe_call(
+                "team_stats_away",
+                getattr(api_football, "get_team_stats", None),
+                league_id,
+                season,
+                away_team_id,
+            )
+            if away_team_id
+            else None
+        )
+
+    standings = (
         _safe_call(
-            "team_stats_away",
-            getattr(api_football, "get_team_stats", None),
+            "standings",
+            getattr(api_football, "get_standings", None),
             league_id,
             season,
-            away_team_id,
         )
-        if away_team_id
+        if _should_include("standings", sections)
         else None
-    )
-
-    standings = _safe_call(
-        "standings",
-        getattr(api_football, "get_standings", None),
-        league_id,
-        season,
     )
 
     # ---- Rich context (ako su helperi implementirani u api_football) -------------
@@ -229,7 +248,7 @@ full_context = {
     if h2h_helper is None:
         h2h_helper = getattr(api_football, "get_h2h", None)
 
-    if h2h_helper and home_team_id and away_team_id:
+    if h2h_helper and home_team_id and away_team_id and _should_include("h2h", sections):
         h2h = _safe_call(
             "h2h",
             h2h_helper,
@@ -240,39 +259,51 @@ full_context = {
     else:
         h2h = None
 
-    events_helper = getattr(api_football, "get_fixture_events", None) or getattr(
-        api_football, "get_events_for_fixture", None
-    )
-    events = _safe_call("events", events_helper, fixture_id)
+    events = None
+    if _should_include("events", sections):
+        events_helper = getattr(api_football, "get_fixture_events", None) or getattr(
+            api_football, "get_events_for_fixture", None
+        )
+        events = _safe_call("events", events_helper, fixture_id)
 
-    lineups_helper = getattr(api_football, "get_fixture_lineups", None) or getattr(
-        api_football, "get_lineups_for_fixture", None
-    )
-    lineups = _safe_call("lineups", lineups_helper, fixture_id)
+    lineups = None
+    if _should_include("lineups", sections):
+        lineups_helper = getattr(api_football, "get_fixture_lineups", None) or getattr(
+            api_football, "get_lineups_for_fixture", None
+        )
+        lineups = _safe_call("lineups", lineups_helper, fixture_id)
 
-    players_helper = getattr(api_football, "get_fixture_players", None) or getattr(
-        api_football, "get_players_for_fixture", None
-    )
-    players = _safe_call("players", players_helper, fixture_id)
+    players = None
+    if _should_include("players", sections):
+        players_helper = getattr(api_football, "get_fixture_players", None) or getattr(
+            api_football, "get_players_for_fixture", None
+        )
+        players = _safe_call("players", players_helper, fixture_id)
 
-    predictions_helper = getattr(api_football, "get_fixture_predictions", None) or getattr(
-        api_football, "get_predictions", None
-    )
-    predictions = _safe_call("predictions", predictions_helper, fixture_id)
+    predictions = None
+    if _should_include("predictions", sections):
+        predictions_helper = getattr(api_football, "get_fixture_predictions", None) or getattr(
+            api_football, "get_predictions", None
+        )
+        predictions = _safe_call("predictions", predictions_helper, fixture_id)
 
-    injuries_helper = getattr(api_football, "get_fixture_injuries", None) or getattr(
-        api_football, "get_injuries_for_fixture", None
-    )
-    injuries = _safe_call("injuries", injuries_helper, fixture_id)
+    injuries = None
+    if _should_include("injuries", sections):
+        injuries_helper = getattr(api_football, "get_fixture_injuries", None) or getattr(
+            api_football, "get_injuries_for_fixture", None
+        )
+        injuries = _safe_call("injuries", injuries_helper, fixture_id)
 
     # ---- Odds (raw + normalizovani marketi) --------------------------------------
 
-    odds_helper = getattr(api_football, "get_all_odds_for_fixture", None)
-    odds_raw = _safe_call("odds_all", odds_helper, fixture_id)
-
-    odds_summary = None
+    odds_raw = None
     odds_flat = None
+    odds_summary = None
     odds_flat_probabilities = None
+    if _should_include("odds", sections):
+        odds_helper = getattr(api_football, "get_all_odds_for_fixture", None)
+        odds_raw = _safe_call("odds_all", odds_helper, fixture_id)
+
     if odds_raw:
         try:
             odds_summary = normalize_odds(odds_raw)
