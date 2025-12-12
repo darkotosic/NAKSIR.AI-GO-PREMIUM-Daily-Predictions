@@ -262,8 +262,8 @@ const MatchDetailsScreen: React.FC = () => {
           {deepDiveSections.length ? (
             <View style={styles.sectionBlock}>
               <View style={[styles.sectionHeaderRow, { marginBottom: 4 }]}>
-                <Text style={styles.sectionLabel}>Full match breakdown</Text>
-                <Text style={styles.sectionMeta}>Tap to open dedicated screens</Text>
+                <Text style={styles.sectionLabel}></Text>
+                <Text style={styles.sectionMeta}></Text>
               </View>
               <View style={styles.sectionChipRow}>
                 {deepDiveSections.map((section) => (
