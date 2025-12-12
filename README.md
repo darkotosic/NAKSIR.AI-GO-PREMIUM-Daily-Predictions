@@ -1,25 +1,42 @@
-# Naksir GO Premium — Backend + Expo frontend
+# Naksir GO Premium — FastAPI backend + Expo frontend
 
-Ovaj repo sadrži kompletan FastAPI backend i Expo (React Native) frontend koji
-pričaju preko JSON feedova hostovanih na `https://naksir-go-premium-api.onrender.com`.
-Backend prikuplja i normalizuje podatke iz API‑FOOTBALL-a, a frontend renderuje
-kartice mečeva, detalje i AI analize.
+Repozitorijum isporučuje kompletan FastAPI servis za nogometne feedove i Expo
+(React Native) klijent. Backend u realnom vremenu poziva API‑FOOTBALL, kešira
+odgovore sa TTL‑om i rate‑limit zaštitom, normalizuje podatke za kartice i AI
+analize, a frontend prikazuje listu mečeva, detalje i GPT‑generisane savete.
 
 ## Backend (FastAPI)
 
-### Rute
+### Ključne rute
 
-- `GET /` i `GET /health` – osnovni meta/health check odgovori.
-- `GET /matches/today` – lista današnjih mečeva za allow‑listed lige (liga,
-  timovi, kickoff u `Europe/Belgrade`, status, skor, standings snapshot i
-  osnovni odds snapshot za kartice).
-- `GET /matches/{fixture_id}` – isti card format kao gore, ali za konkretan
-  fixture.
-- `GET /matches/{fixture_id}/full` – kompletan kontekst meča: forma, standings,
-  H2H, linije, statistike timova/fixture‑a, predictions, injuries i
-  normalizovani odds (uključujući flat probability snapshot).
-- `POST /matches/{fixture_id}/ai-analysis` – koristi pun kontekst i opcioni
-  `question` da vrati strukturisan AI rezime + value bet signale.
+- `GET /` i `GET /health` – brzi meta i health check odgovori za uptime.
+- `GET /_debug/routes` – izlistavanje aktivnih ruta (dobrodošlo na Render
+  logovima).
+- `GET /matches/today` – paginirana lista današnjih mečeva iz allow‑listed liga
+  (liga, timovi, kickoff u `Europe/Belgrade`, status, skor). Ako postoji keš
+  odds feed-a, vraća i lagani `odds.flat` snapshot.
+- `GET /matches/{fixture_id}` – jedan match card u istom formatu kao gore.
+- `GET /matches/{fixture_id}/full` – prošireni kontekst sa sekcijama summary,
+  odds (uključujući `flat_probabilities`), standings, stats, team stats, h2h,
+  events, lineups, players, predictions i injuries. Parametar `sections` omogućava
+  selektivno učitavanje blokova.
+- `GET /h2h?fixture_id=` – izolovani H2H blok za dati fixture (koristi se na
+  dedicated ekranu u klijentu).
+- `POST /matches/{fixture_id}/ai-analysis` – gradi full kontekst i prosleđuje ga
+  GPT sloju (`backend.ai_analysis.run_ai_analysis`) sa opcionim `question` promptom;
+  vraća strukturisan rezime, value bet signale i snapshot izračunatih
+  verovatnoća iz odds odeljka.
+
+### Interno ponašanje
+
+- API‑FOOTBALL helper (`backend/api_football.py`) koristi memorijski keš sa TTL
+  vrednostima po endpointu, deduplikaciju inflight poziva i graceful fallback ako
+  se naiđe na 429/timeout/invalid JSON.
+- Sažetak meča (`backend/match_full.py`) normalizuje osnovne podatke, dok
+  `normalize_odds` i `build_odds_probabilities` spremaju odds u flat formate za
+  lakše poređenje na frontu i u AI sloju.
+- Allow‑lista liga i filtriranje statusa (`backend/config.py`) drže feed čist od
+  otkazanih ili završenih mečeva.
 
 ### Podešavanje i pokretanje lokalno
 
@@ -51,10 +68,11 @@ Swagger UI je dostupan na `http://localhost:8000/docs`.
 ## Frontend (Expo / React Native)
 
 - Lokacija: `frontend/` (Expo SDK 54, React Native 0.81).
-- Koristi rute iznad (`/matches/today`, `/matches/{id}/full`,
-  `/matches/{id}/ai-analysis`) za pun tok: lista mečeva, detalji, AI analiza i
-  vrednosne opklade.
-- Zadati API endpoint u kodu je `https://naksir-go-premium-api.onrender.com`.
+- Osnovni flow: lista današnjih mečeva, detaljni ekran sa tabs (stats, H2H,
+  standings, injuries, odds) i call-to-action za AI Match Analysis + Q&A koji
+  pogađa rute `GET /matches/{id}/full` i `POST /matches/{id}/ai-analysis`.
+- Podrazumevani API endpoint u kodu je
+  `https://naksir-go-premium-api.onrender.com`.
 
 ### Pokretanje frontend-a
 
@@ -64,5 +82,5 @@ npm install
 npm run start  # ili npm run android / ios / web
 ```
 
-Expo CLI otvara bundler; u simulatoru ili na fizičkom uređaju videćete drawer
-sa "Today's Matches" listom, detaljnim ekranom meča i sekcijom za AI analize.
+Expo CLI otvara bundler; u simulatoru ili na fizičkom uređaju videćete drawer sa
+"Today's Matches" listom, detaljnim ekranom meča i sekcijom za AI analize i Q&A.
