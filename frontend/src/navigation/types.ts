@@ -14,5 +14,4 @@ export type RootDrawerParamList = {
   Predictions: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
   Injuries: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
   GoPremium: undefined;
-  NaksirAccount: undefined;
 };
