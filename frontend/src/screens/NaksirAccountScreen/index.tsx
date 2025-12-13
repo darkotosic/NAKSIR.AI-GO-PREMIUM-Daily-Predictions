@@ -4,7 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 const NaksirAccountScreen: React.FC = () => (
   <View style={styles.container}>
     <Text style={styles.title}>Naksir Account</Text>
-    <Text style={styles.subtitle}>Prijava i korisnički profil dolaze uskoro.</Text>
+    <Text style={styles.subtitle}>Sign-in and profile features are coming soon.</Text>
   </View>
 );
 
