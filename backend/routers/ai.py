@@ -6,14 +6,18 @@ from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Path, Query
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
 from backend import api_football
 from backend.ai_analysis import build_fallback_analysis, run_ai_analysis
 from backend.config import TIMEZONE
-from backend.db import SessionLocal
+from backend.db import get_db
 from backend.dependencies import require_api_key
 from backend.match_full import build_full_match
-from backend.routers.billing import _get_or_create_user
+from backend.services.users_service import (
+    get_or_create_user,
+    mark_free_reward_used,
+)
 
 router = APIRouter(tags=["ai"])
 logger = logging.getLogger("naksir.go_premium.api")
@@ -41,6 +45,7 @@ def post_match_ai_analysis(
     ),
     trial: bool = Query(False, description="Da li je besplatna nagrada iskorišćena"),
     install_id: Optional[str] = Header(None, alias="X-Install-Id"),
+    session: Session = Depends(get_db),
 ) -> Dict[str, Any]:
     """
     GPT analiza konkretnog meča.
@@ -105,11 +110,8 @@ def post_match_ai_analysis(
     if trial:
         if not install_id:
             raise HTTPException(status_code=400, detail="X-Install-Id header is required for trial flag")
-        with SessionLocal() as session:
-            _, wallet = _get_or_create_user(session, install_id)
-            wallet.free_reward_used = True
-            session.add(wallet)
-            session.commit()
+        _, wallet = get_or_create_user(session, install_id)
+        mark_free_reward_used(session, wallet)
 
     return {
         "fixture_id": fixture_id,
