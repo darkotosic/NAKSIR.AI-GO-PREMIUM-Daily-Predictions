@@ -9,7 +9,7 @@ analize, a frontend prikazuje listu mečeva, detalje i GPT‑generisane savete.
 
 ### Ključne rute
 
-- `GET /` i `GET /health` – brzi meta i health check odgovori za uptime.
+- `GET /` i `GET /health` – brzi meta i health check odgovori za uptime (health sada ping-uje bazu).
 - `GET /_debug/routes` – izlistavanje aktivnih ruta (dobrodošlo na Render
   logovima).
 - `GET /matches/today` – paginirana lista današnjih mečeva iz allow‑listed liga
@@ -53,6 +53,25 @@ uvicorn backend.app:app --reload --port 8000
 ```
 
 Swagger UI je dostupan na `http://localhost:8000/docs`.
+
+### Baza i migracije (Postgres)
+
+Backend koristi SQLAlchemy + Alembic sa Postgres bazom. `DATABASE_URL` mora biti postavljen (npr. `postgresql://user:pass@host:5432/dbname`).
+
+Prva migracija već postoji (`alembic/versions/0001_initial.py`). Da je primeniš bez ikakvog drop/reset pristupa bazi:
+
+```bash
+export DATABASE_URL=postgresql://user:pass@host:5432/dbname
+alembic upgrade head
+```
+
+Kada menjaš modele i želiš novu migraciju:
+
+```bash
+export DATABASE_URL=postgresql://user:pass@host:5432/dbname
+alembic revision --autogenerate -m "describe changes"
+alembic upgrade head
+```
 
 ### Deploy na Render
 
