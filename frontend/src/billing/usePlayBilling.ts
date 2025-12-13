@@ -10,8 +10,8 @@ import { verifyGooglePurchase } from '@api/billing';
 
 export const BILLING_SKUS = {
   // 1 DAY
-  DAY_1_5: 'naksir_day_1_5_',
-  DAY_1_10: 'naksir_day_1_10_',
+  DAY_1_5: 'naksir_day_1_5',
+  DAY_1_10: 'naksir_day_1_10',
   DAY_1_UNLIMITED: 'naksir_day_1_unlock',
 
   // 7 DAYS
