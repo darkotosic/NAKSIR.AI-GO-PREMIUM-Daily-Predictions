@@ -1,16 +1,19 @@
 {
   "expo": {
-    "name": "Soccer Predictions - Naksir Ai",
+    "name": "Soccer Predictions - Naksir AI",
     "slug": "soccer-predictions-naksir-ai",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "newArchEnabled": true,
+
+    "icon": "./assets/icon.png",
+
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+
     "android": {
       "package": "com.naksir.soccerpredictions",
       "versionCode": 1,
@@ -20,19 +23,11 @@
       },
       "edgeToEdgeEnabled": true
     },
+
     "extra": {
       "eas": {
         "projectId": "0c92aea8-3378-4172-b48b-daff32887f51"
       }
-    },
-    "plugins": [
-      "expo-iap",
-      [
-        "react-native-google-mobile-ads",
-        {
-          "android_app_id": "ca-app-pub-1726722567967096~4895623430"
-        }
-      ]
-    ]
+    }
   }
 }
