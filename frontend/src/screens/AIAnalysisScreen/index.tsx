@@ -9,7 +9,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { RouteProp, useRoute } from '@react-navigation/native';
+import { DrawerNavigationProp } from '@react-navigation/drawer';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useAiAnalysisMutation } from '@hooks/useAiAnalysisMutation';
 import { RootDrawerParamList } from '@navigation/types';
 import { trackEvent } from '@lib/tracking';
@@ -26,8 +27,10 @@ const COLORS = {
 };
 
 const AIAnalysisScreen: React.FC = () => {
+  const navigation = useNavigation<DrawerNavigationProp<RootDrawerParamList>>();
   const route = useRoute<RouteProp<RootDrawerParamList, 'AIAnalysis'>>();
   const fixtureId = route.params?.fixtureId;
+  const summary = route.params?.summary;
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const mutation = useAiAnalysisMutation();
 
@@ -145,9 +148,22 @@ const AIAnalysisScreen: React.FC = () => {
   const formatPct = (value?: number | null) =>
     value === null || value === undefined ? '-' : `${value}%`;
 
+  const goBackToMatch = () => {
+    if (fixtureId) {
+      navigation.navigate('MatchDetails', { fixtureId, summary });
+    } else {
+      navigation.navigate('TodayMatches');
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
+        <TouchableOpacity style={styles.backButton} onPress={goBackToMatch}>
+          <Text style={styles.backIcon}>←</Text>
+          <Text style={styles.backLabel}>Back to match</Text>
+        </TouchableOpacity>
+
         <View style={styles.card}>
           <Text style={styles.title}>Naksir In-depth Analysis</Text>
           <Text style={styles.subtitle}>
@@ -339,6 +355,27 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: COLORS.background,
     paddingBottom: 32,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#0b1220',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.neonPurple,
+    alignSelf: 'flex-start',
+    marginBottom: 12,
+  },
+  backIcon: {
+    color: COLORS.text,
+    fontSize: 16,
+  },
+  backLabel: {
+    color: COLORS.text,
+    fontWeight: '700',
   },
   card: {
     backgroundColor: COLORS.card,
