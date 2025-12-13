@@ -61,7 +61,9 @@ class Entitlement(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
 
     tier: Mapped[str] = mapped_column(String(64), nullable=False, default="free")
-    daily_limit: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # 0=free; unlimited se rešava posebnim flagom u logici
+    daily_limit: Mapped[int | None] = mapped_column(Integer, nullable=True, default=0)  # 0=free; unlimited se rešava posebnim flagom u logici
+    total_allowance: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    unlimited: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     valid_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     status: Mapped[EntitlementStatus] = mapped_column(Enum(EntitlementStatus, name="entitlement_status_enum"), nullable=False, default=EntitlementStatus.active)

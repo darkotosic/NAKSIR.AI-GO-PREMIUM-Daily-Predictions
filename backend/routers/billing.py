@@ -87,6 +87,8 @@ def verify_google_purchase(
         plan=product_meta["sku"],
         period_days=product_meta.get("period_days"),
         daily_limit=product_meta.get("daily_limit"),
+        total_allowance=product_meta.get("total_allowance"),
+        unlimited=product_meta.get("unlimited", False),
         purchase=purchase,
         start_at=now,
     )

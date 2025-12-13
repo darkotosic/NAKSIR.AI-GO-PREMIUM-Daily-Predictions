@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, date
-from sqlalchemy import Boolean, Date, DateTime, Enum, ForeignKey, Index, Integer, String
+from sqlalchemy import Boolean, Date, DateTime, Enum, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -12,17 +12,41 @@ class AIUsageDaily(Base):
     __tablename__ = "ai_usage_daily"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
 
-    date: Mapped[date] = mapped_column(Date, nullable=False)  # Europe/Belgrade date računaš u app logici
+    date: Mapped[date] = mapped_column(Date, nullable=False, index=True)  # Europe/Belgrade date računaš u app logici
     count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
 
+    __table_args__ = (
+        UniqueConstraint("user_id", "date", name="uq_ai_usage_user_date"),
+    )
 
-Index("uq_ai_usage_user_date", AIUsageDaily.user_id, AIUsageDaily.date, unique=True)
-Index("ix_ai_usage_user_date", AIUsageDaily.user_id, AIUsageDaily.date)
+
+class AIUsagePeriod(Base):
+    """
+    For 1-day total allowance plans (e.g. 1-day 5/10 analyses total).
+    Keyed by entitlement_id to ensure allowance resets when entitlement changes.
+    """
+
+    __tablename__ = "ai_usage_period"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    entitlement_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("entitlements.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "entitlement_id", name="uq_ai_usage_period_user_ent"),
+    )
 
 
 class CoinsWallet(Base):
