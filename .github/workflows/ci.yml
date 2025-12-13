@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run tests
+        env:
+          APP_ENV: dev
+          API_FOOTBALL_KEY: test-ci
+          OPENAI_API_KEY: test-ci
+          DATABASE_URL: sqlite:///./ci.db
+          API_AUTH_TOKENS: test-token
+          ALLOWED_ORIGINS: http://localhost
+          USE_FAKE_REDIS: "true"
+        run: |
+          pytest --maxfail=1 --disable-warnings

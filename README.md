@@ -11,7 +11,7 @@ analize, a frontend prikazuje listu mečeva, detalje i GPT‑generisane savete.
 
 - `GET /` i `GET /health` – brzi meta i health check odgovori za uptime (health sada ping-uje bazu).
 - `GET /_debug/routes` – izlistavanje aktivnih ruta (dobrodošlo na Render
-  logovima).
+  logovima, sada zaštićeno API ključem).
 - `GET /matches/today` – paginirana lista današnjih mečeva iz allow‑listed liga
   (liga, timovi, kickoff u `Europe/Belgrade`, status, skor). Ako postoji keš
   odds feed-a, vraća i lagani `odds.flat` snapshot.
@@ -29,14 +29,18 @@ analize, a frontend prikazuje listu mečeva, detalje i GPT‑generisane savete.
 
 ### Interno ponašanje
 
-- API‑FOOTBALL helper (`backend/api_football.py`) koristi memorijski keš sa TTL
-  vrednostima po endpointu, deduplikaciju inflight poziva i graceful fallback ako
-  se naiđe na 429/timeout/invalid JSON.
+- API‑FOOTBALL helper (`backend/api_football.py`) koristi deljeni keš (Redis ili
+  fakeredis u dev/test profilu) sa TTL vrednostima po endpointu, deduplikaciju
+  inflight poziva i graceful fallback ako se naiđe na 429/timeout/invalid JSON.
 - Sažetak meča (`backend/match_full.py`) normalizuje osnovne podatke, dok
   `normalize_odds` i `build_odds_probabilities` spremaju odds u flat formate za
   lakše poređenje na frontu i u AI sloju.
 - Allow‑lista liga i filtriranje statusa (`backend/config.py`) drže feed čist od
   otkazanih ili završenih mečeva.
+- CORS je zaključan na poznate domene iz `ALLOWED_ORIGINS`, a sve produktivne
+  rute (billing, matches, AI) zahtevaju `X-API-Key` iz `API_AUTH_TOKENS` liste.
+- Startup log i opcioni `ALERT_WEBHOOK_URL` signaliziraju dostupnost servisa;
+  HTTP middleware meri latenciju i beleži statusne kodove.
 
 ### Podešavanje i pokretanje lokalno
 
@@ -45,8 +49,11 @@ python -m venv .venv
 source .venv/bin/activate  # ili .venv\Scripts\activate na Windowsu
 pip install -r requirements.txt
 
+cp .env.example .env  # popuni obavezne ključeve
 export API_FOOTBALL_KEY=your_api_key_here
-export OPENAI_API_KEY=sk-...  # opciono, za AI analize
+export OPENAI_API_KEY=sk-...  # obavezno za AI sloj
+export API_AUTH_TOKENS=dev-token  # ili CSV lista tokena
+export REDIS_URL=redis://localhost:6379/0  # obavezno za stage/prod
 export TIMEZONE="Europe/Belgrade"
 
 uvicorn backend.app:app --reload --port 8000
@@ -56,7 +63,7 @@ Swagger UI je dostupan na `http://localhost:8000/docs`.
 
 ### Baza i migracije (Postgres)
 
-Backend koristi SQLAlchemy + Alembic sa Postgres bazom. `DATABASE_URL` mora biti postavljen (npr. `postgresql://user:pass@host:5432/dbname`).
+Backend koristi SQLAlchemy + Alembic sa Postgres bazom. `DATABASE_URL` mora biti postavljen (npr. `postgresql://user:pass@host:5432/dbname`). Dev/test profil dozvoljava SQLite (`DATABASE_URL=sqlite:///./dev.db`).
 
 Prva migracija već postoji (`alembic/versions/0001_initial.py`). Da je primeniš bez ikakvog drop/reset pristupa bazi:
 
@@ -81,8 +88,22 @@ alembic upgrade head
   uvicorn backend.app:app --host 0.0.0.0 --port $PORT
   ```
 
-- Ključni env var‑ovi: `API_FOOTBALL_KEY`, `OPENAI_API_KEY` (opciono),
-  `TIMEZONE` (default `Europe/Belgrade`).
+- Ključni env var‑ovi: `API_FOOTBALL_KEY`, `OPENAI_API_KEY`, `DATABASE_URL`,
+  `API_AUTH_TOKENS` i `REDIS_URL` (obavezno za stage/prod). Pogledaj `.env.example`.
+
+### Docker
+
+```bash
+docker build -t naksir-api .
+docker run -p 8000:8000 --env-file .env naksir-api
+```
+
+### Testovi i CI
+
+- `pytest` pokreće smoke testove (health, auth zaštita, matches) koristeći fake
+  Redis i SQLite.
+- GitHub Actions workflow (`.github/workflows/ci.yml`) instalira zavisnosti i
+  izvršava testove na svakom push/pr zahtevu.
 
 ## Frontend (Expo / React Native)
 

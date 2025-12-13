@@ -1,20 +1,28 @@
+from __future__ import annotations
+
 import os
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+from .config import settings
 
-if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL env var is missing")
 
-# Render Postgres je standardno postgres:// ili postgresql://. Preferiramo moderni psycopg driver.
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+def _normalize_database_url(raw_url: str) -> str:
+    url = raw_url.strip()
+    # Render Postgres je standardno postgres:// ili postgresql://. Preferiramo moderni psycopg driver.
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
 
-# Ako URL nema eksplicitan driver, prebacujemo ga na psycopg (psycopg3) koji ima
-# Py3.13 kompatibilne wheel‑ove.
-if DATABASE_URL.startswith("postgresql://"):
-    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
+    # Ako URL nema eksplicitan driver, prebacujemo ga na psycopg (psycopg3) koji ima
+    # Py3.13 kompatibilne wheel‑ove.
+    if url.startswith("postgresql://"):
+        url = url.replace("postgresql://", "postgresql+psycopg://", 1)
+
+    return url
+
+
+DATABASE_URL = _normalize_database_url(settings.database_url)
 
 engine = create_engine(
     DATABASE_URL,
@@ -26,6 +34,7 @@ engine = create_engine(
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, future=True)
+
 
 def get_db():
     db = SessionLocal()
