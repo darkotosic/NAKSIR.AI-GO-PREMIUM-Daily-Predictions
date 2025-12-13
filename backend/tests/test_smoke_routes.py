@@ -1,10 +1,17 @@
 import datetime
+import pathlib
+import sys
 from typing import Any, Dict, List
 
 import pytest
 
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+import tests.conftest  # noqa: F401
+
 from backend import api_football
-from backend import app as backend_app
 from backend import match_full
 
 pytest_plugins = ["tests.conftest"]
@@ -138,10 +145,6 @@ def _install_fake_api(monkeypatch: pytest.MonkeyPatch, fixture: Dict[str, Any], 
     monkeypatch.setattr(api_football, "get_fixture_predictions", lambda *_args, **_kwargs: {}, raising=False)
     monkeypatch.setattr(api_football, "get_fixture_injuries", lambda *_args, **_kwargs: [], raising=False)
     monkeypatch.setattr(api_football, "get_all_odds_for_fixture", lambda _fixture_id: odds_raw, raising=False)
-
-    monkeypatch.setattr(backend_app, "get_fixtures_today", lambda: [fixture])
-    monkeypatch.setattr(backend_app, "get_fixture_by_id", lambda _fx_id: fixture)
-    monkeypatch.setattr(backend_app, "get_standings", lambda *_args, **_kwargs: [])
 
 
 
