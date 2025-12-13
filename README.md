@@ -111,8 +111,9 @@ docker run -p 8000:8000 --env-file .env naksir-api
 - Osnovni flow: lista današnjih mečeva, detaljni ekran sa tabs (stats, H2H,
   standings, injuries, odds) i call-to-action za AI Match Analysis + Q&A koji
   pogađa rute `GET /matches/{id}/full` i `POST /matches/{id}/ai-analysis`.
-- Podrazumevani API endpoint u kodu je
-  `https://naksir-go-premium-api.onrender.com`.
+- API klijent sada čita `EXPO_PUBLIC_API_BASE_URL` (fallback na Render domen)
+  i automatski dodaje `X-API-Key` iz `EXPO_PUBLIC_API_KEY` kako bi backend
+  prošao CORS/auth zaštitu. `X-Install-Id` header i dalje prati uređaj.
 
 ### Pokretanje frontend-a
 
