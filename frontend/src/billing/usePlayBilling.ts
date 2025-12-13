@@ -10,19 +10,19 @@ import { verifyGooglePurchase } from '@api/billing';
 
 export const BILLING_SKUS = {
   // 1 DAY
-  DAY_1_5: 'naksir_day_1_5_analysis',
-  DAY_1_10: 'naksir_day_1_10_analysis',
+  DAY_1_5: 'naksir_day_1_5_',
+  DAY_1_10: 'naksir_day_1_10_',
   DAY_1_UNLIMITED: 'naksir_day_1_unlock',
 
   // 7 DAYS
-  DAY_7_5: 'naksir_7_days_5_per_day',
-  DAY_7_10: 'naksir_7_days_10_per_day',
-  DAY_7_UNLIMITED: 'naksir_7_days_unlimited',
+  DAY_7_5: 'naksir_day_7_5',
+  DAY_7_10: 'naksir_day_7_10',
+  DAY_7_UNLIMITED: 'naksir_day_7_unlimited',
 
   // 30 DAYS
-  DAY_30_5: 'naksir_30_days_5_per_day',
-  DAY_30_10: 'naksir_30_days_10_per_day',
-  DAY_30_UNLIMITED: 'naksir_30_days_unlimited',
+  DAY_30_5: 'naksir_day_30_5',
+  DAY_30_10: 'naksir_day_30_10',
+  DAY_30_UNLIMITED: 'naksir_day_30_unlimited',
 } as const;
 
 export type BillingSku = (typeof BILLING_SKUS)[keyof typeof BILLING_SKUS];
@@ -70,7 +70,7 @@ export function usePlayBilling(): UsePlayBillingReturn {
          */
 
         await verifyGooglePurchase({
-          packageName: (purchase as any)?.packageNameAndroid || 'com.naksir.daily.predictions',
+          packageName: (purchase as any)?.packageNameAndroid || 'com.naksir.soccerpredictions',
           productId: (purchase as any)?.productId || (purchase as any)?.sku || '',
           purchaseToken: (purchase as any)?.purchaseToken || '',
         });
