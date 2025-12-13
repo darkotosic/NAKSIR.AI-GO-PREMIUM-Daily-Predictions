@@ -24,6 +24,10 @@
       "edgeToEdgeEnabled": true
     },
 
+    "plugins": [
+      ["./plugins/withAdMobAppId", { "androidAppId": "ca-app-pub-1726722567967096~4895623430" }]
+    ],
+
     "extra": {
       "eas": {
         "projectId": "0c92aea8-3378-4172-b48b-daff32887f51"
