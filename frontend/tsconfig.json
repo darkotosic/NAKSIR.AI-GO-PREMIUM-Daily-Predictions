@@ -13,5 +13,5 @@
       "@navigation/*": ["navigation/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src", "../shared"]
 }

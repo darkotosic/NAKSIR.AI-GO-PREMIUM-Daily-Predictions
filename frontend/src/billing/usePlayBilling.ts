@@ -7,37 +7,24 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIAP } from 'expo-iap';
 
 import { verifyGooglePurchase } from '@api/billing';
+import { SUBS_SKUS, Sku } from '../../../shared/billing_skus';
+
+type BillingSku = Sku;
+export type { BillingSku };
 
 export const BILLING_SKUS = {
-  // 1 DAY
-  DAY_1_5: 'naksir_day_1_5',
-  DAY_1_10: 'naksir_day_1_10',
-  DAY_1_UNLIMITED: 'naksir_day_1_unlock',
-
-  // 7 DAYS
-  DAY_7_5: 'naksir_day_7_5',
-  DAY_7_10: 'naksir_day_7_10',
-  DAY_7_UNLIMITED: 'naksir_day_7_unlimited',
-
-  // 30 DAYS
-  DAY_30_5: 'naksir_day_30_5',
-  DAY_30_10: 'naksir_day_30_10',
-  DAY_30_UNLIMITED: 'naksir_day_30_unlimited',
+  DAY_1_10: SUBS_SKUS[0],
+  DAY_1_5: SUBS_SKUS[1],
+  DAY_1_UNLIMITED: SUBS_SKUS[2],
+  DAY_7_10: SUBS_SKUS[3],
+  DAY_7_5: SUBS_SKUS[4],
+  DAY_7_UNLIMITED: SUBS_SKUS[5],
+  DAY_30_10: SUBS_SKUS[6],
+  DAY_30_5: SUBS_SKUS[7],
+  DAY_30_UNLIMITED: SUBS_SKUS[8],
 } as const;
 
-export type BillingSku = (typeof BILLING_SKUS)[keyof typeof BILLING_SKUS];
-
-const SUBSCRIPTION_ORDER: BillingSku[] = [
-  BILLING_SKUS.DAY_1_5,
-  BILLING_SKUS.DAY_1_10,
-  BILLING_SKUS.DAY_1_UNLIMITED,
-  BILLING_SKUS.DAY_7_5,
-  BILLING_SKUS.DAY_7_10,
-  BILLING_SKUS.DAY_7_UNLIMITED,
-  BILLING_SKUS.DAY_30_5,
-  BILLING_SKUS.DAY_30_10,
-  BILLING_SKUS.DAY_30_UNLIMITED,
-];
+const SUBSCRIPTION_ORDER: BillingSku[] = [...SUBS_SKUS];
 
 type AnyProduct = any;
 

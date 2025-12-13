@@ -19,6 +19,7 @@ from .db import SessionLocal
 from .match_full import build_full_match, build_match_summary
 from .ai_analysis import build_fallback_analysis, run_ai_analysis
 from .config import TIMEZONE, settings
+from .billing_plans import SKU_TO_PLAN, EntitlementPlan
 from .odds_summary import build_odds_summary
 from .models import CoinsWallet, Entitlement, Product, Purchase, User
 from .models.enums import (
@@ -128,23 +129,20 @@ def _get_or_create_user(session: SessionLocal, install_id: str) -> tuple[User, C
 
 
 def _resolve_product(product_id: str) -> dict[str, Any]:
-    sku_map: dict[str, dict[str, Any]] = {
-        # 1 DAY
-        "naksir_day_1_5_analysis": {"duration_days": 1, "daily_limit": 5},
-        "naksir_day_1_10_analysis": {"duration_days": 1, "daily_limit": 10},
-        "naksir_day_1_unlimited": {"duration_days": 1, "daily_limit": None},
-        # 7 DAYS
-        "naksir_7_days_5_per_day": {"duration_days": 7, "daily_limit": 5},
-        "naksir_7_days_10_per_day": {"duration_days": 7, "daily_limit": 10},
-        "naksir_7_days_unlimited": {"duration_days": 7, "daily_limit": None},
-        # 30 DAYS
-        "naksir_30_days_5_per_day": {"duration_days": 30, "daily_limit": 5},
-        "naksir_30_days_10_per_day": {"duration_days": 30, "daily_limit": 10},
-        "naksir_30_days_unlimited": {"duration_days": 30, "daily_limit": None},
-    }
+    plan: EntitlementPlan | None = SKU_TO_PLAN.get(product_id)
+    if plan is None:
+        raise HTTPException(status_code=400, detail="Unsupported SKU")
 
-    resolved = sku_map.get(product_id, {"duration_days": 1, "daily_limit": None})
-    return {"sku": product_id, "plan": product_id, **resolved}
+    daily_limit = plan.daily_limit or plan.total_allowance
+
+    return {
+        "sku": plan.sku,
+        "plan": plan.sku,
+        "duration_days": plan.period_days,
+        "daily_limit": daily_limit,
+        "total_allowance": plan.total_allowance,
+        "unlimited": plan.unlimited,
+    }
 
 
 def _upsert_product(session: SessionLocal, meta: dict[str, Any]) -> Product:
@@ -340,6 +338,8 @@ def verify_google_purchase(
         raw_payload = {
             "packageName": payload.packageName,
             "daily_limit": product_meta.get("daily_limit"),
+            "total_allowance": product_meta.get("total_allowance"),
+            "unlimited": product_meta.get("unlimited"),
         }
 
         if purchase is None:
