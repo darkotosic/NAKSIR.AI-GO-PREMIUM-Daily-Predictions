@@ -26,7 +26,14 @@
       }
     },
     "plugins": [
-      "expo-iap"
+      "expo-iap",
+      [
+        "react-native-google-mobile-ads",
+        {
+          "android_app_id": "ca-app-pub-1726722567967096~4895623430",
+          "ios_app_id": "ca-app-pub-1726722567967096~4895623430"
+        }
+      ]
     ]
   }
 }
