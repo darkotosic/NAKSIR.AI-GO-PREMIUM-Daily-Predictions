@@ -7,9 +7,14 @@ DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL env var is missing")
 
-# Render Postgres je standardno postgres:// ili postgresql://. SQLAlchemy voli postgresql://
+# Render Postgres je standardno postgres:// ili postgresql://. Preferiramo moderni psycopg driver.
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+# Ako URL nema eksplicitan driver, prebacujemo ga na psycopg (psycopg3) koji ima
+# Py3.13 kompatibilne wheel‑ove.
+if DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
 
 engine = create_engine(
     DATABASE_URL,
