@@ -23,6 +23,18 @@ class Settings(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_env(cls, data: dict) -> dict:
+        env_value = data.get("app_env") or data.get("APP_ENV")
+        if isinstance(env_value, str):
+            normalized = env_value.lower()
+            if normalized == "production":
+                data["app_env"] = EnvProfile.prod.value
+            elif normalized == "staging":
+                data["app_env"] = EnvProfile.stage.value
+        return data
+
     app_env: EnvProfile = Field(default=EnvProfile.dev, alias="APP_ENV")
     api_football_key: str = Field(alias="API_FOOTBALL_KEY")
     openai_api_key: str = Field(alias="OPENAI_API_KEY")
