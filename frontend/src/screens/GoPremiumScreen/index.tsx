@@ -3,15 +3,15 @@ import { Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 
 const GoPremiumScreen: React.FC = () => (
   <View style={styles.container}>
-    <Text style={styles.title}>Naksir Go Premium – dolazi uskoro</Text>
+    <Text style={styles.title}>Naksir Go Premium – coming soon</Text>
     <Text style={styles.subtitle}>
-      Pretplata sa AI analizama i value bet signalima. Budi prvi koji će testirati premium iskustvo.
+      Subscription with AI analyses and value bet signals. Be the first to try the premium experience.
     </Text>
     <TouchableOpacity
       style={styles.button}
       onPress={() => Linking.openURL('https://play.google.com/store/apps/dev?id=7884136048861881941')}
     >
-      <Text style={styles.buttonText}>Otvori Play Store</Text>
+      <Text style={styles.buttonText}>Open Play Store</Text>
     </TouchableOpacity>
   </View>
 );
