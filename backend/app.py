@@ -8,10 +8,13 @@ from fastapi import Body, FastAPI, HTTPException, Path, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
 from . import api_football
 from .api_football import get_fixtures_today, get_fixture_by_id, get_standings
 from .cache import cache_get, make_cache_key
+from .db import SessionLocal
 from .match_full import build_full_match, build_match_summary
 from .ai_analysis import build_fallback_analysis, run_ai_analysis
 from .config import TIMEZONE
@@ -119,7 +122,14 @@ def root() -> Dict[str, Any]:
 @app.get("/health", tags=["meta"])
 def health() -> Dict[str, str]:
     """Health-check endpoint za Render / uptime monitor."""
-    return {"status": "ok"}
+    try:
+        with SessionLocal() as session:
+            session.execute(text("SELECT 1"))
+    except SQLAlchemyError as exc:
+        logger.exception("DB health check failed")
+        raise HTTPException(status_code=503, detail="database_unavailable") from exc
+
+    return {"status": "ok", "db": "ok"}
 
 
 @app.get("/_debug/routes", tags=["meta"])
