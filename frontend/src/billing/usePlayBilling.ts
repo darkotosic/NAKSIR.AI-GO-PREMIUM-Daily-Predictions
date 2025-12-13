@@ -12,7 +12,7 @@ export const BILLING_SKUS = {
   // 1 DAY
   DAY_1_5: 'naksir_day_1_5_analysis',
   DAY_1_10: 'naksir_day_1_10_analysis',
-  DAY_1_UNLIMITED: 'naksir_day_1_unlimited',
+  DAY_1_UNLIMITED: 'naksir_day_1_unlock',
 
   // 7 DAYS
   DAY_7_5: 'naksir_7_days_5_per_day',
