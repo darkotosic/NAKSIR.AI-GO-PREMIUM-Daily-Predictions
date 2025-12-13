@@ -6,6 +6,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIAP } from 'expo-iap';
 
+import { verifyGooglePurchase } from '@api/billing';
+
 export const BILLING_SKUS = {
   // 1 DAY
   DAY_1_5: 'naksir_day_1_5_analysis',
@@ -65,10 +67,13 @@ export function usePlayBilling(): UsePlayBillingReturn {
          * IMPORTANT:
          * 1) Send purchase to backend for verification + entitlement creation.
          * 2) Only after backend confirms, finish the transaction.
-         *
-         * TODO: implement verify endpoint and call it here:
-         * await verifyOnBackend(purchase);
          */
+
+        await verifyGooglePurchase({
+          packageName: (purchase as any)?.packageNameAndroid || 'com.naksir.daily.predictions',
+          productId: (purchase as any)?.productId || (purchase as any)?.sku || '',
+          purchaseToken: (purchase as any)?.purchaseToken || '',
+        });
 
         await finishTransaction({
           purchase,
