@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Body, Depends, Header, HTTPException, Path, Query
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Path
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -14,10 +14,8 @@ from backend.config import TIMEZONE
 from backend.db import get_db
 from backend.dependencies import require_api_key
 from backend.match_full import build_full_match
-from backend.services.users_service import (
-    get_or_create_user,
-    mark_free_reward_used,
-)
+from backend.services.entitlements_service import check_and_consume_ai, get_active_entitlement
+from backend.services.users_service import get_or_create_user
 
 router = APIRouter(tags=["ai"])
 logger = logging.getLogger("naksir.go_premium.api")
@@ -29,6 +27,10 @@ class AIAnalysisRequest(BaseModel):
     question: Optional[str] = Field(
         default=None,
         description="Dodatno objašnjenje šta tačno AI treba da naglasi (npr. 'objasni value bet', 'short TikTok opis', itd.)",
+    )
+    trial_by_reward: bool = Field(
+        default=False,
+        description="Besplatna nagrada uz rewarded ad; server enforce-uje da se iskoristi najviše jednom",
     )
 
 
@@ -43,7 +45,6 @@ def post_match_ai_analysis(
         default_factory=AIAnalysisRequest,
         description="Opcioni user prompt kojim se usmerava AI analiza.",
     ),
-    trial: bool = Query(False, description="Da li je besplatna nagrada iskorišćena"),
     install_id: Optional[str] = Header(None, alias="X-Install-Id"),
     session: Session = Depends(get_db),
 ) -> Dict[str, Any]:
@@ -61,6 +62,31 @@ def post_match_ai_analysis(
         fixture_id,
         bool(user_question),
     )
+
+    if not install_id:
+        raise HTTPException(status_code=400, detail="X-Install-Id header is required")
+
+    user, wallet = get_or_create_user(session, install_id)
+
+    now = datetime.now(timezone.utc)
+    entitlement = get_active_entitlement(session, user.id, now=now)
+
+    if entitlement is not None:
+        ok, reason = check_and_consume_ai(session, user.id, entitlement, now=now)
+        if not ok:
+            session.rollback()
+            raise HTTPException(status_code=429, detail=reason or "Limit reached")
+        session.commit()
+    else:
+        if not payload.trial_by_reward:
+            raise HTTPException(status_code=402, detail="Subscription required")
+
+        if wallet.free_reward_used:
+            raise HTTPException(status_code=402, detail="Subscription required")
+
+        wallet.free_reward_used = True
+        session.add(wallet)
+        session.commit()
 
     fixture = None
     fixture_error_reason: str | None = None
@@ -106,12 +132,6 @@ def post_match_ai_analysis(
                 full_match=full_context,
                 user_question=user_question,
             )
-
-    if trial:
-        if not install_id:
-            raise HTTPException(status_code=400, detail="X-Install-Id header is required for trial flag")
-        _, wallet = get_or_create_user(session, install_id)
-        mark_free_reward_used(session, wallet)
 
     return {
         "fixture_id": fixture_id,

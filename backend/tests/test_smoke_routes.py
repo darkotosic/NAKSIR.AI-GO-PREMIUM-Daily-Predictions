@@ -11,6 +11,7 @@ if str(ROOT) not in sys.path:
 
 import tests.conftest  # noqa: F401
 
+from backend import ai_analysis
 from backend import api_football
 from backend import match_full
 
@@ -145,6 +146,11 @@ def _install_fake_api(monkeypatch: pytest.MonkeyPatch, fixture: Dict[str, Any], 
     monkeypatch.setattr(api_football, "get_fixture_predictions", lambda *_args, **_kwargs: {}, raising=False)
     monkeypatch.setattr(api_football, "get_fixture_injuries", lambda *_args, **_kwargs: [], raising=False)
     monkeypatch.setattr(api_football, "get_all_odds_for_fixture", lambda _fixture_id: odds_raw, raising=False)
+    monkeypatch.setattr(
+        ai_analysis,
+        "run_ai_analysis",
+        lambda *_, **__: {"preview": "ok", "key_factors": [], "winner_probabilities": {}},
+    )
 
 
 
@@ -225,3 +231,44 @@ def test_build_full_match_contract(
     assert full_match["odds"]["summary"] is not None
     assert full_match["odds"]["flat"]["match_winner"]["home"] == 2.10
     assert "flat_probabilities" in full_match["odds"]
+
+
+def test_free_reward_only_once(monkeypatch, client, sample_fixture, sample_odds_raw):
+    _install_fake_api(monkeypatch, sample_fixture, odds_raw=sample_odds_raw)
+
+    r1 = client.post(
+        "/matches/123/ai-analysis",
+        headers={"X-API-Key": "test-token", "X-Install-Id": "dev-install-1"},
+        json={"trial_by_reward": True},
+    )
+    assert r1.status_code in (200, 202)
+
+    r2 = client.post(
+        "/matches/123/ai-analysis",
+        headers={"X-API-Key": "test-token", "X-Install-Id": "dev-install-1"},
+        json={"trial_by_reward": True},
+    )
+    assert r2.status_code == 402
+
+
+def test_daily_limit_blocks_after_limit(
+    monkeypatch: pytest.MonkeyPatch, client, sample_fixture, sample_odds_raw, entitlement_factory
+):
+    _install_fake_api(monkeypatch, sample_fixture, odds_raw=sample_odds_raw)
+
+    entitlement_factory(install_id="dev-install-2", daily_limit=5, expires_in_days=1)
+
+    for _ in range(5):
+        r = client.post(
+            "/matches/123/ai-analysis",
+            headers={"X-API-Key": "test-token", "X-Install-Id": "dev-install-2"},
+            json={"trial_by_reward": False},
+        )
+        assert r.status_code in (200, 202)
+
+    r6 = client.post(
+        "/matches/123/ai-analysis",
+        headers={"X-API-Key": "test-token", "X-Install-Id": "dev-install-2"},
+        json={"trial_by_reward": False},
+    )
+    assert r6.status_code == 429
