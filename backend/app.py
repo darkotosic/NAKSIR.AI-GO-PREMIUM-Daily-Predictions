@@ -4,9 +4,10 @@ import logging
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
-from fastapi import Body, FastAPI, Header, HTTPException, Path, Query, Request
+from fastapi import Body, Depends, FastAPI, Header, HTTPException, Path, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -17,7 +18,7 @@ from .cache import cache_get, make_cache_key
 from .db import SessionLocal
 from .match_full import build_full_match, build_match_summary
 from .ai_analysis import build_fallback_analysis, run_ai_analysis
-from .config import TIMEZONE
+from .config import TIMEZONE, settings
 from .odds_summary import build_odds_summary
 from .models import CoinsWallet, Entitlement, Product, Purchase, User
 from .models.enums import (
@@ -28,6 +29,7 @@ from .models.enums import (
     PurchaseState,
     PurchaseStatus,
 )
+from .monitoring import install_monitoring_hooks
 
 # ---------------------------------------------------------------------
 # Logging setup
@@ -55,11 +57,24 @@ app = FastAPI(
 # CORS – dozvoli mobilnim aplikacijama i web frontovima da zovu API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # po potrebi kasnije zatvoriti
+    allow_origins=settings.allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+api_key_scheme = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+
+def require_api_key(api_key: Optional[str] = Depends(api_key_scheme)) -> str:
+    if not api_key:
+        raise HTTPException(status_code=401, detail="X-API-Key header is required")
+    if api_key not in settings.api_auth_tokens:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    return api_key
+
+
+install_monitoring_hooks(app)
 
 # ---------------------------------------------------------------------
 # Pydantic modeli
@@ -203,6 +218,13 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 @app.on_event("startup")
 def log_available_routes() -> None:
     """Na startup izloguj sve rute da odmah u Render logu vidiš šta je aktivno."""
+    logger.info(
+        "Env=%s, timezone=%s, redis_configured=%s",
+        settings.app_env,
+        TIMEZONE,
+        bool(settings.redis_url),
+    )
+    logger.info("Allowed CORS origins: %s", ", ".join(settings.allowed_origins))
     logger.info("===== API ROUTES =====")
     for route in app.routes:
         methods = getattr(route, "methods", None)
@@ -251,7 +273,7 @@ def health() -> Dict[str, str]:
     return {"status": "ok", "db": "ok"}
 
 
-@app.get("/_debug/routes", tags=["meta"])
+@app.get("/_debug/routes", tags=["meta"], dependencies=[Depends(require_api_key)])
 def list_routes() -> List[Dict[str, Any]]:
     """Povratak svih ruta i metoda – korisno za debag i QA."""
     routes: List[Dict[str, Any]] = []
@@ -285,6 +307,7 @@ def list_routes() -> List[Dict[str, Any]]:
     tags=["billing"],
     summary="Verifikacija Google Play kupovine + kreiranje entitlementa",
     response_model=EntitlementEnvelope,
+    dependencies=[Depends(require_api_key)],
 )
 def verify_google_purchase(
     payload: BillingVerifyRequest,
@@ -367,6 +390,7 @@ def verify_google_purchase(
     tags=["billing"],
     summary="Trenutni entitlement status za install/device",
     response_model=EntitlementEnvelope,
+    dependencies=[Depends(require_api_key)],
 )
 def get_entitlements(install_id: str = Header(None, alias="X-Install-Id")) -> EntitlementEnvelope:
     if not install_id:
@@ -410,6 +434,7 @@ def get_entitlements(install_id: str = Header(None, alias="X-Install-Id")) -> En
     "/matches/today",
     tags=["matches"],
     summary="Svi današnji mečevi (card format)",
+    dependencies=[Depends(require_api_key)],
 )
 def get_today_matches(
     cursor: int = Query(0, ge=0, description="Pagination cursor"),
@@ -510,6 +535,7 @@ def get_today_matches(
     "/matches/{fixture_id}",
     tags=["matches"],
     summary="Sažetak jednog meča (card)",
+    dependencies=[Depends(require_api_key)],
 )
 def get_match_summary(
     fixture_id: int = Path(..., description="API-Football fixture ID"),
@@ -530,6 +556,7 @@ def get_match_summary(
     "/matches/{fixture_id}/full",
     tags=["matches"],
     summary="Full kontekst jednog meča (stats, h2h, standings, itd.)",
+    dependencies=[Depends(require_api_key)],
 )
 def get_match_full(
     fixture_id: int = Path(..., description="API-Football fixture ID"),
@@ -568,6 +595,7 @@ def get_match_full(
     "/h2h",
     tags=["matches"],
     summary="Head-to-head lista za dati fixture (core sekcija)",
+    dependencies=[Depends(require_api_key)],
 )
 def get_h2h_for_fixture(
     fixture_id: int = Query(..., description="API-Football fixture ID"),
@@ -614,6 +642,7 @@ def get_h2h_for_fixture(
     "/matches/{fixture_id}/ai-analysis",
     tags=["ai"],
     summary="AI analiza meča (GPT layer preko full konteksta)",
+    dependencies=[Depends(require_api_key)],
 )
 def post_match_ai_analysis(
     fixture_id: int = Path(..., description="API-Football fixture ID"),

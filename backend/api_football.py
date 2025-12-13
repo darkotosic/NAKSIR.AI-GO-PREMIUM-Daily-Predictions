@@ -138,9 +138,9 @@ def _call_api(
                     exc,
                 )
                 if safe:
-                    resolve_inflight(cache_key, value=cached or {})
+                    resolve_inflight(inflight, value=cached or {})
                     return cached or {}
-                resolve_inflight(cache_key, error=exc)
+                resolve_inflight(inflight, error=exc)
                 raise
 
             if resp.status_code == 429:
@@ -149,16 +149,16 @@ def _call_api(
                     logger.warning(
                         "API-Football 429 for %s params=%s; serving cached payload", endpoint, params
                     )
-                    resolve_inflight(cache_key, value=cached)
+                    resolve_inflight(inflight, value=cached)
                     return cached
                 if backoff_seconds > MAX_BACKOFF:
                     message = f"API-Football rate limited {endpoint} beyond backoff"
                     logger.warning(message)
                     if safe:
-                        resolve_inflight(cache_key, value=cached or {})
+                        resolve_inflight(inflight, value=cached or {})
                         return cached or {}
                     error = RuntimeError(message)
-                    resolve_inflight(cache_key, error=error)
+                    resolve_inflight(inflight, error=error)
                     raise error
                 time.sleep(backoff_seconds)
                 backoff_seconds = min(backoff_seconds * 2, MAX_BACKOFF)
@@ -174,12 +174,12 @@ def _call_api(
                     snippet,
                 )
                 if safe:
-                    resolve_inflight(cache_key, value=cached or {})
+                    resolve_inflight(inflight, value=cached or {})
                     return cached or {}
                 try:
                     resp.raise_for_status()
                 except Exception as exc:  # noqa: BLE001
-                    resolve_inflight(cache_key, error=exc)
+                    resolve_inflight(inflight, error=exc)
                     raise
 
             try:
@@ -192,18 +192,18 @@ def _call_api(
                     exc,
                 )
                 if safe:
-                    resolve_inflight(cache_key, value=cached or {})
+                    resolve_inflight(inflight, value=cached or {})
                     return cached or {}
-                resolve_inflight(cache_key, error=exc)
+                resolve_inflight(inflight, error=exc)
                 raise
 
             ttl = _get_ttl_for_endpoint(endpoint)
             if data:
                 cache_set(cache_key, data, ttl)
-            resolve_inflight(cache_key, value=data or {})
+            resolve_inflight(inflight, value=data or {})
             return data or {}
     finally:
-        resolve_inflight(cache_key, value=cached or {})
+        resolve_inflight(inflight, value=cached or {})
 
 
 def _extract_response_list(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
