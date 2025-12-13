@@ -22,6 +22,7 @@ import LineupsScreen from '@screens/LineupsScreen';
 import PlayersScreen from '@screens/PlayersScreen';
 import PredictionsScreen from '@screens/PredictionsScreen';
 import InjuriesScreen from '@screens/InjuriesScreen';
+import SubscriptionsScreen from '@screens/SubscriptionsScreen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { RootDrawerParamList } from './types';
 
@@ -106,6 +107,11 @@ const DrawerNavigator = () => (
           name="TodayMatches"
           component={TodayMatchesScreen}
           options={{ title: "Today's Matches" }}
+        />
+        <Drawer.Screen
+          name="Subscriptions"
+          component={SubscriptionsScreen}
+          options={{ title: 'Subscriptions' }}
         />
         <Drawer.Screen
           name="MatchDetails"
