@@ -5,7 +5,7 @@ const GoPremiumScreen: React.FC = () => (
   <View style={styles.container}>
     <Text style={styles.title}>Naksir Go Premium – coming soon</Text>
     <Text style={styles.subtitle}>
-      Subscription with AI analyses and value bet signals. Be the first to try the premium experience.
+      Subscription with AI insights summary, Key factors, DC + Goals, Probabilities: Correct scores, Corners, Yellow cards, Risks... Be the first to try the premium experience.
     </Text>
     <TouchableOpacity
       style={styles.button}
