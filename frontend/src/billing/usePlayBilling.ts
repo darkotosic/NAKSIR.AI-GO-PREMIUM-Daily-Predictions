@@ -1,150 +1,149 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
-import * as InAppPurchases from 'expo-in-app-purchases';
+// frontend/src/billing/usePlayBilling.ts
+//
+// Subscription-first billing layer for Naksir Go Premium.
+// Works with expo-iap. SKUs must match Google Play Console subscriptions exactly.
 
-/**
- * SKU DEFINICIJE
- * MORAJU 1:1 da se poklapaju sa Google Play Console
- */
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useIAP } from 'expo-iap';
+
 export const BILLING_SKUS = {
   // 1 DAY
-  DAY_1_5: 'naksir_day_1_5_analysis',          // 5$
-  DAY_1_10: 'naksir_day_1_10_analysis',        // 10$
-  DAY_1_UNLIMITED: 'naksir_day_1_unlimited',  // 25$
+  DAY_1_5: 'naksir_day_1_5_analysis',
+  DAY_1_10: 'naksir_day_1_10_analysis',
+  DAY_1_UNLIMITED: 'naksir_day_1_unlimited',
 
   // 7 DAYS
-  DAY_7_5: 'naksir_7_days_5_per_day',          // 25$
-  DAY_7_10: 'naksir_7_days_10_per_day',        // 35$
-  DAY_7_UNLIMITED: 'naksir_7_days_unlimited', // 45$
+  DAY_7_5: 'naksir_7_days_5_per_day',
+  DAY_7_10: 'naksir_7_days_10_per_day',
+  DAY_7_UNLIMITED: 'naksir_7_days_unlimited',
 
   // 30 DAYS
-  DAY_30_5: 'naksir_30_days_5_per_day',        // 100$
-  DAY_30_10: 'naksir_30_days_10_per_day',      // 150$
-  DAY_30_UNLIMITED: 'naksir_30_days_unlimited'// 200$
+  DAY_30_5: 'naksir_30_days_5_per_day',
+  DAY_30_10: 'naksir_30_days_10_per_day',
+  DAY_30_UNLIMITED: 'naksir_30_days_unlimited',
+} as const;
+
+export type BillingSku = (typeof BILLING_SKUS)[keyof typeof BILLING_SKUS];
+
+const SUBSCRIPTION_ORDER: BillingSku[] = [
+  BILLING_SKUS.DAY_1_5,
+  BILLING_SKUS.DAY_1_10,
+  BILLING_SKUS.DAY_1_UNLIMITED,
+  BILLING_SKUS.DAY_7_5,
+  BILLING_SKUS.DAY_7_10,
+  BILLING_SKUS.DAY_7_UNLIMITED,
+  BILLING_SKUS.DAY_30_5,
+  BILLING_SKUS.DAY_30_10,
+  BILLING_SKUS.DAY_30_UNLIMITED,
+];
+
+type AnyProduct = any;
+
+type UsePlayBillingReturn = {
+  connected: boolean;
+  loading: boolean;
+  error: string | null;
+  products: AnyProduct[];
+  buy: (sku: BillingSku) => Promise<void>;
+  SKUS: typeof BILLING_SKUS;
 };
 
-/**
- * REDOSLED PRIKAZA (UI)
- */
-const PRODUCT_ORDER = Object.values(BILLING_SKUS);
-
-/**
- * Tip za jedan billing proizvod
- */
-export type BillingProduct = {
-  productId: string;
-  title: string;
-  description: string;
-  price: string;
-  priceAmountMicros?: number;
-  priceCurrencyCode?: string;
-};
-
-export function usePlayBilling() {
-  const isMounted = useRef(true);
-  const [connected, setConnected] = useState(false);
-  const [products, setProducts] = useState<BillingProduct[]>([]);
-  const [loading, setLoading] = useState(true);
+export function usePlayBilling(): UsePlayBillingReturn {
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
 
-  const fetchProducts = useCallback(async () => {
-    try {
-      const { responseCode, results } =
-        await InAppPurchases.getProductsAsync(PRODUCT_ORDER);
-
-      if (responseCode !== InAppPurchases.IAPResponseCode.OK) {
-        throw new Error(`Billing response code: ${responseCode}`);
-      }
-
-      if (isMounted.current) {
-        const sorted = (results || []).sort(
-          (a: any, b: any) =>
-            PRODUCT_ORDER.indexOf(a.productId) -
-            PRODUCT_ORDER.indexOf(b.productId)
-        );
-
-        setProducts(sorted);
-      }
-    } catch (e: any) {
-      console.error('Play Billing products fetch error:', e);
-      if (isMounted.current) {
-        setError(e?.message || 'Failed to load billing products');
-      }
-      throw e;
-    }
-  }, []);
-
-  const refreshProducts = useCallback(async () => {
-    if (!isMounted.current) return;
-
-    setError(null);
-    setLoading(true);
-
-    try {
-      await fetchProducts();
-    } catch (e) {
-      // fetchProducts already handled logging and error state
-      console.error('Play Billing refresh error:', e);
-    } finally {
-      if (isMounted.current) setLoading(false);
-    }
-  }, [fetchProducts]);
-
-  /**
-   * INIT Play Billing
-   */
-  useEffect(() => {
-    async function initBilling() {
+  const {
+    connected,
+    products,
+    fetchProducts,
+    requestPurchase,
+    finishTransaction,
+  } = useIAP({
+    onPurchaseSuccess: async (purchase) => {
       try {
-        setError(null);
-        setLoading(true);
+        /**
+         * IMPORTANT:
+         * 1) Send purchase to backend for verification + entitlement creation.
+         * 2) Only after backend confirms, finish the transaction.
+         *
+         * TODO: implement verify endpoint and call it here:
+         * await verifyOnBackend(purchase);
+         */
 
-        await InAppPurchases.connectAsync();
-        if (!isMounted.current) return;
-
-        setConnected(true);
-        await refreshProducts();
+        await finishTransaction({
+          purchase,
+          // subscriptions are not consumables
+          isConsumable: false,
+        });
       } catch (e: any) {
-        console.error('Play Billing init error:', e);
-        if (isMounted.current) {
-          setError(e?.message || 'Play Billing init failed');
-        }
+        setError(e?.message || 'Failed to finalize subscription purchase');
+      }
+    },
+    onPurchaseError: (e) => {
+      setError((e as any)?.message || 'Purchase failed');
+    },
+  });
+
+  // Load subscriptions list when connected
+  useEffect(() => {
+    (async () => {
+      try {
+        if (!connected) return;
+        setLoading(true);
+        setError(null);
+
+        await fetchProducts({
+          skus: SUBSCRIPTION_ORDER,
+          type: 'subs',
+        });
+      } catch (e: any) {
+        setError(e?.message || 'Failed to fetch subscriptions');
       } finally {
-        if (isMounted.current) setLoading(false);
+        setLoading(false);
       }
-    }
+    })();
+  }, [connected, fetchProducts]);
 
-    initBilling();
+  // Sort products by our preferred order
+  const sortedProducts = useMemo(() => {
+    const list = (products || []) as AnyProduct[];
 
-    return () => {
-      isMounted.current = false;
-      InAppPurchases.disconnectAsync();
-    };
-  }, [refreshProducts]);
+    return list.slice().sort((a, b) => {
+      const aId = String(a?.id ?? a?.productId ?? '');
+      const bId = String(b?.id ?? b?.productId ?? '');
+      const ai = SUBSCRIPTION_ORDER.indexOf(aId as BillingSku);
+      const bi = SUBSCRIPTION_ORDER.indexOf(bId as BillingSku);
 
-  /**
-   * Pokretanje kupovine
-   */
-  const purchase = useCallback(async (productId: string) => {
-    try {
-      if (!connected) {
-        throw new Error('Billing not connected');
-      }
+      // Unknown items go last
+      if (ai === -1 && bi === -1) return 0;
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+  }, [products]);
 
-      const result = await InAppPurchases.purchaseItemAsync(productId);
-      return result; // purchaseToken ide backendu
-    } catch (e) {
-      console.error('Purchase error:', e);
-      throw e;
-    }
-  }, [connected]);
+  const buy = useCallback(
+    async (sku: BillingSku) => {
+      setError(null);
+      if (!connected) throw new Error('Billing not connected');
+
+      await requestPurchase({
+        type: 'subs',
+        request: {
+          android: { skus: [sku] },
+          ios: { sku }, // future-proof if you add iOS later
+        },
+      });
+    },
+    [connected, requestPurchase]
+  );
 
   return {
     connected,
     loading,
     error,
-    products,
-    purchase,
-    refreshProducts,
-    SKUS: BILLING_SKUS
+    products: sortedProducts,
+    buy,
+    SKUS: BILLING_SKUS,
   };
 }
