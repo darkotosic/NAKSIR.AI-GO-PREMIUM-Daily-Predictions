@@ -22,8 +22,6 @@ import LineupsScreen from '@screens/LineupsScreen';
 import PlayersScreen from '@screens/PlayersScreen';
 import PredictionsScreen from '@screens/PredictionsScreen';
 import InjuriesScreen from '@screens/InjuriesScreen';
-import GoPremiumScreen from '@screens/GoPremiumScreen';
-import NaksirAccountScreen from '@screens/NaksirAccountScreen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { RootDrawerParamList } from './types';
 
@@ -163,16 +161,6 @@ const DrawerNavigator = () => (
           name="Injuries"
           component={InjuriesScreen}
           options={{ title: 'Injuries', drawerItemStyle: { display: 'none' } }}
-        />
-        <Drawer.Screen
-          name="GoPremium"
-          component={GoPremiumScreen}
-          options={{ title: 'Go Premium' }}
-        />
-        <Drawer.Screen
-          name="NaksirAccount"
-          component={NaksirAccountScreen}
-          options={{ title: 'Naksir Account' }}
         />
       </Drawer.Navigator>
     </NavigationContainer>
