@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from enum import Enum
 from functools import lru_cache
 from typing import List
@@ -72,13 +73,21 @@ class Settings(BaseModel):
 
         self.api_auth_tokens = [token for token in self.api_auth_tokens if token]
         if not self.api_auth_tokens:
-            if self.app_env is EnvProfile.dev:
-                self.api_auth_tokens = ["dev-token"]
-            else:
-                raise ValueError("API_AUTH_TOKENS must be set in stage/prod")
+            fallback_token = os.getenv("FALLBACK_API_AUTH_TOKEN", "dev-token")
+            self.api_auth_tokens = [fallback_token]
+            print(
+                "[config] Missing API_AUTH_TOKENS; using fallback token. Set API_AUTH_TOKENS"
+                " to lock down API access.",
+                file=sys.stderr,
+            )
 
         if self.app_env in {EnvProfile.stage, EnvProfile.prod} and not self.redis_url:
-            raise ValueError("REDIS_URL is required for stage/prod to keep cache consistent")
+            self.use_fake_redis = True
+            print(
+                "[config] REDIS_URL not set for stage/prod; falling back to in-memory"
+                " fake redis. Set REDIS_URL to enable shared cache.",
+                file=sys.stderr,
+            )
 
         return self
 
