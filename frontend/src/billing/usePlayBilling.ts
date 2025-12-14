@@ -1,141 +1,186 @@
-// frontend/src/billing/usePlayBilling.ts
-//
-// Subscription-first billing layer for Naksir Go Premium.
-// Works with expo-iap. SKUs must match Google Play Console subscriptions exactly.
-
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useIAP } from 'expo-iap';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Platform } from 'react-native';
+import * as RNIap from 'react-native-iap';
 
 import { verifyGooglePurchase } from '@api/billing';
 import { SUBS_SKUS, Sku } from '../../../shared/billing_skus';
 
-type BillingSku = Sku;
-export type { BillingSku };
-
-export const BILLING_SKUS = {
-  DAY_1_10: SUBS_SKUS[0],
-  DAY_1_5: SUBS_SKUS[1],
-  DAY_1_UNLIMITED: SUBS_SKUS[2],
-  DAY_7_10: SUBS_SKUS[3],
-  DAY_7_5: SUBS_SKUS[4],
-  DAY_7_UNLIMITED: SUBS_SKUS[5],
-  DAY_30_10: SUBS_SKUS[6],
-  DAY_30_5: SUBS_SKUS[7],
-  DAY_30_UNLIMITED: SUBS_SKUS[8],
-} as const;
-
-const SUBSCRIPTION_ORDER: BillingSku[] = [...SUBS_SKUS];
-
-type AnyProduct = any;
-
-type UsePlayBillingReturn = {
-  connected: boolean;
-  loading: boolean;
-  error: string | null;
-  products: AnyProduct[];
-  buy: (sku: BillingSku) => Promise<void>;
-  SKUS: typeof BILLING_SKUS;
+type PurchaseState = {
+  isConnected: boolean;
+  isLoading: boolean;
+  productsLoaded: boolean;
+  activeSku: Sku | null;
+  lastError: string | null;
 };
 
-export function usePlayBilling(): UsePlayBillingReturn {
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+function normalizeSku(productId?: string | null): Sku | null {
+  if (!productId) return null;
+  return (SUBS_SKUS as readonly string[]).includes(productId) ? (productId as Sku) : null;
+}
 
-  const {
-    connected,
-    products,
-    fetchProducts,
-    requestPurchase,
-    finishTransaction,
-  } = useIAP({
-    onPurchaseSuccess: async (purchase) => {
-      try {
-        /**
-         * IMPORTANT:
-         * 1) Send purchase to backend for verification + entitlement creation.
-         * 2) Only after backend confirms, finish the transaction.
-         */
-
-        await verifyGooglePurchase({
-          packageName: (purchase as any)?.packageNameAndroid || 'com.naksir.soccerpredictions',
-          productId: (purchase as any)?.productId || (purchase as any)?.sku || '',
-          purchaseToken: (purchase as any)?.purchaseToken || '',
-        });
-
-        await finishTransaction({
-          purchase,
-          // subscriptions are not consumables
-          isConsumable: false,
-        });
-      } catch (e: any) {
-        setError(e?.message || 'Failed to finalize subscription purchase');
-      }
-    },
-    onPurchaseError: (e) => {
-      setError((e as any)?.message || 'Purchase failed');
-    },
+export function usePlayBilling() {
+  const [state, setState] = useState<PurchaseState>({
+    isConnected: false,
+    isLoading: false,
+    productsLoaded: false,
+    activeSku: null,
+    lastError: null,
   });
 
-  // Load subscriptions list when connected
-  useEffect(() => {
-    (async () => {
+  const purchaseUpdateSub = useRef<ReturnType<typeof RNIap.purchaseUpdatedListener> | null>(null);
+  const purchaseErrorSub = useRef<ReturnType<typeof RNIap.purchaseErrorListener> | null>(null);
+
+  const isAndroid = Platform.OS === 'android';
+
+  const setError = useCallback((msg: string) => {
+    setState((s) => ({ ...s, lastError: msg }));
+  }, []);
+
+  const connect = useCallback(async () => {
+    if (!isAndroid) return;
+
+    setState((s) => ({ ...s, isLoading: true, lastError: null }));
+
+    try {
+      const ok = await RNIap.initConnection();
+      setState((s) => ({ ...s, isConnected: !!ok }));
+
+      // Optional: Android flush failed purchases
       try {
-        if (!connected) return;
-        setLoading(true);
-        setError(null);
-
-        await fetchProducts({
-          skus: SUBSCRIPTION_ORDER,
-          type: 'subs',
-        });
-      } catch (e: any) {
-        setError(e?.message || 'Failed to fetch subscriptions');
-      } finally {
-        setLoading(false);
+        await RNIap.flushFailedPurchasesCachedAsPendingAndroid?.();
+      } catch {
+        // ignore
       }
-    })();
-  }, [connected, fetchProducts]);
 
-  // Sort products by our preferred order
-  const sortedProducts = useMemo(() => {
-    const list = (products || []) as AnyProduct[];
+      // Load products
+      try {
+        await RNIap.getSubscriptions({ skus: [...SUBS_SKUS] as string[] } as any);
+        setState((s) => ({ ...s, productsLoaded: true }));
+      } catch (e: any) {
+        setError(`Failed to load subscriptions: ${e?.message || String(e)}`);
+      }
+    } catch (e: any) {
+      setError(`IAP initConnection failed: ${e?.message || String(e)}`);
+      setState((s) => ({ ...s, isConnected: false }));
+    } finally {
+      setState((s) => ({ ...s, isLoading: false }));
+    }
+  }, [isAndroid, setError]);
 
-    return list.slice().sort((a, b) => {
-      const aId = String(a?.id ?? a?.productId ?? '');
-      const bId = String(b?.id ?? b?.productId ?? '');
-      const ai = SUBSCRIPTION_ORDER.indexOf(aId as BillingSku);
-      const bi = SUBSCRIPTION_ORDER.indexOf(bId as BillingSku);
+  const disconnect = useCallback(async () => {
+    try {
+      purchaseUpdateSub.current?.remove?.();
+      purchaseErrorSub.current?.remove?.();
+      purchaseUpdateSub.current = null;
+      purchaseErrorSub.current = null;
+    } catch {
+      // ignore
+    }
 
-      // Unknown items go last
-      if (ai === -1 && bi === -1) return 0;
-      if (ai === -1) return 1;
-      if (bi === -1) return -1;
-      return ai - bi;
+    try {
+      await RNIap.endConnection();
+    } catch {
+      // ignore
+    }
+
+    setState((s) => ({ ...s, isConnected: false }));
+  }, []);
+
+  const refreshEntitlement = useCallback(async () => {
+    if (!isAndroid) return;
+
+    try {
+      const purchases = await RNIap.getAvailablePurchases();
+      const active = purchases
+        .map((p: any) => normalizeSku(p?.productId))
+        .find((sku) => !!sku) ?? null;
+
+      setState((s) => ({ ...s, activeSku: active }));
+    } catch (e: any) {
+      setError(`Failed to read purchases: ${e?.message || String(e)}`);
+    }
+  }, [isAndroid, setError]);
+
+  const startListeners = useCallback(() => {
+    if (!isAndroid) return;
+
+    // Purchase update listener
+    purchaseUpdateSub.current = RNIap.purchaseUpdatedListener(async (purchase: any) => {
+      try {
+        const productId: string | undefined = purchase?.productId;
+        const purchaseToken: string | undefined =
+          purchase?.purchaseToken || purchase?.transactionReceipt || purchase?.transactionId;
+
+        const sku = normalizeSku(productId);
+        if (!sku) return;
+
+        // Server verify + entitlement grant
+        await verifyGooglePurchase({
+          sku,
+          purchaseToken: purchaseToken ?? '',
+          productId: productId ?? '',
+          platform: 'android',
+        } as any);
+
+        // Acknowledge / finish
+        try {
+          await RNIap.finishTransaction({ purchase, isConsumable: false } as any);
+        } catch {
+          // ignore
+        }
+
+        setState((s) => ({ ...s, activeSku: sku }));
+      } catch (e: any) {
+        setError(`Purchase processing failed: ${e?.message || String(e)}`);
+      }
     });
-  }, [products]);
 
-  const buy = useCallback(
-    async (sku: BillingSku) => {
-      setError(null);
-      if (!connected) throw new Error('Billing not connected');
+    // Purchase error listener
+    purchaseErrorSub.current = RNIap.purchaseErrorListener((err: any) => {
+      setError(`Purchase error: ${err?.message || JSON.stringify(err)}`);
+    });
+  }, [isAndroid, setError]);
 
-      await requestPurchase({
-        type: 'subs',
-        request: {
-          android: { skus: [sku] },
-          ios: { sku }, // future-proof if you add iOS later
-        },
-      });
+  const buySubscription = useCallback(
+    async (sku: Sku) => {
+      if (!isAndroid) {
+        setError('Subscriptions are only supported on Android in this build.');
+        return;
+      }
+
+      setState((s) => ({ ...s, isLoading: true, lastError: null }));
+
+      try {
+        // For many versions:
+        await RNIap.requestSubscription({ sku } as any);
+      } catch (e: any) {
+        setError(`requestSubscription failed: ${e?.message || String(e)}`);
+      } finally {
+        setState((s) => ({ ...s, isLoading: false }));
+      }
     },
-    [connected, requestPurchase]
+    [isAndroid, setError],
   );
 
-  return {
-    connected,
-    loading,
-    error,
-    products: sortedProducts,
-    buy,
-    SKUS: BILLING_SKUS,
-  };
+  useEffect(() => {
+    if (!isAndroid) return;
+
+    connect().then(() => {
+      startListeners();
+      refreshEntitlement();
+    });
+
+    return () => {
+      disconnect();
+    };
+  }, [isAndroid, connect, startListeners, refreshEntitlement, disconnect]);
+
+  return useMemo(
+    () => ({
+      ...state,
+      buySubscription,
+      refreshEntitlement,
+    }),
+    [state, buySubscription, refreshEntitlement],
+  );
 }
