@@ -208,46 +208,80 @@ def verify_google_purchase(
 )
 async def google_rtdn(
     request: Request,
-    body: PubSubPushEnvelope,
     authorization: Optional[str] = Header(None, alias="Authorization"),
     x_goog_channel_token: Optional[str] = Header(None, alias="X-Goog-Channel-Token"),
     session: Session = Depends(get_db),
 ) -> dict:
     """
-    Pub/Sub push body:
-      { message: { data: base64(json), messageId: "...", attributes: {...} }, subscription: "..." }
+    Supports BOTH Pub/Sub payload modes:
+      A) Wrapped (default):
+         { "message": { "data": "<base64-json>", ... }, "subscription": "..." }
+      B) Unwrapped (Enable payload unwrapping):
+         <decoded-json>  (direct RTDN JSON)
     """
-    # Prefer OIDC push-auth (Enable authentication).
+
+    # Auth gate:
     if authorization:
         _verify_pubsub_oidc_or_throw(authorization)
     else:
-        # Fallback shared secret (only if you configured it)
         expected = settings.google_pubsub_verification_token
         if expected and x_goog_channel_token != expected:
             raise HTTPException(status_code=401, detail="Invalid RTDN token")
 
-    msg = body.message or {}
-    data_b64 = msg.get("data")
-    if not data_b64:
-        raise HTTPException(status_code=400, detail="Missing message.data")
-
+    # Read raw JSON body
     try:
-        decoded = base64.b64decode(data_b64).decode("utf-8")
-        payload = json.loads(decoded)
+        body = await request.json()
     except Exception as exc:  # noqa: BLE001
-        logger.exception("RTDN decode error")
-        raise HTTPException(status_code=400, detail="Invalid RTDN payload") from exc
+        logger.warning("RTDN invalid JSON body")
+        raise HTTPException(status_code=400, detail="Invalid JSON") from exc
 
+    payload = None
+
+    # Mode A: wrapped envelope
+    if isinstance(body, dict) and "message" in body and isinstance(body["message"], dict):
+        msg = body.get("message") or {}
+        data_val = msg.get("data")
+
+        if not data_val:
+            # If you enabled unwrapping but still got wrapper without data, log keys
+            logger.warning("RTDN wrapped body missing message.data | keys=%s", list(msg.keys()))
+            raise HTTPException(status_code=400, detail="Missing message.data")
+
+        # data is usually base64(JSON)
+        if isinstance(data_val, str):
+            try:
+                decoded = base64.b64decode(data_val).decode("utf-8")
+                payload = json.loads(decoded)
+            except Exception:
+                # fallback: sometimes it's already JSON string
+                try:
+                    payload = json.loads(data_val)
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("RTDN data decode failed")
+                    raise HTTPException(status_code=400, detail="Invalid message.data") from exc
+
+    # Mode B: unwrapped (raw RTDN JSON)
+    if payload is None and isinstance(body, dict) and "subscriptionNotification" in body:
+        payload = body
+
+    if payload is None:
+        logger.warning("RTDN unknown body shape | top_keys=%s", list(body.keys()) if isinstance(body, dict) else type(body))
+        raise HTTPException(status_code=400, detail="Unsupported RTDN payload shape")
+
+    # Extract RTDN fields
     sn = payload.get("subscriptionNotification") or {}
     subscription_id = sn.get("subscriptionId")
     purchase_token = sn.get("purchaseToken")
     package_name = payload.get("packageName") or settings.google_play_package_name
 
     if not package_name or not subscription_id or not purchase_token:
-        raise HTTPException(
-            status_code=400,
-            detail="RTDN missing packageName/subscriptionId/purchaseToken",
+        logger.warning(
+            "RTDN missing fields | package=%s subscriptionId=%s purchaseToken=%s",
+            bool(package_name),
+            bool(subscription_id),
+            bool(purchase_token),
         )
+        raise HTTPException(status_code=400, detail="RTDN missing required fields")
 
     from backend.models import Purchase  # local import to avoid cycles
     from backend.services.purchases_service import handle_rtdn_event
@@ -258,7 +292,7 @@ async def google_rtdn(
         .one_or_none()
     )
     if not existing:
-        # Idempotent: accept and exit; user may verify later and link purchase.
+        # Accept and stop retries (important): we don't have linkage yet
         return {"ok": True, "ignored": True}
 
     purchase = handle_rtdn_event(
@@ -284,7 +318,6 @@ async def google_rtdn(
     )
 
     return {"ok": True}
-
 
 @router.get(
     "/me/entitlements",
