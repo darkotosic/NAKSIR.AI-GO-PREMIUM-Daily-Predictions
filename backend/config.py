@@ -4,7 +4,7 @@ import os
 import sys
 from enum import Enum
 from functools import lru_cache
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
@@ -47,6 +47,17 @@ class Settings(BaseModel):
     use_fake_redis: bool = Field(default=False, alias="USE_FAKE_REDIS")
     alert_webhook: str | None = Field(default=None, alias="ALERT_WEBHOOK_URL")
 
+    # --- Google Play Billing (server-side verify) ---
+    google_play_service_account_json: Optional[str] = Field(
+        default=None, alias="GOOGLE_PLAY_SERVICE_ACCOUNT_JSON"
+    )
+    google_play_package_name: Optional[str] = Field(
+        default=None, alias="GOOGLE_PLAY_PACKAGE_NAME"
+    )
+    google_pubsub_verification_token: Optional[str] = Field(
+        default=None, alias="GOOGLE_PUBSUB_VERIFICATION_TOKEN"
+    )
+
     @model_validator(mode="after")
     def _validate_required(self) -> "Settings":
         missing = [
@@ -59,9 +70,7 @@ class Settings(BaseModel):
             if not value
         ]
         if missing:
-            raise ValueError(
-                f"Missing critical env vars: {', '.join(sorted(missing))}"
-            )
+            raise ValueError(f"Missing critical env vars: {', '.join(sorted(missing))}")
 
         if not self.allowed_origins:
             self.allowed_origins = [
@@ -89,6 +98,13 @@ class Settings(BaseModel):
                 file=sys.stderr,
             )
 
+        # In prod/stage: strongly recommend Google verification configured
+        if self.app_env in {EnvProfile.stage, EnvProfile.prod} and not self.google_play_service_account_json:
+            print(
+                "[config] GOOGLE_PLAY_SERVICE_ACCOUNT_JSON is not set. Billing verify will be blocked in prod/stage.",
+                file=sys.stderr,
+            )
+
         return self
 
     @classmethod
@@ -103,10 +119,11 @@ class Settings(BaseModel):
                 allowed_origins=_split_csv(os.getenv("ALLOWED_ORIGINS")),
                 api_auth_tokens=_split_csv(os.getenv("API_AUTH_TOKENS")),
                 redis_url=os.getenv("REDIS_URL"),
-                use_fake_redis=(
-                    os.getenv("USE_FAKE_REDIS", "false").lower() in {"1", "true", "yes"}
-                ),
+                use_fake_redis=(os.getenv("USE_FAKE_REDIS", "false").lower() in {"1", "true", "yes"}),
                 alert_webhook=os.getenv("ALERT_WEBHOOK_URL"),
+                google_play_service_account_json=os.getenv("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON"),
+                google_play_package_name=os.getenv("GOOGLE_PLAY_PACKAGE_NAME"),
+                google_pubsub_verification_token=os.getenv("GOOGLE_PUBSUB_VERIFICATION_TOKEN"),
             )
         except ValidationError as exc:  # noqa: BLE001
             raise RuntimeError(f"Invalid configuration: {exc}") from exc
@@ -127,76 +144,10 @@ HEADERS = {"x-apisports-key": settings.api_football_key}
 
 # Lige koje smeju u feed
 ALLOW_LIST: List[int] = [
-    2,
-    3,
-    913,
-    5,
-    536,
-    808,
-    960,
-    10,
-    667,
-    29,
-    30,
-    31,
-    32,
-    37,
-    33,
-    34,
-    848,
-    311,
-    310,
-    342,
-    218,
-    144,
-    315,
-    71,
-    169,
-    210,
-    346,
-    233,
-    39,
-    40,
-    41,
-    42,
-    703,
-    244,
-    245,
-    61,
-    62,
-    78,
-    79,
-    197,
-    271,
-    164,
-    323,
-    135,
-    136,
-    389,
-    88,
-    89,
-    408,
-    103,
-    104,
-    106,
-    94,
-    283,
-    235,
-    286,
-    287,
-    322,
-    140,
-    141,
-    113,
-    207,
-    208,
-    202,
-    203,
-    909,
-    268,
-    269,
-    270,
-    340,
+    2, 3, 913, 5, 536, 808, 960, 10, 667, 29, 30, 31, 32, 37, 33, 34, 848, 342,
+    218, 144, 315, 71, 169, 210, 346, 233, 39, 40, 41, 42, 703, 244, 245, 61, 62, 78, 79,
+    197, 271, 164, 323, 135, 136, 389, 88, 89, 408, 103, 104, 106, 94, 283, 235, 286, 287,
+    322, 140, 141, 113, 207, 208, 202, 203, 909, 268, 269, 270, 340,
 ]
 
 # Statusi koje SKLANJAM iz feeda

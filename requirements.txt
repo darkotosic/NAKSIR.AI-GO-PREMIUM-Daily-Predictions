@@ -41,3 +41,6 @@ pytest-cov==5.0.0
 
 # --- Linting ---
 ruff==0.6.9
+
+# --- Cryptography ---
+cryptography==44.0.0

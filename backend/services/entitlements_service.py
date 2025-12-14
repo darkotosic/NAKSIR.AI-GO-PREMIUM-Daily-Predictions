@@ -38,13 +38,17 @@ def upsert_entitlement(
     unlimited: bool = False,
     purchase: Optional[Purchase] = None,
     start_at: Optional[datetime] = None,
+    valid_until_override: Optional[datetime] = None,
 ) -> Entitlement:
     entitlement = session.query(Entitlement).filter(Entitlement.user_id == user_id).one_or_none()
 
     valid_until: datetime | None = None
-    base_start = start_at or datetime.utcnow()
-    if period_days:
-        valid_until = base_start + timedelta(days=period_days)
+    if valid_until_override is not None:
+        valid_until = valid_until_override
+    else:
+        base_start = start_at or datetime.utcnow()
+        if period_days:
+            valid_until = base_start + timedelta(days=period_days)
 
     if entitlement is None:
         entitlement = Entitlement(
