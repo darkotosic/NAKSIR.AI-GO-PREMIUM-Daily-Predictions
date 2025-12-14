@@ -7,7 +7,10 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "prebuild": "expo prebuild",
+    "run:android": "expo run:android",
+    "run:ios": "expo run:ios"
   },
   "dependencies": {
     "@amplitude/analytics-react-native": "1.5.16",
@@ -22,6 +25,7 @@
     "expo-application": "~7.0.8",
     "expo-constants": "~18.0.12",
     "expo-device": "~8.0.10",
+    "expo-dev-client": "~6.0.20",
     "expo-status-bar": "~3.0.9",
     "expo-updates": "~29.0.15",
     "react": "19.1.0",
