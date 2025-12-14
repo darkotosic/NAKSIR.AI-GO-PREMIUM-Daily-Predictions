@@ -8,7 +8,6 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
 
 from backend.config import settings
 from backend.db import get_db
@@ -25,22 +24,86 @@ from backend.services.purchases_service import (
     verify_google_subscription_with_google,
 )
 from backend.services.users_service import get_or_create_user
+from sqlalchemy.orm import Session
 
 router = APIRouter(tags=["billing"])
 logger = logging.getLogger("naksir.go_premium.api")
 
-# === OIDC (Pub/Sub "Enable authentication") settings ===
-# IMPORTANT:
-# - In Pub/Sub subscription, set Audience to EXACTLY the endpoint URL below.
-# - Service Account must match the one selected in Pub/Sub push auth settings.
+# === RTDN Pub/Sub Push Authentication (OIDC) ===
+# Pub/Sub subscription settings (Google Cloud Console):
+# - Delivery type: Push
+# - Endpoint URL: https://naksir-go-premium-api.onrender.com/billing/google/rtdn
+# - Enable authentication: ON
+# - Service account: naksir-play-billing@...
+# - Audience: https://naksir-go-premium-api.onrender.com/billing/google/rtdn
+#
+# NOTE: Pub/Sub OIDC tokens for push-auth are signed with keys for the selected
+# service account (not the global oauth2 certs endpoint). We therefore verify
+# against the service-account specific JWKs URL.
 RTDN_EXPECTED_AUDIENCE = "https://naksir-go-premium-api.onrender.com/billing/google/rtdn"
 RTDN_EXPECTED_SERVICE_ACCOUNT_EMAIL = (
     "naksir-play-billing@soccer-predictions-naksir-ai.iam.gserviceaccount.com"
 )
-GOOGLE_JWKS_URL = "https://www.googleapis.com/oauth2/v3/certs"
 
-# Cache JWK client (created lazily to avoid startup failures if dependency missing)
 _JWK_CLIENT = None
+
+
+def _service_account_jwks_url(email: str) -> str:
+    return f"https://www.googleapis.com/service_accounts/v1/jwk/{email}"
+
+
+def _verify_pubsub_oidc_or_throw(authorization: Optional[str]) -> None:
+    """Verify Pub/Sub push OIDC JWT (when 'Enable authentication' is enabled).
+
+    Accepts only tokens with:
+      - aud == RTDN_EXPECTED_AUDIENCE (allow optional trailing slash)
+      - email == RTDN_EXPECTED_SERVICE_ACCOUNT_EMAIL
+    """
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Invalid Authorization scheme")
+
+    token = authorization.split(" ", 1)[1].strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="Empty bearer token")
+
+    # Lazy imports keep startup light; PyJWT is already in requirements.txt
+    try:
+        import jwt  # type: ignore
+        from jwt import PyJWKClient  # type: ignore
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=503,
+            detail="Missing dependency for OIDC verification (PyJWT).",
+        ) from exc
+
+    global _JWK_CLIENT
+    if _JWK_CLIENT is None:
+        _JWK_CLIENT = PyJWKClient(_service_account_jwks_url(RTDN_EXPECTED_SERVICE_ACCOUNT_EMAIL))
+
+    try:
+        signing_key = _JWK_CLIENT.get_signing_key_from_jwt(token).key
+
+        # Audience can sometimes be emitted with/without trailing slash depending on config.
+        auds = [RTDN_EXPECTED_AUDIENCE, RTDN_EXPECTED_AUDIENCE.rstrip("/") + "/"]
+
+        payload = jwt.decode(
+            token,
+            signing_key,
+            algorithms=["RS256"],
+            audience=auds,
+            options={"require": ["exp", "iat", "aud"]},
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("RTDN OIDC token verification failed")
+        raise HTTPException(status_code=401, detail="Invalid OIDC token") from exc
+
+    email = payload.get("email")
+    if email != RTDN_EXPECTED_SERVICE_ACCOUNT_EMAIL:
+        logger.warning("RTDN OIDC principal mismatch")
+        raise HTTPException(status_code=401, detail="Invalid OIDC principal")
 
 
 class BillingVerifyRequest(BaseModel):
@@ -64,57 +127,6 @@ class PubSubPushEnvelope(BaseModel):
 def _require_google_config_or_throw() -> None:
     if settings.app_env in {"stage", "prod"} and not settings.google_play_service_account_json:
         raise HTTPException(status_code=503, detail="Billing verification not configured")
-
-
-def _verify_pubsub_oidc_or_throw(authorization: Optional[str]) -> None:
-    """
-    Verifies Pub/Sub OIDC JWT (when subscription has "Enable authentication" checked).
-    Accepts only:
-      - aud == RTDN_EXPECTED_AUDIENCE
-      - email == RTDN_EXPECTED_SERVICE_ACCOUNT_EMAIL
-    """
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Missing Authorization header")
-
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Invalid Authorization scheme")
-
-    token = authorization.split(" ", 1)[1].strip()
-    if not token:
-        raise HTTPException(status_code=401, detail="Empty bearer token")
-
-    # Lazy imports so you only need to add dependency if you enable OIDC in Pub/Sub.
-    try:
-        import jwt  # type: ignore
-        from jwt import PyJWKClient  # type: ignore
-    except Exception as exc:  # noqa: BLE001
-        # If this triggers, install PyJWT in backend deps (poetry/pip).
-        raise HTTPException(
-            status_code=503,
-            detail="Missing dependency for OIDC verification (PyJWT). Install 'PyJWT' and redeploy.",
-        ) from exc
-
-    global _JWK_CLIENT
-    if _JWK_CLIENT is None:
-        _JWK_CLIENT = PyJWKClient(GOOGLE_JWKS_URL)
-
-    try:
-        signing_key = _JWK_CLIENT.get_signing_key_from_jwt(token).key
-        payload = jwt.decode(
-            token,
-            signing_key,
-            algorithms=["RS256"],
-            audience=RTDN_EXPECTED_AUDIENCE,
-            options={"require": ["exp", "iat", "aud"]},
-        )
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("RTDN OIDC token verification failed")
-        raise HTTPException(status_code=401, detail="Invalid OIDC token") from exc
-
-    email = payload.get("email")
-    if email != RTDN_EXPECTED_SERVICE_ACCOUNT_EMAIL:
-        logger.warning("RTDN OIDC principal mismatch")
-        raise HTTPException(status_code=401, detail="Invalid OIDC principal")
 
 
 @router.post(
@@ -142,7 +154,6 @@ def verify_google_purchase(
     if not package_name:
         raise HTTPException(status_code=400, detail="packageName is required")
 
-    # REAL verify
     verified = verify_google_subscription_with_google(
         package_name=package_name,
         sku=payload.productId,
@@ -158,7 +169,6 @@ def verify_google_purchase(
         verified=verified,
     )
 
-    # Use Google end_at as entitlement expiry (source of truth)
     entitlement = upsert_entitlement(
         session,
         user_id=user.id,
@@ -193,19 +203,15 @@ async def google_rtdn(
     session: Session = Depends(get_db),
 ) -> dict:
     """
-    Pub/Sub push body (expected when payload unwrapping is OFF):
+    Pub/Sub push body:
       { message: { data: base64(json), messageId: "...", attributes: {...} }, subscription: "..." }
-
-    Auth:
-      - Preferred: OIDC JWT via Authorization: Bearer ... (Pub/Sub subscription -> Enable authentication)
-      - Fallback: X-Goog-Channel-Token header (legacy)
     """
-    # === Auth gate ===
-    # If Pub/Sub OIDC is enabled, Authorization header will exist; verify it.
+    # Auth gate:
+    # - Preferred: Pub/Sub OIDC push-auth (Enable authentication) -> Authorization: Bearer <JWT>
+    # - Fallback: legacy shared secret header X-Goog-Channel-Token
     if authorization:
         _verify_pubsub_oidc_or_throw(authorization)
     else:
-        # Legacy optional verification token (if you use custom header mode)
         expected = settings.google_pubsub_verification_token
         if expected and x_goog_channel_token != expected:
             raise HTTPException(status_code=401, detail="Invalid RTDN token")
@@ -222,7 +228,6 @@ async def google_rtdn(
         logger.exception("RTDN decode error")
         raise HTTPException(status_code=400, detail="Invalid RTDN payload") from exc
 
-    # subscriptionNotification: { subscriptionId, purchaseToken, notificationType }
     sn = payload.get("subscriptionNotification") or {}
     subscription_id = sn.get("subscriptionId")
     purchase_token = sn.get("purchaseToken")
@@ -231,9 +236,8 @@ async def google_rtdn(
     if not package_name or not subscription_id or not purchase_token:
         raise HTTPException(status_code=400, detail="RTDN missing packageName/subscriptionId/purchaseToken")
 
-    # We cannot map purchaseToken -> user_id without store association.
-    # Minimal pragmatic approach: find Purchase by token, then user_id from that.
     from backend.models import Purchase  # local import to avoid cycles
+    from backend.services.purchases_service import handle_rtdn_event
 
     existing = (
         session.query(Purchase)
@@ -244,8 +248,6 @@ async def google_rtdn(
         # Idempotent: accept and exit (Google will retry; we just don't know user yet)
         return {"ok": True, "ignored": True}
 
-    from backend.services.purchases_service import handle_rtdn_event
-
     purchase = handle_rtdn_event(
         session,
         package_name=package_name,
@@ -253,9 +255,6 @@ async def google_rtdn(
         purchase_token=purchase_token,
         user_id=existing.user_id,
     )
-
-    # Update entitlement to match new expiry
-    from backend.services.entitlements_service import resolve_product, upsert_entitlement
 
     meta = resolve_product(subscription_id)
     upsert_entitlement(
