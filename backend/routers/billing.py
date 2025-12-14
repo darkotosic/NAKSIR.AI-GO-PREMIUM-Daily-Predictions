@@ -36,7 +36,6 @@ RTDN_EXPECTED_SERVICE_ACCOUNT_EMAIL = (
 )
 
 # Pub/Sub OIDC tokens are verified using Google's public signing certs.
-# Docs: validate token integrity + ensure email + audience match subscription config.
 GOOGLE_OIDC_JWKS_URL = "https://www.googleapis.com/oauth2/v3/certs"
 
 _JWK_CLIENT = None
@@ -88,7 +87,6 @@ def _verify_pubsub_oidc_or_throw(authorization: Optional[str]) -> None:
             options={"require": ["exp", "iat", "aud"]},
         )
     except Exception as exc:  # noqa: BLE001
-        # Log high-signal info so we can immediately see what's wrong.
         try:
             logger.warning(
                 "RTDN OIDC token verification failed | kid=%s iss=%s aud=%s email=%s sub=%s err=%s",
@@ -103,10 +101,8 @@ def _verify_pubsub_oidc_or_throw(authorization: Optional[str]) -> None:
             logger.warning("RTDN OIDC token verification failed (logging error)")
         raise HTTPException(status_code=401, detail="Invalid OIDC token") from exc
 
-    # Principal check per docs: email should match the service account configured on the subscription.
     email_claim = payload.get("email")
     if email_claim != RTDN_EXPECTED_SERVICE_ACCOUNT_EMAIL:
-        # If Google ever sends tokens without email (rare), this log shows `sub` so we can adapt safely.
         logger.warning(
             "RTDN OIDC principal mismatch | email=%s sub=%s iss=%s aud=%s",
             payload.get("email"),
@@ -218,6 +214,9 @@ async def google_rtdn(
          { "message": { "data": "<base64-json>", ... }, "subscription": "..." }
       B) Unwrapped (Enable payload unwrapping):
          <decoded-json>  (direct RTDN JSON)
+    Also supports:
+      - testNotification (Play Console test)
+      - oneTimeProductNotification (if enabled in Play Console)
     """
 
     # Auth gate:
@@ -243,45 +242,58 @@ async def google_rtdn(
         data_val = msg.get("data")
 
         if not data_val:
-            # If you enabled unwrapping but still got wrapper without data, log keys
             logger.warning("RTDN wrapped body missing message.data | keys=%s", list(msg.keys()))
-            raise HTTPException(status_code=400, detail="Missing message.data")
+            # Return 200 to stop Pub/Sub retry storms; still indicates ignored
+            return {"ok": True, "ignored": True, "reason": "missing_message_data"}
 
-        # data is usually base64(JSON)
         if isinstance(data_val, str):
             try:
                 decoded = base64.b64decode(data_val).decode("utf-8")
                 payload = json.loads(decoded)
             except Exception:
-                # fallback: sometimes it's already JSON string
                 try:
                     payload = json.loads(data_val)
-                except Exception as exc:  # noqa: BLE001
+                except Exception:
                     logger.warning("RTDN data decode failed")
-                    raise HTTPException(status_code=400, detail="Invalid message.data") from exc
+                    return {"ok": True, "ignored": True, "reason": "invalid_message_data"}
 
     # Mode B: unwrapped (raw RTDN JSON)
-    if payload is None and isinstance(body, dict) and "subscriptionNotification" in body:
+    if payload is None and isinstance(body, dict):
         payload = body
 
-    if payload is None:
-        logger.warning("RTDN unknown body shape | top_keys=%s", list(body.keys()) if isinstance(body, dict) else type(body))
-        raise HTTPException(status_code=400, detail="Unsupported RTDN payload shape")
+    if not isinstance(payload, dict):
+        logger.warning("RTDN unknown body type | type=%s", type(payload))
+        return {"ok": True, "ignored": True, "reason": "unsupported_payload_type"}
 
-    # Extract RTDN fields
+    # === Handle test notification (Play Console "Send test notification") ===
+    if "testNotification" in payload:
+        # Example: {"version":"1.0","packageName":"...","eventTimeMillis":"...","testNotification":{"version":"1.0"}}
+        logger.info("RTDN testNotification received | keys=%s", list(payload.keys()))
+        return {"ok": True, "test": True}
+
+    # === Handle one-time product notification (optional) ===
+    if "oneTimeProductNotification" in payload:
+        logger.info("RTDN oneTimeProductNotification received | keys=%s", list(payload.keys()))
+        # Minimal: ignore safely (you can implement later if you sell one-time products)
+        return {"ok": True, "ignored": True, "reason": "one_time_product_not_supported"}
+
+    # === Subscriptions (expected) ===
     sn = payload.get("subscriptionNotification") or {}
     subscription_id = sn.get("subscriptionId")
     purchase_token = sn.get("purchaseToken")
     package_name = payload.get("packageName") or settings.google_play_package_name
 
     if not package_name or not subscription_id or not purchase_token:
+        # This is the exact case you hit now: valid RTDN push but not a subscription payload (or incomplete).
         logger.warning(
-            "RTDN missing fields | package=%s subscriptionId=%s purchaseToken=%s",
+            "RTDN missing fields | top_keys=%s package=%s subscriptionId=%s purchaseToken=%s",
+            list(payload.keys()),
             bool(package_name),
             bool(subscription_id),
             bool(purchase_token),
         )
-        raise HTTPException(status_code=400, detail="RTDN missing required fields")
+        # Return 200 to stop retries; still traceable via logs
+        return {"ok": True, "ignored": True, "reason": "missing_required_fields"}
 
     from backend.models import Purchase  # local import to avoid cycles
     from backend.services.purchases_service import handle_rtdn_event
@@ -292,8 +304,8 @@ async def google_rtdn(
         .one_or_none()
     )
     if not existing:
-        # Accept and stop retries (important): we don't have linkage yet
-        return {"ok": True, "ignored": True}
+        # Accept and stop retries: we don't have linkage yet
+        return {"ok": True, "ignored": True, "reason": "purchase_not_found"}
 
     purchase = handle_rtdn_event(
         session,
@@ -318,6 +330,7 @@ async def google_rtdn(
     )
 
     return {"ok": True}
+
 
 @router.get(
     "/me/entitlements",
