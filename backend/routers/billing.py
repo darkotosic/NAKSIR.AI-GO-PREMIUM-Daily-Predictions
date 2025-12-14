@@ -8,6 +8,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
 from backend.config import settings
 from backend.db import get_db
@@ -24,44 +25,27 @@ from backend.services.purchases_service import (
     verify_google_subscription_with_google,
 )
 from backend.services.users_service import get_or_create_user
-from sqlalchemy.orm import Session
 
 router = APIRouter(tags=["billing"])
 logger = logging.getLogger("naksir.go_premium.api")
 
 # === RTDN Pub/Sub Push Authentication (OIDC) ===
-# Pub/Sub subscription settings (Google Cloud Console):
-# - Delivery type: Push
-# - Endpoint URL: https://naksir-go-premium-api.onrender.com/billing/google/rtdn
-# - Enable authentication: ON
-# - Service account: naksir-play-billing@...
-# - Audience: https://naksir-go-premium-api.onrender.com/billing/google/rtdn
-#
-# NOTE: Pub/Sub OIDC tokens for push-auth are signed with keys for the selected
-# service account (not the global oauth2 certs endpoint). We therefore verify
-# against the service-account specific JWKs URL.
 RTDN_EXPECTED_AUDIENCE = "https://naksir-go-premium-api.onrender.com/billing/google/rtdn"
 RTDN_EXPECTED_SERVICE_ACCOUNT_EMAIL = (
     "naksir-play-billing@soccer-predictions-naksir-ai.iam.gserviceaccount.com"
 )
 
+# Pub/Sub OIDC tokens are verified using Google's public signing certs.
+# Docs: validate token integrity + ensure email + audience match subscription config.
+GOOGLE_OIDC_JWKS_URL = "https://www.googleapis.com/oauth2/v3/certs"
+
 _JWK_CLIENT = None
 
 
-def _service_account_jwks_url(email: str) -> str:
-    return f"https://www.googleapis.com/service_accounts/v1/jwk/{email}"
-
-
 def _verify_pubsub_oidc_or_throw(authorization: Optional[str]) -> None:
-    """Verify Pub/Sub push OIDC JWT (when 'Enable authentication' is enabled).
-
-    Accepts only tokens with:
-      - aud == RTDN_EXPECTED_AUDIENCE (allow optional trailing slash)
-      - email == RTDN_EXPECTED_SERVICE_ACCOUNT_EMAIL
-    """
+    """Verify Pub/Sub push OIDC JWT (Enable authentication ON)."""
     if not authorization:
         raise HTTPException(status_code=401, detail="Missing Authorization header")
-
     if not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Invalid Authorization scheme")
 
@@ -69,7 +53,6 @@ def _verify_pubsub_oidc_or_throw(authorization: Optional[str]) -> None:
     if not token:
         raise HTTPException(status_code=401, detail="Empty bearer token")
 
-    # Lazy imports keep startup light; PyJWT is already in requirements.txt
     try:
         import jwt  # type: ignore
         from jwt import PyJWKClient  # type: ignore
@@ -81,14 +64,22 @@ def _verify_pubsub_oidc_or_throw(authorization: Optional[str]) -> None:
 
     global _JWK_CLIENT
     if _JWK_CLIENT is None:
-        _JWK_CLIENT = PyJWKClient(_service_account_jwks_url(RTDN_EXPECTED_SERVICE_ACCOUNT_EMAIL))
+        _JWK_CLIENT = PyJWKClient(GOOGLE_OIDC_JWKS_URL)
+
+    # Audience can appear with/without trailing slash depending on config.
+    auds = [RTDN_EXPECTED_AUDIENCE, RTDN_EXPECTED_AUDIENCE.rstrip("/") + "/"]
 
     try:
+        # Helpful debug (no signature verification here) -> only for logs on failure
+        unverified_header = jwt.get_unverified_header(token)
+        unverified_claims = jwt.decode(token, options={"verify_signature": False})
+        kid = unverified_header.get("kid")
+        iss = unverified_claims.get("iss")
+        aud = unverified_claims.get("aud")
+        email = unverified_claims.get("email")
+        sub = unverified_claims.get("sub")
+
         signing_key = _JWK_CLIENT.get_signing_key_from_jwt(token).key
-
-        # Audience can sometimes be emitted with/without trailing slash depending on config.
-        auds = [RTDN_EXPECTED_AUDIENCE, RTDN_EXPECTED_AUDIENCE.rstrip("/") + "/"]
-
         payload = jwt.decode(
             token,
             signing_key,
@@ -97,12 +88,32 @@ def _verify_pubsub_oidc_or_throw(authorization: Optional[str]) -> None:
             options={"require": ["exp", "iat", "aud"]},
         )
     except Exception as exc:  # noqa: BLE001
-        logger.warning("RTDN OIDC token verification failed")
+        # Log high-signal info so we can immediately see what's wrong.
+        try:
+            logger.warning(
+                "RTDN OIDC token verification failed | kid=%s iss=%s aud=%s email=%s sub=%s err=%s",
+                kid if "kid" in locals() else None,
+                iss if "iss" in locals() else None,
+                aud if "aud" in locals() else None,
+                email if "email" in locals() else None,
+                sub if "sub" in locals() else None,
+                str(exc),
+            )
+        except Exception:
+            logger.warning("RTDN OIDC token verification failed (logging error)")
         raise HTTPException(status_code=401, detail="Invalid OIDC token") from exc
 
-    email = payload.get("email")
-    if email != RTDN_EXPECTED_SERVICE_ACCOUNT_EMAIL:
-        logger.warning("RTDN OIDC principal mismatch")
+    # Principal check per docs: email should match the service account configured on the subscription.
+    email_claim = payload.get("email")
+    if email_claim != RTDN_EXPECTED_SERVICE_ACCOUNT_EMAIL:
+        # If Google ever sends tokens without email (rare), this log shows `sub` so we can adapt safely.
+        logger.warning(
+            "RTDN OIDC principal mismatch | email=%s sub=%s iss=%s aud=%s",
+            payload.get("email"),
+            payload.get("sub"),
+            payload.get("iss"),
+            payload.get("aud"),
+        )
         raise HTTPException(status_code=401, detail="Invalid OIDC principal")
 
 
@@ -206,12 +217,11 @@ async def google_rtdn(
     Pub/Sub push body:
       { message: { data: base64(json), messageId: "...", attributes: {...} }, subscription: "..." }
     """
-    # Auth gate:
-    # - Preferred: Pub/Sub OIDC push-auth (Enable authentication) -> Authorization: Bearer <JWT>
-    # - Fallback: legacy shared secret header X-Goog-Channel-Token
+    # Prefer OIDC push-auth (Enable authentication).
     if authorization:
         _verify_pubsub_oidc_or_throw(authorization)
     else:
+        # Fallback shared secret (only if you configured it)
         expected = settings.google_pubsub_verification_token
         if expected and x_goog_channel_token != expected:
             raise HTTPException(status_code=401, detail="Invalid RTDN token")
@@ -234,7 +244,10 @@ async def google_rtdn(
     package_name = payload.get("packageName") or settings.google_play_package_name
 
     if not package_name or not subscription_id or not purchase_token:
-        raise HTTPException(status_code=400, detail="RTDN missing packageName/subscriptionId/purchaseToken")
+        raise HTTPException(
+            status_code=400,
+            detail="RTDN missing packageName/subscriptionId/purchaseToken",
+        )
 
     from backend.models import Purchase  # local import to avoid cycles
     from backend.services.purchases_service import handle_rtdn_event
@@ -245,7 +258,7 @@ async def google_rtdn(
         .one_or_none()
     )
     if not existing:
-        # Idempotent: accept and exit (Google will retry; we just don't know user yet)
+        # Idempotent: accept and exit; user may verify later and link purchase.
         return {"ok": True, "ignored": True}
 
     purchase = handle_rtdn_event(
