@@ -1,4 +1,4 @@
-import axios, { AxiosError } from 'axios';
+import axios, { AxiosError, AxiosHeaders, RawAxiosRequestHeaders } from 'axios';
 import { getOrCreateInstallId } from '@lib/installId';
 
 const env = process.env as Record<string, string | undefined>;
@@ -46,14 +46,14 @@ export const apiClient = axios.create({
 
 apiClient.interceptors.request.use(async (config) => {
   const installId = await getOrCreateInstallId();
-  config.headers = {
-    ...(config.headers || {}),
-    'X-Install-Id': installId,
-  };
+  const headers = new AxiosHeaders(config.headers as any);
+  headers.set('X-Install-Id', installId);
 
   if (apiAuthToken) {
-    config.headers['X-API-Key'] = apiAuthToken;
+    headers.set('X-API-Key', apiAuthToken);
   }
+
+  config.headers = headers;
 
   return config;
 });

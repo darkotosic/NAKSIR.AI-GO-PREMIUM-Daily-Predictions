@@ -41,6 +41,8 @@ export interface OddsSnapshot {
   };
   totals?: Record<string, number | string>;
   ht_over_0_5?: number;
+  home_goals_over_0_5?: number;
+  away_goals_over_0_5?: number;
   [key: string]: unknown;
 }
 
@@ -171,6 +173,7 @@ export interface MatchListItem {
   fixture_id?: number;
   summary?: MatchSummary;
   odds?: FullOdds;
+  standings?: StandingsGroup[];
   standings_snapshot?: StandingsSnapshot;
 }
 

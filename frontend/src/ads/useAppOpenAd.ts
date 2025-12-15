@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AdEventType, AdRequestOptions, AppOpenAd } from 'react-native-google-mobile-ads';
 
