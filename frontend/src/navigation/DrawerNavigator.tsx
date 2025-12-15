@@ -6,6 +6,7 @@ import {
 } from '@react-navigation/native';
 import {
   createDrawerNavigator,
+  DrawerContentComponentProps,
   DrawerContentScrollView,
   DrawerItem,
   DrawerItemList,
@@ -53,7 +54,7 @@ const legalLinks = [
   { label: 'Telegram', url: 'https://t.me/naksiranalysis' },
 ];
 
-function CustomDrawerContent(props) {
+function CustomDrawerContent(props: DrawerContentComponentProps) {
   return (
     <DrawerContentScrollView {...props} style={{ backgroundColor: COLORS.background }}>
       <DrawerItemList {...props} />

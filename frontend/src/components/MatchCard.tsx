@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { Animated, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { MatchListItem } from '@naksir-types/match';
+import { MatchListItem, StandingsRow } from '@naksir-types/match';
 
 const COLORS = {
   background: '#040312',
@@ -32,7 +32,7 @@ export const MatchCard: React.FC<Props> = ({ match, onPress, onToggleFavorite, i
 
   const standingsLeague = match?.standings?.[0]?.league;
   const standingGroups = standingsLeague?.standings || [];
-  const tableRows = standingGroups.reduce((acc, group) => acc.concat(group), [] as any[]);
+  const tableRows = standingGroups.reduce<StandingsRow[]>((acc, group = []) => acc.concat(group), []);
   const homeStanding = match?.standings_snapshot?.home || tableRows.find((row) => row.team?.id === teams?.home?.id);
   const awayStanding = match?.standings_snapshot?.away || tableRows.find((row) => row.team?.id === teams?.away?.id);
 
