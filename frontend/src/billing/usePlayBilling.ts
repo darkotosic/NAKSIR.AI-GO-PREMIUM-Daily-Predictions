@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 import * as RNIap from 'react-native-iap';
 
 import { verifyGooglePurchase } from '@api/billing';
-import { SUBS_SKUS, Sku } from '../../../shared/billing_skus';
+import { SUBS_SKUS, Sku } from '../shared/billing_skus';
 
 type PurchaseState = {
   isConnected: boolean;

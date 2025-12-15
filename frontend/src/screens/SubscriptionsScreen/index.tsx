@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 
 import { usePlayBilling } from '../../billing/usePlayBilling';
-import { SUBS_SKUS, Sku } from '../../../../shared/billing_skus';
+import { SUBS_SKUS, Sku } from '../../shared/billing_skus';
 
 function asSku(v: unknown): Sku | null {
   return (SUBS_SKUS as readonly string[]).includes(String(v)) ? (String(v) as Sku) : null;
@@ -71,10 +71,7 @@ export default function SubscriptionsScreen() {
               </View>
 
               <TouchableOpacity
-                style={[
-                  styles.primaryBtn,
-                  (isLoading || isActive) ? styles.btnDisabled : null,
-                ]}
+                style={[styles.primaryBtn, isLoading || isActive ? styles.btnDisabled : null]}
                 onPress={() => buySubscription(opt.sku)}
                 disabled={isLoading || isActive}
                 activeOpacity={0.85}
