@@ -3,7 +3,10 @@ import { getOrCreateInstallId } from '@lib/installId';
 
 const env = process.env as Record<string, string | undefined>;
 const apiBaseUrl = env.EXPO_PUBLIC_API_BASE_URL?.trim() || 'https://naksir-go-premium-api.onrender.com';
-const apiAuthToken = env.EXPO_PUBLIC_API_KEY?.trim();
+// Match backend fallback token (`FALLBACK_API_AUTH_TOKEN` defaults to "dev-token") so
+// local/dev builds always send the required header even when Expo env vars are
+// missing. Production builds should still override via EXPO_PUBLIC_API_KEY.
+const apiAuthToken = env.EXPO_PUBLIC_API_KEY?.trim() || 'dev-token';
 
 const extractErrorMessage = (error: AxiosError): string => {
   const detail = (error.response?.data as any)?.detail;
