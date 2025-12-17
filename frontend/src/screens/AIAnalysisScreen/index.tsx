@@ -112,13 +112,14 @@ const AIAnalysisScreen: React.FC = () => {
     if (!fixtureId) return;
     mutation.mutate({
       fixtureId,
+      useTrialReward: true,
     });
   };
 
   useEffect(() => {
     if (fixtureId) {
       trackEvent('OpenAnalysis', { fixture_id: fixtureId });
-      mutation.mutate({ fixtureId });
+      mutation.mutate({ fixtureId, useTrialReward: true });
     }
   }, [fixtureId]);
 
