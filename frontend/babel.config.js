@@ -6,14 +6,18 @@ module.exports = function (api) {
       [
         'module-resolver',
         {
+          root: ['./'],
           alias: {
+            '@': './src',
+            '@navigation': './src/navigation',
             '@screens': './src/screens',
             '@components': './src/components',
             '@api': './src/api',
             '@hooks': './src/hooks',
-            '@naksir-types': './src/types',
             '@lib': './src/lib',
-            '@navigation': './src/navigation',
+            '@types': './src/types',
+            '@billing': './src/billing',
+            '@ads': './src/ads',
           },
         },
       ],
