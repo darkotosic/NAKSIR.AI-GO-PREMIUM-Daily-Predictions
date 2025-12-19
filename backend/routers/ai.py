@@ -16,6 +16,7 @@ from backend.dependencies import require_api_key
 from backend.match_full import build_full_match
 from backend.services.ai_analysis_cache_service import (
     get_cached_ok,
+    get_cached_row,
     make_cache_key,
     save_failed,
     save_ok,
@@ -39,6 +40,74 @@ class AIAnalysisRequest(BaseModel):
     trial_by_reward: bool = Field(
         default=False,
         description="Besplatna nagrada uz rewarded ad; server enforce-uje da se iskoristi najviše jednom",
+    )
+
+
+def _enforce_entitlement(
+    session: Session,
+    *,
+    install_id: str,
+    trial_by_reward: bool,
+) -> None:
+    user, wallet = get_or_create_user(session, install_id)
+
+    now = datetime.now(timezone.utc)
+    entitlement = get_active_entitlement(session, user.id, now=now)
+
+    if entitlement is not None:
+        ok, reason = check_and_consume_ai(session, user.id, entitlement, now=now)
+        if not ok:
+            session.rollback()
+            raise HTTPException(status_code=429, detail=reason or "Limit reached")
+        session.commit()
+    else:
+        if not trial_by_reward:
+            raise HTTPException(status_code=402, detail="Subscription required")
+
+        if wallet.free_reward_used:
+            raise HTTPException(status_code=402, detail="Subscription required")
+
+        wallet.free_reward_used = True
+        session.add(wallet)
+        session.commit()
+
+
+@router.get(
+    "/matches/{fixture_id}/ai-analysis",
+    summary="Cached AI analiza meča (read-only)",
+    dependencies=[Depends(require_api_key)],
+)
+def get_match_ai_analysis(
+    fixture_id: int = Path(..., description="API-Football fixture ID"),
+    install_id: Optional[str] = Header(None, alias="X-Install-Id"),
+    session: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    if not install_id:
+        raise HTTPException(status_code=400, detail="X-Install-Id header is required")
+
+    _enforce_entitlement(session, install_id=install_id, trial_by_reward=False)
+
+    cache_key = make_cache_key(fixture_id=fixture_id, version="v1", lang="en", model="default")
+    row = get_cached_row(session, cache_key)
+    if not row:
+        raise HTTPException(status_code=404, detail="No cached analysis yet")
+
+    if row.status == "ok" and row.analysis_json:
+        return {
+            "cached": True,
+            "cache_key": cache_key,
+            "analysis": row.analysis_json,
+        }
+
+    if row.status == "generating":
+        raise HTTPException(
+            status_code=202,
+            detail="Analysis is generating. Try again shortly.",
+        )
+
+    raise HTTPException(
+        status_code=503,
+        detail="AI analysis temporarily unavailable (cached generation failed).",
     )
 
 
@@ -74,27 +143,11 @@ def post_match_ai_analysis(
     if not install_id:
         raise HTTPException(status_code=400, detail="X-Install-Id header is required")
 
-    user, wallet = get_or_create_user(session, install_id)
-
-    now = datetime.now(timezone.utc)
-    entitlement = get_active_entitlement(session, user.id, now=now)
-
-    if entitlement is not None:
-        ok, reason = check_and_consume_ai(session, user.id, entitlement, now=now)
-        if not ok:
-            session.rollback()
-            raise HTTPException(status_code=429, detail=reason or "Limit reached")
-        session.commit()
-    else:
-        if not payload.trial_by_reward:
-            raise HTTPException(status_code=402, detail="Subscription required")
-
-        if wallet.free_reward_used:
-            raise HTTPException(status_code=402, detail="Subscription required")
-
-        wallet.free_reward_used = True
-        session.add(wallet)
-        session.commit()
+    _enforce_entitlement(
+        session,
+        install_id=install_id,
+        trial_by_reward=payload.trial_by_reward,
+    )
 
     cache_key = make_cache_key(fixture_id=fixture_id, version="v1", lang="en", model="default")
     cached = get_cached_ok(session, cache_key)

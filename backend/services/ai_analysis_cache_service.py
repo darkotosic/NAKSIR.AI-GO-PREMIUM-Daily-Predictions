@@ -28,6 +28,12 @@ def get_cached_ok(session: Session, cache_key: str) -> AiAnalysisCache | None:
     return None
 
 
+def get_cached_row(session: Session, cache_key: str) -> AiAnalysisCache | None:
+    return session.execute(
+        select(AiAnalysisCache).where(AiAnalysisCache.cache_key == cache_key)
+    ).scalars().first()
+
+
 def try_mark_generating(
     session: Session,
     *,
