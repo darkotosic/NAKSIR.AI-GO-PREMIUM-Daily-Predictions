@@ -13,13 +13,14 @@ from sqlalchemy.orm import Session
 from backend.config import settings
 from backend.db import get_db
 from backend.dependencies import require_api_key
-from backend.models.enums import Platform
+from backend.models.enums import Platform, PurchaseStatus
 from backend.services.entitlements_service import (
     get_entitlement_status,
     resolve_product,
     upsert_entitlement,
 )
 from backend.services.purchases_service import (
+    get_purchase_by_token,
     upsert_product,
     apply_verified_purchase,
     verify_google_subscription_with_google,
@@ -114,9 +115,9 @@ def _verify_pubsub_oidc_or_throw(authorization: Optional[str]) -> None:
 
 
 class BillingVerifyRequest(BaseModel):
-    packageName: str = Field(..., description="Android package name (app id)")
-    productId: str = Field(..., description="SKU sa Play Console-a")
-    purchaseToken: str = Field(..., description="Token koji vraća Play Billing")
+    packageName: str = Field(..., description="Android package name (app id)", min_length=3)
+    productId: str = Field(..., description="SKU sa Play Console-a", min_length=2)
+    purchaseToken: str = Field(..., description="Token koji vraća Play Billing", min_length=10)
 
 
 class EntitlementEnvelope(BaseModel):
@@ -150,6 +151,29 @@ def verify_google_purchase(
     if not install_id:
         raise HTTPException(status_code=400, detail="X-Install-Id header is required")
 
+    purchase_token = payload.purchaseToken
+    masked_token = f"{purchase_token[:6]}…{purchase_token[-4:]}"
+
+    existing_purchase = get_purchase_by_token(session, purchase_token, Platform.android)
+    if existing_purchase and existing_purchase.status == PurchaseStatus.active:
+        entitled, expires_at, plan, _entitlement = get_entitlement_status(
+            session, user_id=existing_purchase.user_id
+        )
+        if entitled:
+            user, wallet = get_or_create_user(session, install_id)
+            logger.info(
+                "Idempotent Google verify | token=%s sku=%s user_id=%s",
+                masked_token,
+                payload.productId,
+                user.id,
+            )
+            return EntitlementEnvelope(
+                entitled=entitled,
+                expiresAt=expires_at.isoformat() if expires_at else None,
+                plan=plan,
+                freeRewardUsed=wallet.free_reward_used,
+            )
+
     _require_google_config_or_throw()
 
     product_meta = resolve_product(payload.productId)
@@ -161,17 +185,23 @@ def verify_google_purchase(
     if not package_name:
         raise HTTPException(status_code=400, detail="packageName is required")
 
+    logger.info(
+        "Google verify request | token=%s sku=%s install_id=%s",
+        masked_token,
+        payload.productId,
+        install_id,
+    )
     verified = verify_google_subscription_with_google(
         package_name=package_name,
         sku=payload.productId,
-        purchase_token=payload.purchaseToken,
+        purchase_token=purchase_token,
     )
 
     purchase = apply_verified_purchase(
         session,
         user_id=user.id,
         sku=product.sku,
-        purchase_token=payload.purchaseToken,
+        purchase_token=purchase_token,
         package_name=package_name,
         verified=verified,
     )
