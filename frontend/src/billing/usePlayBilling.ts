@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import * as RNIap from 'react-native-iap';
 
 import { verifyGooglePurchase } from '@api/billing';
+import { extractGooglePurchasePayload } from './googlePurchase';
 import { SUBS_SKUS, Sku } from '../shared/billing_skus';
 
 type PurchaseState = {
@@ -108,20 +109,12 @@ export function usePlayBilling() {
     // Purchase update listener
     purchaseUpdateSub.current = RNIap.purchaseUpdatedListener(async (purchase: any) => {
       try {
-        const productId: string | undefined = purchase?.productId;
-        const purchaseToken: string | undefined =
-          purchase?.purchaseToken || purchase?.transactionReceipt || purchase?.transactionId;
-
-        const sku = normalizeSku(productId);
+        const payload = extractGooglePurchasePayload(purchase as any);
+        const sku = normalizeSku(payload.productId);
         if (!sku) return;
 
         // Server verify + entitlement grant
-        await verifyGooglePurchase({
-          sku,
-          purchaseToken: purchaseToken ?? '',
-          productId: productId ?? '',
-          platform: 'android',
-        } as any);
+        await verifyGooglePurchase(payload);
 
         // Acknowledge / finish
         try {

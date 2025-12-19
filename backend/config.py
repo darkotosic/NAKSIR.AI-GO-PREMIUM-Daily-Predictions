@@ -43,6 +43,7 @@ class Settings(BaseModel):
     timezone: str = Field(default="Europe/Belgrade", alias="TIMEZONE")
     allowed_origins: List[str] = Field(default_factory=list, alias="ALLOWED_ORIGINS")
     api_auth_tokens: List[str] = Field(default_factory=list, alias="API_AUTH_TOKENS")
+    allow_dev_fallback: bool = Field(default=True, alias="ALLOW_DEV_FALLBACK")
     redis_url: str | None = Field(default=None, alias="REDIS_URL")
     use_fake_redis: bool = Field(default=False, alias="USE_FAKE_REDIS")
     alert_webhook: str | None = Field(default=None, alias="ALERT_WEBHOOK_URL")
@@ -81,7 +82,7 @@ class Settings(BaseModel):
             ]
 
         self.api_auth_tokens = [token for token in self.api_auth_tokens if token]
-        if not self.api_auth_tokens:
+        if not self.api_auth_tokens and self.app_env == EnvProfile.dev and self.allow_dev_fallback:
             fallback_token = os.getenv("FALLBACK_API_AUTH_TOKEN", "dev-token")
             self.api_auth_tokens = [fallback_token]
             print(
@@ -118,6 +119,7 @@ class Settings(BaseModel):
                 timezone=os.getenv("TIMEZONE", "Europe/Belgrade"),
                 allowed_origins=_split_csv(os.getenv("ALLOWED_ORIGINS")),
                 api_auth_tokens=_split_csv(os.getenv("API_AUTH_TOKENS")),
+                allow_dev_fallback=(os.getenv("ALLOW_DEV_FALLBACK", "true").lower() in {"1", "true", "yes"}),
                 redis_url=os.getenv("REDIS_URL"),
                 use_fake_redis=(os.getenv("USE_FAKE_REDIS", "false").lower() in {"1", "true", "yes"}),
                 alert_webhook=os.getenv("ALERT_WEBHOOK_URL"),
@@ -131,7 +133,12 @@ class Settings(BaseModel):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings.load()
+    settings = Settings.load()
+    if settings.app_env in {EnvProfile.stage, EnvProfile.prod}:
+        if not settings.api_auth_tokens:
+            raise RuntimeError("Missing API_AUTH_TOKENS for stage/prod")
+        settings.allow_dev_fallback = False
+    return settings
 
 
 settings = get_settings()

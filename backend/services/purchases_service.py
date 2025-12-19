@@ -28,6 +28,16 @@ def upsert_product(session: Session, meta: dict[str, Any]) -> Product:
     return product
 
 
+def get_purchase_by_token(
+    session: Session, purchase_token: str, platform: Platform
+) -> Optional[Purchase]:
+    return (
+        session.query(Purchase)
+        .filter(Purchase.purchase_token == purchase_token, Purchase.platform == platform)
+        .one_or_none()
+    )
+
+
 def _derive_status_from_end_at(end_at: Optional[datetime]) -> PurchaseStatus:
     if end_at is None:
         return PurchaseStatus.active
