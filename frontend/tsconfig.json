@@ -1,17 +1,20 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "strict": true,
-    "baseUrl": "./src",
+    "baseUrl": ".",
     "paths": {
-      "@screens/*": ["screens/*"],
-      "@components/*": ["components/*"],
-      "@api/*": ["api/*"],
-      "@hooks/*": ["hooks/*"],
-      "@naksir-types/*": ["types/*"],
-      "@lib/*": ["lib/*"],
-      "@navigation/*": ["navigation/*"]
-    }
+      "@/*": ["src/*"],
+      "@navigation/*": ["src/navigation/*"],
+      "@screens/*": ["src/screens/*"],
+      "@components/*": ["src/components/*"],
+      "@api/*": ["src/api/*"],
+      "@hooks/*": ["src/hooks/*"],
+      "@lib/*": ["src/lib/*"],
+      "@types/*": ["src/types/*"],
+      "@billing/*": ["src/billing/*"],
+      "@ads/*": ["src/ads/*"]
+    },
+    "strict": true
   },
   "include": ["src", "../shared"]
 }
