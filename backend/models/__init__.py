@@ -5,6 +5,7 @@ from .session import UserSession
 from .billing import Product, Purchase, Entitlement
 from .usage_and_coins import AIUsageDaily, AIUsagePeriod, CoinsWallet, CoinsLedger
 from .ads import AdsConsent
+from .ai_analysis_cache import AiAnalysisCache
 
 __all__ = [
     "Base",
@@ -18,4 +19,5 @@ __all__ = [
     "CoinsWallet",
     "CoinsLedger",
     "AdsConsent",
+    "AiAnalysisCache",
 ]
