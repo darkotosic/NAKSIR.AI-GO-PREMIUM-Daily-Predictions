@@ -37,9 +37,12 @@ def create_app() -> FastAPI:
 
     install_monitoring_hooks(app)
 
+    @app.head("/")
+    async def root_head():
+        return {}
+
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-        """Catch-all handler da uvek vratimo čist JSON a ne HTML traceback."""
         logger.exception("Unhandled error on %s %s", request.method, request.url)
         return JSONResponse(
             status_code=500,
@@ -48,7 +51,6 @@ def create_app() -> FastAPI:
 
     @app.on_event("startup")
     def log_available_routes() -> None:
-        """Na startup izloguj sve rute da odmah u Render logu vidiš šta je aktivno."""
         logger.info(
             "Env=%s, timezone=%s, redis_configured=%s",
             settings.app_env,
@@ -61,16 +63,10 @@ def create_app() -> FastAPI:
             methods = getattr(route, "methods", None)
             if not methods:
                 continue
-            visible_methods = sorted(
-                m for m in methods if m not in {"HEAD", "OPTIONS"}
-            )
+            visible_methods = sorted(m for m in methods if m not in {"HEAD", "OPTIONS"})
             if not visible_methods:
                 continue
-            logger.info(
-                "%-6s %s",
-                ",".join(visible_methods),
-                route.path,
-            )
+            logger.info("%-6s %s", ",".join(visible_methods), route.path)
         logger.info("======================")
 
     app.include_router(meta.router)
