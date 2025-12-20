@@ -15,10 +15,13 @@
       "autoIncrement": true
     },
     "apk": {
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://naksir-go-premium-api.onrender.com"
+      },
       "android": {
         "buildType": "apk"
-      },
-      "distribution": "internal"
+      }
     }
   },
   "submit": {

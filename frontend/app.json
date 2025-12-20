@@ -25,7 +25,7 @@
     },
 
     "plugins": [
-      ["./plugins/withAdMobAppId", { "androidAppId": process.env.ADMOB_APP_ID }]
+      ["./plugins/withAdMobAppId", { "androidAppId": "ca-app-pub-1726722567967096~4895623430" }]
     ],
 
     "extra": {
