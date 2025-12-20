@@ -2,11 +2,21 @@ import axios, { AxiosError, AxiosHeaders, RawAxiosRequestHeaders } from 'axios';
 import { getOrCreateInstallId } from '@lib/installId';
 
 const env = process.env as Record<string, string | undefined>;
-const apiBaseUrl = env.EXPO_PUBLIC_API_BASE_URL?.trim() || 'https://naksir-go-premium-api.onrender.com';
-// Match backend fallback token (`FALLBACK_API_AUTH_TOKEN` defaults to "dev-token") so
-// local/dev builds always send the required header even when Expo env vars are
-// missing. Production builds should still override via EXPO_PUBLIC_API_KEY.
-const apiAuthToken = env.EXPO_PUBLIC_API_KEY?.trim() || 'dev-token';
+const apiBaseUrl =
+  env.EXPO_PUBLIC_API_BASE_URL?.trim() ||
+  'https://naksir-go-premium-api.onrender.com';
+
+// IMPORTANT: Never default to dev-token in production.
+const apiAuthToken = env.EXPO_PUBLIC_API_KEY?.trim() || '';
+
+if (!__DEV__) {
+  if (!env.EXPO_PUBLIC_API_KEY?.trim()) {
+    throw new Error('Missing EXPO_PUBLIC_API_KEY in production build');
+  }
+  if (env.EXPO_PUBLIC_API_KEY.trim() === 'dev-token') {
+    throw new Error('Refusing to use dev-token in production build');
+  }
+}
 
 const extractErrorMessage = (error: AxiosError): string => {
   const detail = (error.response?.data as any)?.detail;
@@ -52,9 +62,7 @@ apiClient.interceptors.request.use(async (config) => {
   const headers = new AxiosHeaders(config.headers as any);
   headers.set('X-Install-Id', installId);
 
-  if (apiAuthToken) {
-    headers.set('X-API-Key', apiAuthToken);
-  }
+  headers.set('X-API-Key', apiAuthToken);
 
   config.headers = headers;
 
