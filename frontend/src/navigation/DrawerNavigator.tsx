@@ -1,9 +1,6 @@
 import React from 'react';
 import { Linking } from 'react-native';
-import {
-  DefaultTheme,
-  NavigationContainer,
-} from '@react-navigation/native';
+import { DefaultTheme } from '@react-navigation/native';
 import {
   createDrawerNavigator,
   DrawerContentComponentProps,
@@ -78,7 +75,7 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
 
 const Drawer = createDrawerNavigator<RootDrawerParamList>();
 
-const navigationTheme = {
+export const navigationTheme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
@@ -92,85 +89,83 @@ const navigationTheme = {
 
 const DrawerNavigator = () => (
   <GestureHandlerRootView style={{ flex: 1 }}>
-    <NavigationContainer theme={navigationTheme}>
-      <Drawer.Navigator
-        initialRouteName="TodayMatches"
-        drawerContent={(props) => <CustomDrawerContent {...props} />}
-        screenOptions={{
-          headerStyle: { backgroundColor: COLORS.card },
-          headerTintColor: COLORS.text,
-          drawerActiveTintColor: COLORS.neonViolet,
-          drawerInactiveTintColor: COLORS.text,
-          drawerStyle: { backgroundColor: COLORS.background },
-        }}
-      >
-        <Drawer.Screen
-          name="TodayMatches"
-          component={TodayMatchesScreen}
-          options={{ title: "Today's Matches" }}
-        />
-        <Drawer.Screen
-          name="Subscriptions"
-          component={SubscriptionsScreen}
-          options={{ title: 'Subscriptions' }}
-        />
-        <Drawer.Screen
-          name="MatchDetails"
-          component={MatchDetailsScreen}
-          options={{ title: 'Match Details', drawerItemStyle: { display: 'none' } }}
-        />
-        <Drawer.Screen
-          name="AIAnalysis"
-          component={AIAnalysisScreen}
-          options={{ title: 'Naksir In-depth Analysis', drawerItemStyle: { display: 'none' } }}
-        />
-        <Drawer.Screen
-          name="H2H"
-          component={H2HScreen}
-          options={{ title: 'Head to Head', drawerItemStyle: { display: 'none' } }}
-        />
-        <Drawer.Screen
-          name="Odds"
-          component={OddsScreen}
-          options={{ title: 'Odds Snapshot', drawerItemStyle: { display: 'none' } }}
-        />
-        <Drawer.Screen
-          name="Stats"
-          component={StatsScreen}
-          options={{ title: 'Match Stats', drawerItemStyle: { display: 'none' } }}
-        />
-        <Drawer.Screen
-          name="TeamStats"
-          component={TeamStatsScreen}
-          options={{ title: 'Team Stats', drawerItemStyle: { display: 'none' } }}
-        />
-        <Drawer.Screen
-          name="Events"
-          component={EventsScreen}
-          options={{ title: 'Match Events', drawerItemStyle: { display: 'none' } }}
-        />
-        <Drawer.Screen
-          name="Lineups"
-          component={LineupsScreen}
-          options={{ title: 'Lineups', drawerItemStyle: { display: 'none' } }}
-        />
-        <Drawer.Screen
-          name="Players"
-          component={PlayersScreen}
-          options={{ title: 'Players', drawerItemStyle: { display: 'none' } }}
-        />
-        <Drawer.Screen
-          name="Predictions"
-          component={PredictionsScreen}
-          options={{ title: 'Predictions', drawerItemStyle: { display: 'none' } }}
-        />
-        <Drawer.Screen
-          name="Injuries"
-          component={InjuriesScreen}
-          options={{ title: 'Injuries', drawerItemStyle: { display: 'none' } }}
-        />
-      </Drawer.Navigator>
-    </NavigationContainer>
+    <Drawer.Navigator
+      initialRouteName="TodayMatches"
+      drawerContent={(props) => <CustomDrawerContent {...props} />}
+      screenOptions={{
+        headerStyle: { backgroundColor: COLORS.card },
+        headerTintColor: COLORS.text,
+        drawerActiveTintColor: COLORS.neonViolet,
+        drawerInactiveTintColor: COLORS.text,
+        drawerStyle: { backgroundColor: COLORS.background },
+      }}
+    >
+      <Drawer.Screen
+        name="TodayMatches"
+        component={TodayMatchesScreen}
+        options={{ title: "Today's Matches" }}
+      />
+      <Drawer.Screen
+        name="Subscriptions"
+        component={SubscriptionsScreen}
+        options={{ title: 'Subscriptions' }}
+      />
+      <Drawer.Screen
+        name="MatchDetails"
+        component={MatchDetailsScreen}
+        options={{ title: 'Match Details', drawerItemStyle: { display: 'none' } }}
+      />
+      <Drawer.Screen
+        name="AIAnalysis"
+        component={AIAnalysisScreen}
+        options={{ title: 'Naksir In-depth Analysis', drawerItemStyle: { display: 'none' } }}
+      />
+      <Drawer.Screen
+        name="H2H"
+        component={H2HScreen}
+        options={{ title: 'Head to Head', drawerItemStyle: { display: 'none' } }}
+      />
+      <Drawer.Screen
+        name="Odds"
+        component={OddsScreen}
+        options={{ title: 'Odds Snapshot', drawerItemStyle: { display: 'none' } }}
+      />
+      <Drawer.Screen
+        name="Stats"
+        component={StatsScreen}
+        options={{ title: 'Match Stats', drawerItemStyle: { display: 'none' } }}
+      />
+      <Drawer.Screen
+        name="TeamStats"
+        component={TeamStatsScreen}
+        options={{ title: 'Team Stats', drawerItemStyle: { display: 'none' } }}
+      />
+      <Drawer.Screen
+        name="Events"
+        component={EventsScreen}
+        options={{ title: 'Match Events', drawerItemStyle: { display: 'none' } }}
+      />
+      <Drawer.Screen
+        name="Lineups"
+        component={LineupsScreen}
+        options={{ title: 'Lineups', drawerItemStyle: { display: 'none' } }}
+      />
+      <Drawer.Screen
+        name="Players"
+        component={PlayersScreen}
+        options={{ title: 'Players', drawerItemStyle: { display: 'none' } }}
+      />
+      <Drawer.Screen
+        name="Predictions"
+        component={PredictionsScreen}
+        options={{ title: 'Predictions', drawerItemStyle: { display: 'none' } }}
+      />
+      <Drawer.Screen
+        name="Injuries"
+        component={InjuriesScreen}
+        options={{ title: 'Injuries', drawerItemStyle: { display: 'none' } }}
+      />
+    </Drawer.Navigator>
   </GestureHandlerRootView>
 );
 

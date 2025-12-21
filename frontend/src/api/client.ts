@@ -1,20 +1,28 @@
-import axios, { AxiosError, AxiosHeaders, RawAxiosRequestHeaders } from 'axios';
+import axios, { AxiosError, AxiosHeaders } from 'axios';
+import Constants from 'expo-constants';
 import { getOrCreateInstallId } from '@lib/installId';
 
 const env = process.env as Record<string, string | undefined>;
+const extra = (Constants.expoConfig?.extra ?? {}) as Record<string, string | undefined>;
 const apiBaseUrl =
   env.EXPO_PUBLIC_API_BASE_URL?.trim() ||
+  extra.apiBaseUrl?.trim() ||
   'https://naksir-go-premium-api.onrender.com';
 
 // IMPORTANT: Never default to dev-token in production.
-const apiAuthToken = env.EXPO_PUBLIC_API_KEY?.trim() || '';
+let apiAuthToken = env.EXPO_PUBLIC_API_KEY?.trim() || extra.apiKey?.trim() || '';
+let warnedMissingApiKey = false;
 
 if (!__DEV__) {
-  if (!env.EXPO_PUBLIC_API_KEY?.trim()) {
-    throw new Error('Missing EXPO_PUBLIC_API_KEY in production build');
+  if (!apiAuthToken && !warnedMissingApiKey) {
+    console.warn(
+      'Missing EXPO_PUBLIC_API_KEY for production build. API requests will fail until it is configured.',
+    );
+    warnedMissingApiKey = true;
   }
-  if (env.EXPO_PUBLIC_API_KEY.trim() === 'dev-token') {
-    throw new Error('Refusing to use dev-token in production build');
+  if (apiAuthToken === 'dev-token') {
+    console.warn('Refusing to use dev-token in production build. Remove it from env.');
+    apiAuthToken = '';
   }
 }
 
@@ -62,7 +70,9 @@ apiClient.interceptors.request.use(async (config) => {
   const headers = new AxiosHeaders(config.headers as any);
   headers.set('X-Install-Id', installId);
 
-  headers.set('X-API-Key', apiAuthToken);
+  if (apiAuthToken) {
+    headers.set('X-API-Key', apiAuthToken);
+  }
 
   config.headers = headers;
 
