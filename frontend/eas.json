@@ -15,6 +15,7 @@
       "autoIncrement": true
     },
     "apk": {
+      "environment": "production",
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://naksir-go-premium-api.onrender.com"
