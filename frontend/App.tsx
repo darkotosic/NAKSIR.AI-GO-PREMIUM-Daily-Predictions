@@ -2,6 +2,7 @@ import 'react-native-gesture-handler';
 import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { NavigationContainer } from '@react-navigation/native';
 import DrawerNavigator from '@navigation/DrawerNavigator';
 import { initAnalytics } from '@lib/tracking';
 
@@ -14,8 +15,10 @@ const App: React.FC = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <StatusBar style="light" />
-      <DrawerNavigator />
+      <NavigationContainer>
+        <StatusBar style="light" />
+        <DrawerNavigator />
+      </NavigationContainer>
     </QueryClientProvider>
   );
 };
