@@ -38,6 +38,32 @@ export function usePlayBilling() {
     setState((s) => ({ ...s, lastError: msg }));
   }, []);
 
+  const loadSubscriptions = useCallback(async () => {
+    const skus = [...SUBS_SKUS] as string[];
+
+    if (typeof RNIap.getSubscriptions === 'function') {
+      try {
+        return await (RNIap.getSubscriptions as any)({ skus } as any);
+      } catch (error) {
+        return await (RNIap.getSubscriptions as any)(skus);
+      }
+    }
+
+    if (typeof (RNIap as any).getProducts === 'function') {
+      const productType =
+        (RNIap as any).ProductType?.SUBSCRIPTION ||
+        (RNIap as any).ProductType?.Subs ||
+        (RNIap as any).PRODUCT_TYPE_SUBSCRIPTION;
+
+      return await (RNIap as any).getProducts({
+        skus,
+        type: productType,
+      } as any);
+    }
+
+    throw new Error('Subscriptions API is unavailable in react-native-iap.');
+  }, []);
+
   const connect = useCallback(async () => {
     if (!isAndroid) return;
 
@@ -56,7 +82,7 @@ export function usePlayBilling() {
 
       // Load products
       try {
-        await RNIap.getSubscriptions({ skus: [...SUBS_SKUS] as string[] } as any);
+        await loadSubscriptions();
         setState((s) => ({ ...s, productsLoaded: true }));
       } catch (e: any) {
         setError(`Failed to load subscriptions: ${e?.message || String(e)}`);
@@ -67,7 +93,7 @@ export function usePlayBilling() {
     } finally {
       setState((s) => ({ ...s, isLoading: false }));
     }
-  }, [isAndroid, setError]);
+  }, [isAndroid, loadSubscriptions, setError]);
 
   const disconnect = useCallback(async () => {
     try {

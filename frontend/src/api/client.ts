@@ -3,7 +3,12 @@ import Constants from 'expo-constants';
 import { getOrCreateInstallId } from '@lib/installId';
 
 const env = process.env as Record<string, string | undefined>;
-const extra = (Constants.expoConfig?.extra ?? {}) as Record<string, string | undefined>;
+const extra = (
+  Constants.expoConfig?.extra ??
+  (Constants as any)?.manifest?.extra ??
+  (Constants as any)?.manifest2?.extra ??
+  {}
+) as Record<string, string | undefined>;
 const apiBaseUrl =
   env.EXPO_PUBLIC_API_BASE_URL?.trim() ||
   extra.apiBaseUrl?.trim() ||
