@@ -1,17 +1,31 @@
 from __future__ import annotations
 
+import logging
 from typing import Optional
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from fastapi.security import APIKeyHeader
 
 from backend.config import get_settings
 
 api_key_scheme = APIKeyHeader(name="X-API-Key", auto_error=False)
+logger = logging.getLogger("naksir.go_premium.api")
 
 
-def require_api_key(api_key: Optional[str] = Depends(api_key_scheme)) -> str:
+def _mask(token: str | None) -> str:
+    if not token:
+        return "<missing>"
+    token = token.strip()
+    if len(token) <= 8:
+        return "***"
+    return f"{token[:4]}...{token[-4:]}"
+
+
+def require_api_key(
+    request: Request, api_key: Optional[str] = Depends(api_key_scheme)
+) -> str:
     settings = get_settings()
+    logger.info("Auth header X-API-Key=%s", _mask(request.headers.get("X-API-Key")))
     if not api_key:
         raise HTTPException(status_code=401, detail="Missing X-API-Key")
 
