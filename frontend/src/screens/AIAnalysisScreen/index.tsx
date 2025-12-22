@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { fetchEntitlements } from '@api/billing';
+import { useRewardedAd } from '@ads/useRewardedAd';
 import { useAiAnalysisMutation } from '@hooks/useAiAnalysisMutation';
 import { RootDrawerParamList } from '@navigation/types';
 import { trackEvent } from '@lib/tracking';
@@ -32,7 +34,12 @@ const AIAnalysisScreen: React.FC = () => {
   const fixtureId = route.params?.fixtureId;
   const summary = route.params?.summary;
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [isEntitled, setIsEntitled] = useState(false);
+  const [isCheckingEntitlement, setIsCheckingEntitlement] = useState(true);
+  const [adRequested, setAdRequested] = useState(false);
   const mutation = useAiAnalysisMutation();
+  const { isLoaded, isLoading: isAdLoading, load, show, reward } = useRewardedAd();
+  const rewardedRef = useRef(reward);
 
   const depthWords = useMemo(() => 'NAKSIR GO IN DEPTH OF DATA'.split(' '), []);
   const depthWordAnim = useMemo(() => depthWords.map(() => new Animated.Value(0)), [depthWords]);
@@ -45,6 +52,17 @@ const AIAnalysisScreen: React.FC = () => {
     const secs = (seconds % 60).toString().padStart(2, '0');
     return `${mins}:${secs}`;
   };
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  useEffect(() => {
+    if (adRequested && isLoaded) {
+      show();
+      setAdRequested(false);
+    }
+  }, [adRequested, isLoaded, show]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout | undefined;
@@ -108,20 +126,69 @@ const AIAnalysisScreen: React.FC = () => {
     };
   }, [depthWordAnim, loadingBar, mutation.isPending]);
 
-  const handleRunAnalysis = () => {
+  useEffect(() => {
+    if (fixtureId) {
+      trackEvent('OpenAnalysis', { fixture_id: fixtureId });
+    }
+  }, [fixtureId]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const checkEntitlement = async () => {
+      try {
+        const entitlement = await fetchEntitlements();
+        if (isMounted) {
+          setIsEntitled(Boolean(entitlement.entitled));
+        }
+      } catch (error) {
+        if (__DEV__) {
+          console.warn('Failed to fetch entitlements', error);
+        }
+      } finally {
+        if (isMounted) {
+          setIsCheckingEntitlement(false);
+        }
+      }
+    };
+
+    checkEntitlement();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!fixtureId || !isEntitled || mutation.isPending || mutation.data) return;
+    mutation.mutate({ fixtureId, useTrialReward: false });
+  }, [fixtureId, isEntitled, mutation]);
+
+  useEffect(() => {
+    if (!reward || reward === rewardedRef.current) return;
+    rewardedRef.current = reward;
     if (!fixtureId) return;
     mutation.mutate({
       fixtureId,
       useTrialReward: true,
     });
+  }, [fixtureId, mutation, reward]);
+
+  const handleWatchAd = () => {
+    if (isLoaded) {
+      show();
+    } else if (!isAdLoading) {
+      setAdRequested(true);
+      load();
+    }
   };
 
-  useEffect(() => {
-    if (fixtureId) {
-      trackEvent('OpenAnalysis', { fixture_id: fixtureId });
-      mutation.mutate({ fixtureId, useTrialReward: true });
-    }
-  }, [fixtureId]);
+  const handleBuySubscription = () => {
+    navigation.navigate('Subscriptions');
+  };
+
+  const unlockRequired =
+    mutation.isError &&
+    ((mutation.error as any)?.code === 'UNLOCK_REQUIRED' || (mutation.error as any)?.status === 402);
 
   const analysisPayload = mutation.data;
   const analysis = (analysisPayload as any)?.analysis || analysisPayload;
@@ -157,6 +224,8 @@ const AIAnalysisScreen: React.FC = () => {
     }
   };
 
+  const showPaywall = !isEntitled && !mutation.data && !mutation.isPending;
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -165,19 +234,30 @@ const AIAnalysisScreen: React.FC = () => {
           <Text style={styles.backLabel}>Back to match</Text>
         </TouchableOpacity>
 
-        <View style={styles.card}>
-          <Text style={styles.title}>Naksir In-depth Analysis</Text>
-          <Text style={styles.subtitle}>
-            AI insights summary, Key factors, DC + Goals, Probabilities: Correct scores, Corners, Yellow cards, Risks.
-          </Text>
-          <TouchableOpacity
-            style={[styles.button, !fixtureId || mutation.isPending ? styles.buttonDisabled : null]}
-            disabled={!fixtureId || mutation.isPending}
-            onPress={handleRunAnalysis}
-          >
-            <Text style={styles.buttonText}>{mutation.isPending ? 'Asking...' : 'Run analysis'}</Text>
-          </TouchableOpacity>
-        </View>
+        {showPaywall && (
+          <View style={styles.card}>
+            <Text style={styles.title}>Unlock AI Analysis</Text>
+            <Text style={styles.subtitle}>
+              Watch a rewarded ad or unlock full access with a subscription to view AI insights.
+            </Text>
+            <TouchableOpacity
+              style={[styles.button, (!fixtureId || isAdLoading) && styles.buttonDisabled]}
+              disabled={!fixtureId || isAdLoading}
+              onPress={handleWatchAd}
+            >
+              <Text style={styles.buttonText}>{isAdLoading ? 'Loading ad...' : 'Watch Ad'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, styles.secondaryButton]} onPress={handleBuySubscription}>
+              <Text style={styles.buttonText}>Buy Subscription</Text>
+            </TouchableOpacity>
+            {isCheckingEntitlement && (
+              <View style={styles.entitlementChecking}>
+                <ActivityIndicator color={COLORS.neonPurple} size="small" />
+                <Text style={styles.entitlementText}>Checking subscription status...</Text>
+              </View>
+            )}
+          </View>
+        )}
 
         {mutation.isPending && (
           <View style={styles.loadingState}>
@@ -337,9 +417,11 @@ const AIAnalysisScreen: React.FC = () => {
           </View>
         ) : null}
 
-        {mutation.isError && (
+        {mutation.isError && !unlockRequired && (
           <View style={styles.card}>
-            <Text style={styles.errorText}>AI analysis is temporarily unavailable. Please try again.</Text>
+            <Text style={styles.errorText}>
+              {mutation.error?.message || 'AI analysis is temporarily unavailable. Please try again.'}
+            </Text>
           </View>
         )}
       </ScrollView>
@@ -408,6 +490,10 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.6,
   },
+  secondaryButton: {
+    backgroundColor: COLORS.neonOrange,
+    marginTop: 12,
+  },
   buttonText: {
     color: COLORS.text,
     fontWeight: '700',
@@ -434,6 +520,16 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#fca5a5',
     fontWeight: '700',
+  },
+  entitlementChecking: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
+  },
+  entitlementText: {
+    color: COLORS.muted,
+    fontWeight: '600',
   },
   loadingState: {
     alignItems: 'center',

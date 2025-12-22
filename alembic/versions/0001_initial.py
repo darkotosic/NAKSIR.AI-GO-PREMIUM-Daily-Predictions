@@ -11,14 +11,22 @@ branch_labels = None
 depends_on = None
 
 
+# Define PG ENUM types once (we create them explicitly with checkfirst=True)
 auth_provider_enum = postgresql.ENUM(
     "device",
     "email_otp",
     "google",
     name="auth_provider_enum",
 )
+
 platform_enum = postgresql.ENUM("android", name="platform_enum")
-purchase_state_enum = postgresql.ENUM("purchased", "pending", name="purchase_state_enum")
+
+purchase_state_enum = postgresql.ENUM(
+    "purchased",
+    "pending",
+    name="purchase_state_enum",
+)
+
 purchase_status_enum = postgresql.ENUM(
     "active",
     "expired",
@@ -26,8 +34,19 @@ purchase_status_enum = postgresql.ENUM(
     "refunded",
     name="purchase_status_enum",
 )
-entitlement_status_enum = postgresql.ENUM("active", "expired", name="entitlement_status_enum")
-product_type_enum = postgresql.ENUM("subscription", "consumable", name="product_type_enum")
+
+entitlement_status_enum = postgresql.ENUM(
+    "active",
+    "expired",
+    name="entitlement_status_enum",
+)
+
+product_type_enum = postgresql.ENUM(
+    "subscription",
+    "consumable",
+    name="product_type_enum",
+)
+
 coin_ledger_type_enum = postgresql.ENUM(
     "earn",
     "spend",
@@ -35,6 +54,7 @@ coin_ledger_type_enum = postgresql.ENUM(
     "adjust",
     name="coin_ledger_type_enum",
 )
+
 coin_ledger_source_enum = postgresql.ENUM(
     "rewarded_ad",
     "iap",
@@ -43,6 +63,7 @@ coin_ledger_source_enum = postgresql.ENUM(
     "admin",
     name="coin_ledger_source_enum",
 )
+
 ads_consent_status_enum = postgresql.ENUM(
     "unknown",
     "consented",
@@ -53,15 +74,17 @@ ads_consent_status_enum = postgresql.ENUM(
 
 def upgrade() -> None:
     bind = op.get_bind()
-    auth_provider_enum.create(bind)
-    platform_enum.create(bind)
-    purchase_state_enum.create(bind)
-    purchase_status_enum.create(bind)
-    entitlement_status_enum.create(bind)
-    product_type_enum.create(bind)
-    coin_ledger_type_enum.create(bind)
-    coin_ledger_source_enum.create(bind)
-    ads_consent_status_enum.create(bind)
+
+    # Idempotent: will not fail if types already exist (e.g. partial migration run)
+    auth_provider_enum.create(bind, checkfirst=True)
+    platform_enum.create(bind, checkfirst=True)
+    purchase_state_enum.create(bind, checkfirst=True)
+    purchase_status_enum.create(bind, checkfirst=True)
+    entitlement_status_enum.create(bind, checkfirst=True)
+    product_type_enum.create(bind, checkfirst=True)
+    coin_ledger_type_enum.create(bind, checkfirst=True)
+    coin_ledger_source_enum.create(bind, checkfirst=True)
+    ads_consent_status_enum.create(bind, checkfirst=True)
 
     op.create_table(
         "users",
@@ -70,7 +93,13 @@ def upgrade() -> None:
         sa.Column("email", sa.String(length=320), nullable=True),
         sa.Column(
             "auth_provider",
-            sa.Enum("device", "email_otp", "google", name="auth_provider_enum"),
+            postgresql.ENUM(
+                "device",
+                "email_otp",
+                "google",
+                name="auth_provider_enum",
+                create_type=False,
+            ),
             nullable=False,
             server_default=sa.text("'device'::auth_provider_enum"),
         ),
@@ -93,7 +122,11 @@ def upgrade() -> None:
     op.create_table(
         "products",
         sa.Column("sku", sa.String(length=128), nullable=False),
-        sa.Column("type", sa.Enum("subscription", "consumable", name="product_type_enum"), nullable=False),
+        sa.Column(
+            "type",
+            postgresql.ENUM("subscription", "consumable", name="product_type_enum", create_type=False),
+            nullable=False,
+        ),
         sa.Column("duration_days", sa.Integer(), nullable=True),
         sa.Column("daily_limit", sa.Integer(), nullable=True),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")),
@@ -169,7 +202,7 @@ def upgrade() -> None:
         sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column(
             "platform",
-            sa.Enum("android", name="platform_enum"),
+            postgresql.ENUM("android", name="platform_enum", create_type=False),
             nullable=False,
             server_default=sa.text("'android'::platform_enum"),
         ),
@@ -178,13 +211,24 @@ def upgrade() -> None:
         sa.Column("order_id", sa.String(length=128), nullable=True),
         sa.Column(
             "purchase_state",
-            sa.Enum("purchased", "pending", name="purchase_state_enum"),
+            postgresql.ENUM("purchased", "pending", name="purchase_state_enum", create_type=False),
             nullable=False,
         ),
         sa.Column("acknowledged", sa.Boolean(), nullable=False, server_default=sa.text("false")),
         sa.Column("start_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("end_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("status", sa.Enum("active", "expired", "canceled", "refunded", name="purchase_status_enum"), nullable=False),
+        sa.Column(
+            "status",
+            postgresql.ENUM(
+                "active",
+                "expired",
+                "canceled",
+                "refunded",
+                name="purchase_status_enum",
+                create_type=False,
+            ),
+            nullable=False,
+        ),
         sa.Column("raw_payload", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column(
             "created_at",
@@ -214,7 +258,7 @@ def upgrade() -> None:
         sa.Column("valid_until", sa.DateTime(timezone=True), nullable=True),
         sa.Column(
             "status",
-            sa.Enum("active", "expired", name="entitlement_status_enum"),
+            postgresql.ENUM("active", "expired", name="entitlement_status_enum", create_type=False),
             nullable=False,
             server_default=sa.text("'active'::entitlement_status_enum"),
         ),
@@ -235,10 +279,22 @@ def upgrade() -> None:
         "coins_ledger",
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column("type", sa.Enum("earn", "spend", "purchase", "adjust", name="coin_ledger_type_enum"), nullable=False),
+        sa.Column(
+            "type",
+            postgresql.ENUM("earn", "spend", "purchase", "adjust", name="coin_ledger_type_enum", create_type=False),
+            nullable=False,
+        ),
         sa.Column(
             "source",
-            sa.Enum("rewarded_ad", "iap", "ai_analysis", "predictions", "admin", name="coin_ledger_source_enum"),
+            postgresql.ENUM(
+                "rewarded_ad",
+                "iap",
+                "ai_analysis",
+                "predictions",
+                "admin",
+                name="coin_ledger_source_enum",
+                create_type=False,
+            ),
             nullable=False,
         ),
         sa.Column("amount", sa.Integer(), nullable=False),
@@ -259,7 +315,7 @@ def upgrade() -> None:
         sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column(
             "status",
-            sa.Enum("unknown", "consented", "declined", name="ads_consent_status_enum"),
+            postgresql.ENUM("unknown", "consented", "declined", name="ads_consent_status_enum", create_type=False),
             nullable=False,
             server_default=sa.text("'unknown'::ads_consent_status_enum"),
         ),
@@ -296,12 +352,12 @@ def downgrade() -> None:
     op.drop_table("users")
 
     bind = op.get_bind()
-    ads_consent_status_enum.drop(bind)
-    coin_ledger_source_enum.drop(bind)
-    coin_ledger_type_enum.drop(bind)
-    product_type_enum.drop(bind)
-    entitlement_status_enum.drop(bind)
-    purchase_status_enum.drop(bind)
-    purchase_state_enum.drop(bind)
-    platform_enum.drop(bind)
-    auth_provider_enum.drop(bind)
+    ads_consent_status_enum.drop(bind, checkfirst=True)
+    coin_ledger_source_enum.drop(bind, checkfirst=True)
+    coin_ledger_type_enum.drop(bind, checkfirst=True)
+    product_type_enum.drop(bind, checkfirst=True)
+    entitlement_status_enum.drop(bind, checkfirst=True)
+    purchase_status_enum.drop(bind, checkfirst=True)
+    purchase_state_enum.drop(bind, checkfirst=True)
+    platform_enum.drop(bind, checkfirst=True)
+    auth_provider_enum.drop(bind, checkfirst=True)
