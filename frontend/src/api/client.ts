@@ -88,7 +88,12 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (axios.isAxiosError(error)) {
-      return Promise.reject(new Error(extractErrorMessage(error)));
+      const enrichedError = new Error(extractErrorMessage(error));
+      const responseData = error.response?.data as any;
+      (enrichedError as any).status = error.response?.status;
+      (enrichedError as any).code = responseData?.code;
+      (enrichedError as any).actions = responseData?.actions;
+      return Promise.reject(enrichedError);
     }
     return Promise.reject(error);
   },
