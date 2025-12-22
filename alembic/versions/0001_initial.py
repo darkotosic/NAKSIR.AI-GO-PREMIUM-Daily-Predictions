@@ -143,4 +143,221 @@ def upgrade() -> None:
         "ai_usage_daily",
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column("date",
+        sa.Column("date", sa.Date(), nullable=False),
+        sa.Column("count", sa.Integer(), nullable=False, server_default=sa.text("0")),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("TIMEZONE('utc', now())"),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("TIMEZONE('utc', now())"),
+        ),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("user_id", "date", name="uq_ai_usage_user_date"),
+    )
+    op.create_index("ix_ai_usage_user_date", "ai_usage_daily", ["user_id", "date"], unique=False)
+
+    op.create_table(
+        "coins_wallet",
+        sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column("balance", sa.Integer(), nullable=False, server_default=sa.text("0")),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("TIMEZONE('utc', now())"),
+        ),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("user_id"),
+    )
+
+    op.create_table(
+        "user_sessions",
+        sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column("device_id", sa.String(length=128), nullable=True),
+        sa.Column("refresh_token_hash", sa.String(length=256), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("TIMEZONE('utc', now())"),
+        ),
+        sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("revoked_at", sa.DateTime(timezone=True), nullable=True),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index("ix_user_sessions_user_expires", "user_sessions", ["user_id", "expires_at"], unique=False)
+
+    op.create_table(
+        "purchases",
+        sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column(
+            "platform",
+            postgresql.ENUM("android", name="platform_enum", create_type=False),
+            nullable=False,
+            server_default=sa.text("'android'::platform_enum"),
+        ),
+        sa.Column("sku", sa.String(length=128), nullable=False),
+        sa.Column("purchase_token", sa.Text(), nullable=False),
+        sa.Column("order_id", sa.String(length=128), nullable=True),
+        sa.Column(
+            "purchase_state",
+            postgresql.ENUM("purchased", "pending", name="purchase_state_enum", create_type=False),
+            nullable=False,
+        ),
+        sa.Column("acknowledged", sa.Boolean(), nullable=False, server_default=sa.text("false")),
+        sa.Column("start_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("end_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column(
+            "status",
+            postgresql.ENUM(
+                "active",
+                "expired",
+                "canceled",
+                "refunded",
+                name="purchase_status_enum",
+                create_type=False,
+            ),
+            nullable=False,
+        ),
+        sa.Column("raw_payload", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("TIMEZONE('utc', now())"),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("TIMEZONE('utc', now())"),
+        ),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("order_id"),
+        sa.UniqueConstraint("platform", "purchase_token", name="uq_purchases_platform_token"),
+    )
+    op.create_index("ix_purchases_user_created", "purchases", ["user_id", "created_at"], unique=False)
+
+    op.create_table(
+        "entitlements",
+        sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column("tier", sa.String(length=64), nullable=False, server_default=sa.text("'free'")),
+        sa.Column("daily_limit", sa.Integer(), nullable=False, server_default=sa.text("0")),
+        sa.Column("valid_until", sa.DateTime(timezone=True), nullable=True),
+        sa.Column(
+            "status",
+            postgresql.ENUM("active", "expired", name="entitlement_status_enum", create_type=False),
+            nullable=False,
+            server_default=sa.text("'active'::entitlement_status_enum"),
+        ),
+        sa.Column("source_purchase_id", postgresql.UUID(as_uuid=True), nullable=True),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("TIMEZONE('utc', now())"),
+        ),
+        sa.ForeignKeyConstraint(["source_purchase_id"], ["purchases.id"], ondelete="SET NULL"),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("user_id"),
+    )
+
+    op.create_table(
+        "coins_ledger",
+        sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column(
+            "type",
+            postgresql.ENUM("earn", "spend", "purchase", "adjust", name="coin_ledger_type_enum", create_type=False),
+            nullable=False,
+        ),
+        sa.Column(
+            "source",
+            postgresql.ENUM(
+                "rewarded_ad",
+                "iap",
+                "ai_analysis",
+                "predictions",
+                "admin",
+                name="coin_ledger_source_enum",
+                create_type=False,
+            ),
+            nullable=False,
+        ),
+        sa.Column("amount", sa.Integer(), nullable=False),
+        sa.Column("ref_id", sa.String(length=128), nullable=True),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("TIMEZONE('utc', now())"),
+        ),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index("ix_coins_ledger_user_created", "coins_ledger", ["user_id", "created_at"], unique=False)
+
+    op.create_table(
+        "ads_consent",
+        sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column(
+            "status",
+            postgresql.ENUM("unknown", "consented", "declined", name="ads_consent_status_enum", create_type=False),
+            nullable=False,
+            server_default=sa.text("'unknown'::ads_consent_status_enum"),
+        ),
+        sa.Column("region", sa.String(length=32), nullable=True),
+        sa.Column("consent_provider", sa.String(length=32), nullable=False, server_default=sa.text("'ump'")),
+        sa.Column("raw_payload", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("TIMEZONE('utc', now())"),
+        ),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("user_id"),
+    )
+
+
+def downgrade() -> None:
+    op.drop_table("ads_consent")
+    op.drop_index("ix_coins_ledger_user_created", table_name="coins_ledger")
+    op.drop_table("coins_ledger")
+    op.drop_table("entitlements")
+    op.drop_index("ix_purchases_user_created", table_name="purchases")
+    op.drop_table("purchases")
+    op.drop_index("ix_user_sessions_user_expires", table_name="user_sessions")
+    op.drop_table("user_sessions")
+    op.drop_table("coins_wallet")
+    op.drop_index("ix_ai_usage_user_date", table_name="ai_usage_daily")
+    op.drop_table("ai_usage_daily")
+    op.drop_table("products")
+    op.drop_index("ix_users_auth_provider", table_name="users")
+    op.drop_index(op.f("ix_users_email"), table_name="users")
+    op.drop_index(op.f("ix_users_device_id"), table_name="users")
+    op.drop_table("users")
+
+    bind = op.get_bind()
+    ads_consent_status_enum.drop(bind, checkfirst=True)
+    coin_ledger_source_enum.drop(bind, checkfirst=True)
+    coin_ledger_type_enum.drop(bind, checkfirst=True)
+    product_type_enum.drop(bind, checkfirst=True)
+    entitlement_status_enum.drop(bind, checkfirst=True)
+    purchase_status_enum.drop(bind, checkfirst=True)
+    purchase_state_enum.drop(bind, checkfirst=True)
+    platform_enum.drop(bind, checkfirst=True)
+    auth_provider_enum.drop(bind, checkfirst=True)
