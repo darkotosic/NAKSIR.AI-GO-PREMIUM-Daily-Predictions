@@ -1,10 +1,5 @@
 // @ts-nocheck
-import mobileAds, {
-  AdRequestOptions,
-  MaxAdContentRating,
-  RequestConfiguration,
-  TestIds,
-} from 'react-native-google-mobile-ads';
+import type { AdRequestOptions, MaxAdContentRating, RequestConfiguration } from 'react-native-google-mobile-ads';
 
 export type AdUnitKey =
   | 'rewarded'
@@ -20,10 +15,10 @@ export const AD_UNIT_IDS: Record<AdUnitKey, string> = {
 };
 
 const TEST_IDS: Record<AdUnitKey, string> = {
-  rewarded: TestIds.REWARDED,
-  rewardedInterstitial: TestIds.REWARDED_INTERSTITIAL,
-  appOpen: TestIds.APP_OPEN,
-  nativeAdvanced: TestIds.NATIVE_ADVANCED,
+  rewarded: 'ca-app-pub-3940256099942544/5224354917',
+  rewardedInterstitial: 'ca-app-pub-3940256099942544/5354046379',
+  appOpen: 'ca-app-pub-3940256099942544/3419835294',
+  nativeAdvanced: 'ca-app-pub-3940256099942544/2247696110',
 };
 
 export const getAdUnitId = (key: AdUnitKey, isTestMode: boolean = __DEV__): string => {
@@ -36,7 +31,7 @@ export const buildRequestOptions = (overrides?: AdRequestOptions): AdRequestOpti
 });
 
 export const configureMobileAds = async (
-  { isTestMode = __DEV__, maxAdContentRating = MaxAdContentRating.T }: { isTestMode?: boolean; maxAdContentRating?: MaxAdContentRating },
+  { isTestMode = __DEV__, maxAdContentRating = 'T' as MaxAdContentRating }: { isTestMode?: boolean; maxAdContentRating?: MaxAdContentRating },
 ): Promise<void> => {
   const configuration: RequestConfiguration = {
     maxAdContentRating,
@@ -45,6 +40,15 @@ export const configureMobileAds = async (
     testDeviceIdentifiers: isTestMode ? ['EMULATOR'] : undefined,
   };
 
-  await mobileAds().setRequestConfiguration(configuration);
-  await mobileAds().initialize();
+  const mobileAdsModule = await import('react-native-google-mobile-ads').catch((error) => {
+    if (__DEV__) {
+      console.warn('Mobile ads module unavailable', error);
+    }
+    return null;
+  });
+
+  if (!mobileAdsModule?.default) return;
+
+  await mobileAdsModule.default().setRequestConfiguration(configuration);
+  await mobileAdsModule.default().initialize();
 };

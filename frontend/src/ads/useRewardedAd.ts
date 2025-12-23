@@ -1,12 +1,6 @@
 // @ts-nocheck
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  AdEventType,
-  AdRequestOptions,
-  RewardedAd,
-  RewardedAdEventType,
-  RewardedAdReward,
-} from 'react-native-google-mobile-ads';
+import type { AdRequestOptions, RewardedAdReward } from 'react-native-google-mobile-ads';
 
 import { buildRequestOptions, getAdUnitId } from './admob';
 
@@ -21,40 +15,82 @@ export const useRewardedAd = ({
   requestOptions,
   isTestMode = __DEV__,
 }: UseRewardedAdOptions = {}) => {
-  const resolvedAdUnitId = adUnitId ?? getAdUnitId('rewarded', isTestMode);
-  const ad = useMemo(
-    () => RewardedAd.createForAdRequest(resolvedAdUnitId, buildRequestOptions(requestOptions)),
-    [resolvedAdUnitId, requestOptions],
+  const resolvedAdUnitId = useMemo(
+    () => adUnitId ?? getAdUnitId('rewarded', isTestMode),
+    [adUnitId, isTestMode],
   );
+  const [adModule, setAdModule] = useState<any | null>(null);
+  const [ad, setAd] = useState<any | null>(null);
+  const [isAvailable, setIsAvailable] = useState(true);
 
   const [isLoaded, setIsLoaded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [reward, setReward] = useState<RewardedAdReward | null>(null);
 
   useEffect(() => {
-    const loadedListener = ad.addAdEventListener(AdEventType.LOADED, () => {
+    let isMounted = true;
+    import('react-native-google-mobile-ads')
+      .then((module) => {
+        if (isMounted) {
+          setAdModule(module);
+          setIsAvailable(true);
+        }
+      })
+      .catch((error) => {
+        if (__DEV__) {
+          console.warn('Rewarded ads unavailable', error);
+        }
+        if (isMounted) {
+          setAdModule(null);
+          setIsAvailable(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!adModule || !resolvedAdUnitId) return;
+    const createdAd = adModule.RewardedAd.createForAdRequest(
+      resolvedAdUnitId,
+      buildRequestOptions(requestOptions),
+    );
+    setAd(createdAd);
+    return () => {
+      createdAd?.destroy?.();
+    };
+  }, [adModule, requestOptions, resolvedAdUnitId]);
+
+  useEffect(() => {
+    if (!ad || !adModule) return;
+    const loadedListener = ad.addAdEventListener(adModule.AdEventType.LOADED, () => {
       setIsLoaded(true);
       setIsLoading(false);
     });
-    const closedListener = ad.addAdEventListener(AdEventType.CLOSED, () => {
+    const closedListener = ad.addAdEventListener(adModule.AdEventType.CLOSED, () => {
       setIsLoaded(false);
     });
-    const errorListener = ad.addAdEventListener(AdEventType.ERROR, () => {
+    const errorListener = ad.addAdEventListener(adModule.AdEventType.ERROR, () => {
       setIsLoading(false);
       setIsLoaded(false);
     });
-    const rewardListener = ad.addAdEventListener(RewardedAdEventType.EARNED_REWARD, setReward);
+    const rewardListener = ad.addAdEventListener(adModule.RewardedAdEventType.EARNED_REWARD, setReward);
 
     return () => {
       loadedListener();
       closedListener();
       errorListener();
       rewardListener();
-      ad.destroy();
     };
-  }, [ad]);
+  }, [ad, adModule]);
 
   const load = useCallback(() => {
+    if (!ad) {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     ad.load();
   }, [ad]);
@@ -70,6 +106,7 @@ export const useRewardedAd = ({
     adUnitId: resolvedAdUnitId,
     isLoaded,
     isLoading,
+    isAvailable,
     load,
     show,
     reward,
