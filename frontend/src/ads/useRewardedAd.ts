@@ -53,10 +53,27 @@ export const useRewardedAd = ({
 
   useEffect(() => {
     if (!adModule || !resolvedAdUnitId) return;
-    const createdAd = adModule.RewardedAd.createForAdRequest(
-      resolvedAdUnitId,
-      buildRequestOptions(requestOptions),
-    );
+    if (!adModule.RewardedAd?.createForAdRequest) {
+      setIsAvailable(false);
+      setAd(null);
+      return;
+    }
+
+    let createdAd: any;
+    try {
+      createdAd = adModule.RewardedAd.createForAdRequest(
+        resolvedAdUnitId,
+        buildRequestOptions(requestOptions),
+      );
+    } catch (error) {
+      if (__DEV__) {
+        console.warn('Failed to create rewarded ad', error);
+      }
+      setIsAvailable(false);
+      setAd(null);
+      return;
+    }
+
     setAd(createdAd);
     return () => {
       createdAd?.destroy?.();
