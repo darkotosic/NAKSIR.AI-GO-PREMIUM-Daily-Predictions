@@ -77,12 +77,13 @@ def _unlock_required_response() -> JSONResponse:
     "/matches/{fixture_id}/ai-analysis",
     summary="Cached AI analiza meča (read-only)",
     dependencies=[Depends(require_api_key)],
+    response_model=None,
 )
 def get_match_ai_analysis(
     fixture_id: int = Path(..., description="API-Football fixture ID"),
     install_id: Optional[str] = Header(None, alias="X-Install-Id"),
     session: Session = Depends(get_db),
-) -> Dict[str, Any] | JSONResponse:
+) -> Any:
     if not install_id:
         raise HTTPException(status_code=400, detail="X-Install-Id header is required")
 
@@ -120,6 +121,7 @@ def get_match_ai_analysis(
     "/matches/{fixture_id}/ai-analysis",
     summary="AI analiza meča (GPT layer preko full konteksta)",
     dependencies=[Depends(require_api_key)],
+    response_model=None,
 )
 def post_match_ai_analysis(
     fixture_id: int = Path(..., description="API-Football fixture ID"),
@@ -129,7 +131,7 @@ def post_match_ai_analysis(
     ),
     install_id: Optional[str] = Header(None, alias="X-Install-Id"),
     session: Session = Depends(get_db),
-) -> Dict[str, Any] | JSONResponse:
+) -> Any:
     """
     GPT analiza konkretnog meča.
 
