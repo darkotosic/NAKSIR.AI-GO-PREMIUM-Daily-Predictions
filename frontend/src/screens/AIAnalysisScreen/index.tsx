@@ -38,7 +38,8 @@ const AIAnalysisScreen: React.FC = () => {
   const [isCheckingEntitlement, setIsCheckingEntitlement] = useState(true);
   const [adRequested, setAdRequested] = useState(false);
   const mutation = useAiAnalysisMutation();
-  const { isLoaded, isLoading: isAdLoading, load, show, reward } = useRewardedAd();
+  const { isLoaded, isLoading: isAdLoading, isAvailable: isAdAvailable, load, show, reward } =
+    useRewardedAd();
   const rewardedRef = useRef(reward);
 
   const depthWords = useMemo(() => 'NAKSIR GO IN DEPTH OF DATA'.split(' '), []);
@@ -241,11 +242,16 @@ const AIAnalysisScreen: React.FC = () => {
               Watch a rewarded ad or unlock full access with a subscription to view AI insights.
             </Text>
             <TouchableOpacity
-              style={[styles.button, (!fixtureId || isAdLoading) && styles.buttonDisabled]}
-              disabled={!fixtureId || isAdLoading}
+              style={[
+                styles.button,
+                (!fixtureId || isAdLoading || !isAdAvailable) && styles.buttonDisabled,
+              ]}
+              disabled={!fixtureId || isAdLoading || !isAdAvailable}
               onPress={handleWatchAd}
             >
-              <Text style={styles.buttonText}>{isAdLoading ? 'Loading ad...' : 'Watch Ad'}</Text>
+              <Text style={styles.buttonText}>
+                {isAdLoading ? 'Loading ad...' : isAdAvailable ? 'Watch Ad' : 'Ads unavailable'}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.button, styles.secondaryButton]} onPress={handleBuySubscription}>
               <Text style={styles.buttonText}>Buy Subscription</Text>
