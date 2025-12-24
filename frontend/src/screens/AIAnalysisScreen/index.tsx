@@ -39,6 +39,7 @@ const AIAnalysisScreen: React.FC = () => {
   const [cacheStatus, setCacheStatus] = useState<string | null>(null);
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
   const pollInFlightRef = useRef(false);
+  const requestIdRef = useRef(0);
 
   const depthWords = useMemo(() => 'NAKSIR GO IN DEPTH OF DATA'.split(' '), []);
   const depthWordAnim = useMemo(() => depthWords.map(() => new Animated.Value(0)), [depthWords]);
@@ -126,17 +127,22 @@ const AIAnalysisScreen: React.FC = () => {
       clearInterval(pollTimerRef.current);
       pollTimerRef.current = null;
     }
+    pollInFlightRef.current = false;
   }, []);
 
-  const pollForAnalysis = useCallback(() => {
+  const pollForAnalysis = useCallback((requestId: number) => {
     if (pollTimerRef.current || !fixtureId) return;
     const startedAt = Date.now();
+    const activeFixtureId = fixtureId;
 
     pollTimerRef.current = setInterval(async () => {
       if (pollInFlightRef.current) return;
       pollInFlightRef.current = true;
       try {
-        const res = await getAiAnalysis(fixtureId);
+        const res = await getAiAnalysis(activeFixtureId);
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
         const cacheHeader = res.headers?.['x-cache'];
         if (cacheHeader) {
           setCacheStatus(cacheHeader.toUpperCase());
@@ -153,6 +159,9 @@ const AIAnalysisScreen: React.FC = () => {
           setStatus('generating');
         }
       } catch (err) {
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
         const normalized = err as AiAnalysisError;
         setStatus('error');
         setError(normalized);
@@ -161,7 +170,7 @@ const AIAnalysisScreen: React.FC = () => {
         pollInFlightRef.current = false;
       }
 
-      if (Date.now() - startedAt > 60000) {
+      if (requestId === requestIdRef.current && Date.now() - startedAt > 60000) {
         setStatus('error');
         setError(new AiAnalysisError('AI analysis is taking longer than expected.'));
         stopPolling();
@@ -171,10 +180,14 @@ const AIAnalysisScreen: React.FC = () => {
 
   const startGeneration = useCallback(async () => {
     if (!fixtureId || isGenerating) return;
+    const requestId = requestIdRef.current;
     setStatus('generating');
     setError(null);
     try {
       const res = await requestAiAnalysis({ fixtureId, useTrialReward: false });
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
       const cacheHeader = res.headers?.['x-cache'];
       if (cacheHeader) {
         setCacheStatus(cacheHeader.toUpperCase());
@@ -189,25 +202,32 @@ const AIAnalysisScreen: React.FC = () => {
 
       if (res.status === 202) {
         setStatus('generating');
-        pollForAnalysis();
+        pollForAnalysis(requestId);
         return;
       }
 
       setStatus('error');
       setError(new AiAnalysisError('AI analysis failed. Please try again.'));
     } catch (err) {
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
       const normalized = err as AiAnalysisError;
       setStatus('error');
       setError(normalized);
     }
-  }, [fixtureId, pollForAnalysis, stopPolling]);
+  }, [fixtureId, isGenerating, pollForAnalysis, stopPolling]);
 
   const readCached = useCallback(async () => {
     if (!fixtureId) return;
+    const requestId = requestIdRef.current;
     setStatus('loading');
     setError(null);
     try {
       const res = await getAiAnalysis(fixtureId);
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
       const cacheHeader = res.headers?.['x-cache'];
       if (cacheHeader) {
         setCacheStatus(cacheHeader.toUpperCase());
@@ -221,9 +241,12 @@ const AIAnalysisScreen: React.FC = () => {
 
       if (res.status === 202) {
         setStatus('generating');
-        pollForAnalysis();
+        pollForAnalysis(requestId);
       }
     } catch (err) {
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
       const normalized = err as AiAnalysisError;
       if (normalized.status === 404) {
         setCacheStatus('MISS');
@@ -233,10 +256,11 @@ const AIAnalysisScreen: React.FC = () => {
       setStatus('error');
       setError(normalized);
     }
-  }, [fixtureId, isGenerating, pollForAnalysis, startGeneration]);
+  }, [fixtureId, pollForAnalysis]);
 
   useEffect(() => {
     stopPolling();
+    requestIdRef.current += 1;
     setAnalysisPayload(null);
     setCacheStatus(null);
     setError(null);
