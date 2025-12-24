@@ -114,6 +114,13 @@ const AIAnalysisScreen: React.FC = () => {
   }, [fixtureId]);
 
   useEffect(() => {
+    if (fixtureId) {
+      rewardedRef.current = false;
+      mutation.reset();
+    }
+  }, [fixtureId, mutation]);
+
+  useEffect(() => {
     if (!fixtureId || mutation.isPending || mutation.data || rewardedRef.current) return;
     rewardedRef.current = true;
     mutation.mutate({ fixtureId, useTrialReward: false });
