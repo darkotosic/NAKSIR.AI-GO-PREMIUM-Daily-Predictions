@@ -108,7 +108,7 @@ const DrawerNavigator = () => (
       <Drawer.Screen
         name="Subscriptions"
         component={SubscriptionsScreen}
-        options={{ title: 'Subscriptions' }}
+        options={{ title: 'Subscriptions', drawerItemStyle: { display: 'none' } }}
       />
       <Drawer.Screen
         name="MatchDetails"
