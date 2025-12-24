@@ -7,6 +7,12 @@ export interface AiAnalysisParams {
   useTrialReward?: boolean;
 }
 
+export interface AiAnalysisResponse<T = MatchAnalysis> {
+  status: number;
+  data: T;
+  headers?: Record<string, string>;
+}
+
 export class AiAnalysisError extends Error {
   status?: number;
   code?: string;
@@ -53,6 +59,47 @@ export async function postAiAnalysis({
       },
     );
     return res.data;
+  } catch (error) {
+    throw normalizeAiAnalysisError(error);
+  }
+}
+
+export async function requestAiAnalysis({
+  fixtureId,
+  userQuestion,
+  useTrialReward = false,
+}: AiAnalysisParams): Promise<AiAnalysisResponse> {
+  try {
+    const res = await apiClient.post(
+      `/matches/${fixtureId}/ai-analysis`,
+      {
+        question: userQuestion ?? null,
+        trial_by_reward: useTrialReward,
+      },
+      {
+        timeout: 60000,
+      },
+    );
+    return {
+      status: res.status,
+      data: res.data,
+      headers: res.headers as Record<string, string>,
+    };
+  } catch (error) {
+    throw normalizeAiAnalysisError(error);
+  }
+}
+
+export async function getAiAnalysis(
+  fixtureId: number | string,
+): Promise<AiAnalysisResponse> {
+  try {
+    const res = await apiClient.get(`/matches/${fixtureId}/ai-analysis`);
+    return {
+      status: res.status,
+      data: res.data,
+      headers: res.headers as Record<string, string>,
+    };
   } catch (error) {
     throw normalizeAiAnalysisError(error);
   }
