@@ -49,7 +49,7 @@ export async function postAiAnalysis({
         trial_by_reward: useTrialReward,
       },
       {
-        timeout: 30000,
+        timeout: 60000,
       },
     );
     return res.data;
