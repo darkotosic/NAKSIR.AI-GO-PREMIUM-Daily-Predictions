@@ -25,9 +25,7 @@ from backend.services.ai_analysis_cache_service import (
     try_mark_generating,
     wait_for_ready,
 )
-from backend.services.entitlements_service import check_and_consume_ai, get_active_entitlement
 from backend.services.users_service import get_or_create_user
-from backend.services.users_service import mark_free_reward_used
 
 router = APIRouter(tags=["ai"])
 logger = logging.getLogger("naksir.go_premium.api")
@@ -59,24 +57,8 @@ def _enforce_ai_access(
     wallet,
     mark_reward: bool = True,
 ) -> None:
-    if trial_by_reward:
-        if wallet.free_reward_used:
-            raise HTTPException(status_code=402, detail="Reward already used.")
-        if mark_reward:
-            mark_free_reward_used(session, wallet)
-            session.commit()
-        return
-
-    entitlement = get_active_entitlement(session, user_id=user_id)
-    if entitlement is None:
-        raise HTTPException(status_code=402, detail="Active plan required for AI analysis.")
-
-    if consume:
-        allowed, reason = check_and_consume_ai(session, user_id, entitlement)
-        if not allowed:
-            session.rollback()
-            raise HTTPException(status_code=429, detail=reason or "AI limit reached.")
-        session.commit()
+    _ = session, user_id, trial_by_reward, consume, wallet, mark_reward
+    return
 
 
 def _cache_headers(cache_key: str, cache_status: str) -> dict[str, str]:

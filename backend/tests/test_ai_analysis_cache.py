@@ -19,11 +19,7 @@ from backend.models.ai_analysis_cache import AiAnalysisCache
 from backend.services import ai_analysis_cache_service
 
 
-def test_ai_analysis_get_cached_hit(
-    client: TestClient, db_session, entitlement_factory
-) -> None:
-    entitlement_factory(install_id="dev-install-cache", daily_limit=10, expires_in_days=1)
-
+def test_ai_analysis_get_cached_hit(client: TestClient, db_session) -> None:
     cache_key = ai_analysis_cache_service.make_cache_key(
         fixture_id=123, prompt_version="v1", locale="en"
     )
@@ -47,10 +43,8 @@ def test_ai_analysis_get_cached_hit(
 
 
 def test_ai_analysis_single_flight_waits_for_cached(
-    client: TestClient, db_session, entitlement_factory, monkeypatch
+    client: TestClient, db_session, monkeypatch
 ) -> None:
-    entitlement_factory(install_id="dev-install-single", daily_limit=10, expires_in_days=1)
-
     cache_key = ai_analysis_cache_service.make_cache_key(
         fixture_id=321, prompt_version="v1", locale="en"
     )
