@@ -42,10 +42,16 @@ export async function postAiAnalysis({
   useTrialReward = false,
 }: AiAnalysisParams): Promise<MatchAnalysis> {
   try {
-    const res = await apiClient.post(`/matches/${fixtureId}/ai-analysis`, {
-      question: userQuestion ?? null,
-      trial_by_reward: useTrialReward,
-    });
+    const res = await apiClient.post(
+      `/matches/${fixtureId}/ai-analysis`,
+      {
+        question: userQuestion ?? null,
+        trial_by_reward: useTrialReward,
+      },
+      {
+        timeout: 30000,
+      },
+    );
     return res.data;
   } catch (error) {
     throw normalizeAiAnalysisError(error);
