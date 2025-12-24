@@ -25,12 +25,12 @@ def test_ai_analysis_get_cached_hit(
     entitlement_factory(install_id="dev-install-cache", daily_limit=10, expires_in_days=1)
 
     cache_key = ai_analysis_cache_service.make_cache_key(
-        fixture_id=123, prompt_version="v1", locale="en", extra="default"
+        fixture_id=123, prompt_version="v1", locale="en"
     )
     row = AiAnalysisCache(
         fixture_id=123,
         cache_key=cache_key,
-        status="ok",
+        status="ready",
         analysis_json={"analysis": {"preview": "cached preview"}},
     )
     db_session.add(row)
@@ -52,7 +52,7 @@ def test_ai_analysis_single_flight_waits_for_cached(
     entitlement_factory(install_id="dev-install-single", daily_limit=10, expires_in_days=1)
 
     cache_key = ai_analysis_cache_service.make_cache_key(
-        fixture_id=321, prompt_version="v1", locale="en", extra="default"
+        fixture_id=321, prompt_version="v1", locale="en"
     )
     row = AiAnalysisCache(
         fixture_id=321,
@@ -68,7 +68,7 @@ def test_ai_analysis_single_flight_waits_for_cached(
     ready_row = AiAnalysisCache(
         fixture_id=321,
         cache_key=cache_key,
-        status="ok",
+        status="ready",
         analysis_json={"analysis": {"preview": "cached from wait"}},
     )
 

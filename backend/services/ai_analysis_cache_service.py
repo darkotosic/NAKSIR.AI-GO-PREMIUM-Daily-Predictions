@@ -15,21 +15,23 @@ DEFAULT_WAIT_SECONDS = 20
 POLL_INTERVAL_SECONDS = 0.5
 
 
+READY_STATUSES = {"ready", "ok"}
+
+
 def make_cache_key(
     *,
     fixture_id: int,
     prompt_version: str = "v1",
     locale: str = "en",
-    extra: str = "default",
 ) -> str:
-    return f"{fixture_id}:{prompt_version}:{locale}:{extra}"
+    return f"ai_analysis:{fixture_id}:{prompt_version}:{locale}"
 
 
 def get_cached_ok(session: Session, cache_key: str) -> AiAnalysisCache | None:
     row = session.execute(
         select(AiAnalysisCache).where(AiAnalysisCache.cache_key == cache_key)
     ).scalars().first()
-    if row and row.status == "ok" and row.analysis_json:
+    if row and row.status in READY_STATUSES and row.analysis_json:
         return row
     return None
 
@@ -47,7 +49,7 @@ def try_mark_generating(
     cache_key: str,
     prompt_version: str,
     locale: str,
-    extra: str,
+    model: str,
     allow_retry: bool = True,
 ) -> bool:
     """
@@ -60,7 +62,7 @@ def try_mark_generating(
         status="generating",
         analysis_version=prompt_version,
         lang=locale,
-        model=extra,
+        model=model,
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
     )
@@ -97,7 +99,7 @@ def wait_for_ready(cache_key: str, *, max_wait_seconds: int = DEFAULT_WAIT_SECON
             ).scalars().first()
             if not row:
                 return None
-            if row.status == "ok" and row.analysis_json:
+            if row.status in READY_STATUSES and row.analysis_json:
                 return row
             if row.status == "failed":
                 return row
@@ -118,7 +120,7 @@ def save_ok(
     if not row:
         row = AiAnalysisCache(cache_key=cache_key, fixture_id=fixture_id)
         session.add(row)
-    row.status = "ok"
+    row.status = "ready"
     row.error = None
     row.analysis_json = analysis_json
     row.updated_at = datetime.utcnow()

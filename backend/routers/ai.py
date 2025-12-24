@@ -16,6 +16,7 @@ from backend.db import get_db
 from backend.dependencies import require_api_key
 from backend.match_full import build_full_match
 from backend.services.ai_analysis_cache_service import (
+    READY_STATUSES,
     get_cached_ok,
     get_cached_row,
     make_cache_key,
@@ -56,12 +57,14 @@ def _enforce_ai_access(
     trial_by_reward: bool,
     consume: bool,
     wallet,
+    mark_reward: bool = True,
 ) -> None:
     if trial_by_reward:
         if wallet.free_reward_used:
             raise HTTPException(status_code=402, detail="Reward already used.")
-        mark_free_reward_used(session, wallet)
-        session.commit()
+        if mark_reward:
+            mark_free_reward_used(session, wallet)
+            session.commit()
         return
 
     entitlement = get_active_entitlement(session, user_id=user_id)
@@ -100,18 +103,17 @@ def get_match_ai_analysis(
         fixture_id=fixture_id,
         prompt_version="v1",
         locale="en",
-        extra="default",
     )
     row = get_cached_row(session, cache_key)
     if not row:
         logger.info("AI cache MISS fixture_id=%s cache_key=%s", fixture_id, cache_key)
         return JSONResponse(
             status_code=404,
-            content={"status": "missing"},
+            content={"status": "not_found"},
             headers=_cache_headers(cache_key, "MISS"),
         )
 
-    if row.status == "ok" and row.analysis_json:
+    if row.status in READY_STATUSES and row.analysis_json:
         logger.info("AI cache HIT fixture_id=%s cache_key=%s", fixture_id, cache_key)
         payload = {
             "fixture_id": fixture_id,
@@ -180,15 +182,15 @@ def post_match_ai_analysis(
         session,
         user_id=user.id,
         trial_by_reward=payload.trial_by_reward,
-        consume=True,
+        consume=False,
         wallet=wallet,
+        mark_reward=False,
     )
 
     cache_key = make_cache_key(
         fixture_id=fixture_id,
         prompt_version="v1",
         locale="en",
-        extra="default",
     )
     cached = get_cached_ok(session, cache_key)
     if cached:
@@ -215,11 +217,11 @@ def post_match_ai_analysis(
         cache_key=cache_key,
         prompt_version="v1",
         locale="en",
-        extra="default",
+        model="default",
     )
     if not acquired:
         row = get_cached_row(session, cache_key)
-        if row and row.status == "ok" and row.analysis_json:
+        if row and row.status in READY_STATUSES and row.analysis_json:
             cached_payload = row.analysis_json or {}
             logger.info("AI cache HIT fixture_id=%s cache_key=%s", fixture_id, cache_key)
             return JSONResponse(
@@ -248,7 +250,7 @@ def post_match_ai_analysis(
             )
 
         ready = wait_for_ready(cache_key)
-        if ready and ready.status == "ok" and ready.analysis_json:
+        if ready and ready.status in READY_STATUSES and ready.analysis_json:
             cached_payload = ready.analysis_json or {}
             logger.info("AI cache WAIT->HIT fixture_id=%s cache_key=%s", fixture_id, cache_key)
             return JSONResponse(
@@ -281,6 +283,15 @@ def post_match_ai_analysis(
             content={"status": "generating"},
             headers=_cache_headers(cache_key, "WAIT"),
         )
+
+    _enforce_ai_access(
+        session,
+        user_id=user.id,
+        trial_by_reward=payload.trial_by_reward,
+        consume=True,
+        wallet=wallet,
+        mark_reward=True,
+    )
 
     fixture = None
     fixture_error_reason: str | None = None
