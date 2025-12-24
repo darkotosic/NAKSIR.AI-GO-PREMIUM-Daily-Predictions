@@ -32,9 +32,9 @@ const AIAnalysisScreen: React.FC = () => {
   const summary = route.params?.summary;
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [analysisPayloadState, setAnalysisPayload] = useState<MatchAnalysis | null>(null);
-  const [status, setStatus] = useState<'idle' | 'loading' | 'generating' | 'ready' | 'error'>(
-    'idle',
-  );
+  const [status, setStatus] = useState<
+    'idle' | 'loading' | 'generating' | 'ready' | 'missing' | 'error'
+  >('idle');
   const [error, setError] = useState<AiAnalysisError | null>(null);
   const [cacheStatus, setCacheStatus] = useState<string | null>(null);
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -166,11 +166,11 @@ const AIAnalysisScreen: React.FC = () => {
         setError(new AiAnalysisError('AI analysis is taking longer than expected.'));
         stopPolling();
       }
-    }, 1500);
+    }, 2500);
   }, [fixtureId, stopPolling]);
 
   const startGeneration = useCallback(async () => {
-    if (!fixtureId) return;
+    if (!fixtureId || isGenerating) return;
     setStatus('generating');
     setError(null);
     try {
@@ -227,13 +227,13 @@ const AIAnalysisScreen: React.FC = () => {
       const normalized = err as AiAnalysisError;
       if (normalized.status === 404) {
         setCacheStatus('MISS');
-        await startGeneration();
+        setStatus('missing');
         return;
       }
       setStatus('error');
       setError(normalized);
     }
-  }, [fixtureId, pollForAnalysis, startGeneration]);
+  }, [fixtureId, isGenerating, pollForAnalysis, startGeneration]);
 
   useEffect(() => {
     stopPolling();
@@ -450,6 +450,21 @@ const AIAnalysisScreen: React.FC = () => {
             ) : null}
           </View>
         ) : null}
+
+        {status === 'missing' && (
+          <View style={styles.card}>
+            <Text style={styles.bodyText}>
+              No cached AI analysis yet for this match. Run it once to generate the report.
+            </Text>
+            <TouchableOpacity
+              style={[styles.retryButton, isGenerating && styles.retryButtonDisabled]}
+              onPress={startGeneration}
+              disabled={isGenerating}
+            >
+              <Text style={styles.retryButtonLabel}>Run analysis</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {status === 'error' && (
           <View style={styles.card}>

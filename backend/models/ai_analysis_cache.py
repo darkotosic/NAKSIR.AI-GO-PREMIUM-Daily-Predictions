@@ -18,7 +18,7 @@ class AiAnalysisCache(Base):
 
     cache_key: Mapped[str] = mapped_column(String(200), nullable=False)
 
-    status: Mapped[str] = mapped_column(String(20), nullable=False, default="ok")
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="ready")
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     analysis_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
