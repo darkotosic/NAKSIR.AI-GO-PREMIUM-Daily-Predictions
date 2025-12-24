@@ -15,8 +15,14 @@ DEFAULT_WAIT_SECONDS = 20
 POLL_INTERVAL_SECONDS = 0.5
 
 
-def make_cache_key(*, fixture_id: int, version: str = "v1", lang: str = "en", model: str = "default") -> str:
-    return f"{fixture_id}:{version}:{lang}:{model}"
+def make_cache_key(
+    *,
+    fixture_id: int,
+    prompt_version: str = "v1",
+    locale: str = "en",
+    extra: str = "default",
+) -> str:
+    return f"{fixture_id}:{prompt_version}:{locale}:{extra}"
 
 
 def get_cached_ok(session: Session, cache_key: str) -> AiAnalysisCache | None:
@@ -39,9 +45,10 @@ def try_mark_generating(
     *,
     fixture_id: int,
     cache_key: str,
-    version: str,
-    lang: str,
-    model: str,
+    prompt_version: str,
+    locale: str,
+    extra: str,
+    allow_retry: bool = True,
 ) -> bool:
     """
     Returns True if we acquired "generation rights" (created row with status=generating).
@@ -51,9 +58,9 @@ def try_mark_generating(
         fixture_id=fixture_id,
         cache_key=cache_key,
         status="generating",
-        analysis_version=version,
-        lang=lang,
-        model=model,
+        analysis_version=prompt_version,
+        lang=locale,
+        model=extra,
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
     )
@@ -63,6 +70,18 @@ def try_mark_generating(
         return True
     except IntegrityError:
         session.rollback()
+        if not allow_retry:
+            return False
+        existing = session.execute(
+            select(AiAnalysisCache).where(AiAnalysisCache.cache_key == cache_key)
+        ).scalars().first()
+        if existing and existing.status == "failed":
+            existing.status = "generating"
+            existing.error = None
+            existing.updated_at = datetime.utcnow()
+            session.add(existing)
+            session.commit()
+            return True
         return False
 
 

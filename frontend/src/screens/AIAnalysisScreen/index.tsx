@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -11,7 +11,8 @@ import {
 } from 'react-native';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
-import { useAiAnalysisMutation } from '@hooks/useAiAnalysisMutation';
+import { getAiAnalysis, requestAiAnalysis, AiAnalysisError } from '@api/analysis';
+import type { MatchAnalysis } from '@naksir-types/analysis';
 import { RootDrawerParamList } from '@navigation/types';
 import { trackEvent } from '@lib/tracking';
 
@@ -30,12 +31,19 @@ const AIAnalysisScreen: React.FC = () => {
   const fixtureId = route.params?.fixtureId;
   const summary = route.params?.summary;
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const mutation = useAiAnalysisMutation();
-  const rewardedRef = useRef(false);
+  const [analysisPayloadState, setAnalysisPayload] = useState<MatchAnalysis | null>(null);
+  const [status, setStatus] = useState<'idle' | 'loading' | 'generating' | 'ready' | 'error'>(
+    'idle',
+  );
+  const [error, setError] = useState<AiAnalysisError | null>(null);
+  const [cacheStatus, setCacheStatus] = useState<string | null>(null);
+  const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const pollInFlightRef = useRef(false);
 
   const depthWords = useMemo(() => 'NAKSIR GO IN DEPTH OF DATA'.split(' '), []);
   const depthWordAnim = useMemo(() => depthWords.map(() => new Animated.Value(0)), [depthWords]);
   const loadingBar = useRef(new Animated.Value(0)).current;
+  const isGenerating = status === 'loading' || status === 'generating';
 
   const formatTimer = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -47,7 +55,7 @@ const AIAnalysisScreen: React.FC = () => {
 
   useEffect(() => {
     let timer: NodeJS.Timeout | undefined;
-    if (mutation.isPending) {
+    if (isGenerating) {
       setElapsedSeconds(0);
       timer = setInterval(() => {
         setElapsedSeconds((prev) => prev + 1);
@@ -56,10 +64,10 @@ const AIAnalysisScreen: React.FC = () => {
     return () => {
       if (timer) clearInterval(timer);
     };
-  }, [mutation.isPending]);
+  }, [isGenerating]);
 
   useEffect(() => {
-    if (!mutation.isPending) {
+    if (!isGenerating) {
       depthWordAnim.forEach((anim) => anim.setValue(0));
       loadingBar.setValue(0);
       return;
@@ -105,7 +113,7 @@ const AIAnalysisScreen: React.FC = () => {
       wordLoops.forEach((loop) => loop.stop && loop.stop());
       barLoop.stop && barLoop.stop();
     };
-  }, [depthWordAnim, loadingBar, mutation.isPending]);
+  }, [depthWordAnim, loadingBar, isGenerating]);
 
   useEffect(() => {
     if (fixtureId) {
@@ -113,20 +121,133 @@ const AIAnalysisScreen: React.FC = () => {
     }
   }, [fixtureId]);
 
-  useEffect(() => {
-    if (fixtureId) {
-      rewardedRef.current = false;
-      mutation.reset();
+  const stopPolling = useCallback(() => {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
     }
-  }, [fixtureId, mutation]);
+  }, []);
+
+  const pollForAnalysis = useCallback(() => {
+    if (pollTimerRef.current || !fixtureId) return;
+    const startedAt = Date.now();
+
+    pollTimerRef.current = setInterval(async () => {
+      if (pollInFlightRef.current) return;
+      pollInFlightRef.current = true;
+      try {
+        const res = await getAiAnalysis(fixtureId);
+        const cacheHeader = res.headers?.['x-cache'];
+        if (cacheHeader) {
+          setCacheStatus(cacheHeader.toUpperCase());
+        }
+
+        if (res.status === 200) {
+          setAnalysisPayload(res.data);
+          setStatus('ready');
+          stopPolling();
+          return;
+        }
+
+        if (res.status === 202) {
+          setStatus('generating');
+        }
+      } catch (err) {
+        const normalized = err as AiAnalysisError;
+        setStatus('error');
+        setError(normalized);
+        stopPolling();
+      } finally {
+        pollInFlightRef.current = false;
+      }
+
+      if (Date.now() - startedAt > 60000) {
+        setStatus('error');
+        setError(new AiAnalysisError('AI analysis is taking longer than expected.'));
+        stopPolling();
+      }
+    }, 1500);
+  }, [fixtureId, stopPolling]);
+
+  const startGeneration = useCallback(async () => {
+    if (!fixtureId) return;
+    setStatus('generating');
+    setError(null);
+    try {
+      const res = await requestAiAnalysis({ fixtureId, useTrialReward: false });
+      const cacheHeader = res.headers?.['x-cache'];
+      if (cacheHeader) {
+        setCacheStatus(cacheHeader.toUpperCase());
+      }
+
+      if (res.status === 200) {
+        setAnalysisPayload(res.data);
+        setStatus('ready');
+        stopPolling();
+        return;
+      }
+
+      if (res.status === 202) {
+        setStatus('generating');
+        pollForAnalysis();
+        return;
+      }
+
+      setStatus('error');
+      setError(new AiAnalysisError('AI analysis failed. Please try again.'));
+    } catch (err) {
+      const normalized = err as AiAnalysisError;
+      setStatus('error');
+      setError(normalized);
+    }
+  }, [fixtureId, pollForAnalysis, stopPolling]);
+
+  const readCached = useCallback(async () => {
+    if (!fixtureId) return;
+    setStatus('loading');
+    setError(null);
+    try {
+      const res = await getAiAnalysis(fixtureId);
+      const cacheHeader = res.headers?.['x-cache'];
+      if (cacheHeader) {
+        setCacheStatus(cacheHeader.toUpperCase());
+      }
+
+      if (res.status === 200) {
+        setAnalysisPayload(res.data);
+        setStatus('ready');
+        return;
+      }
+
+      if (res.status === 202) {
+        setStatus('generating');
+        pollForAnalysis();
+      }
+    } catch (err) {
+      const normalized = err as AiAnalysisError;
+      if (normalized.status === 404) {
+        setCacheStatus('MISS');
+        await startGeneration();
+        return;
+      }
+      setStatus('error');
+      setError(normalized);
+    }
+  }, [fixtureId, pollForAnalysis, startGeneration]);
 
   useEffect(() => {
-    if (!fixtureId || mutation.isPending || mutation.data || rewardedRef.current) return;
-    rewardedRef.current = true;
-    mutation.mutate({ fixtureId, useTrialReward: false });
-  }, [fixtureId, mutation]);
+    stopPolling();
+    setAnalysisPayload(null);
+    setCacheStatus(null);
+    setError(null);
+    setStatus('idle');
+    if (fixtureId) {
+      readCached();
+    }
+    return () => stopPolling();
+  }, [fixtureId, readCached, stopPolling]);
 
-  const analysisPayload = mutation.data;
+  const analysisPayload = analysisPayloadState;
   const analysis = (analysisPayload as any)?.analysis || analysisPayload;
   const summaryText =
     analysis?.preview || analysis?.summary || 'AI has insufficient data for a summary.';
@@ -168,7 +289,11 @@ const AIAnalysisScreen: React.FC = () => {
           <Text style={styles.backLabel}>Back to match</Text>
         </TouchableOpacity>
 
-        {mutation.isPending && (
+        {__DEV__ && cacheStatus ? (
+          <Text style={styles.cacheDebug}>Cache status: {cacheStatus}</Text>
+        ) : null}
+
+        {isGenerating && (
           <View style={styles.loadingState}>
             <View style={styles.depthWordRow}>
               {depthWords.map((word, idx) => {
@@ -224,7 +349,7 @@ const AIAnalysisScreen: React.FC = () => {
           </View>
         )}
 
-        {mutation.data ? (
+        {analysisPayloadState ? (
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Summary</Text>
             <Text style={styles.bodyText}>{summaryText}</Text>
@@ -326,11 +451,18 @@ const AIAnalysisScreen: React.FC = () => {
           </View>
         ) : null}
 
-        {mutation.isError && (
+        {status === 'error' && (
           <View style={styles.card}>
             <Text style={styles.errorText}>
-              {mutation.error?.message || 'AI analysis is temporarily unavailable. Please try again.'}
+              {error?.message || 'AI analysis is temporarily unavailable. Please try again.'}
             </Text>
+            <TouchableOpacity
+              style={[styles.retryButton, isGenerating && styles.retryButtonDisabled]}
+              onPress={startGeneration}
+              disabled={isGenerating}
+            >
+              <Text style={styles.retryButtonLabel}>Try again</Text>
+            </TouchableOpacity>
           </View>
         )}
       </ScrollView>
@@ -403,6 +535,22 @@ const styles = StyleSheet.create({
     color: '#fca5a5',
     fontWeight: '700',
   },
+  retryButton: {
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.neonPurple,
+    alignSelf: 'flex-start',
+  },
+  retryButtonDisabled: {
+    opacity: 0.5,
+  },
+  retryButtonLabel: {
+    color: COLORS.text,
+    fontWeight: '700',
+  },
   loadingState: {
     alignItems: 'center',
     marginBottom: 16,
@@ -473,6 +621,12 @@ const styles = StyleSheet.create({
     color: COLORS.neonPurple,
     fontWeight: '900',
     fontVariant: ['tabular-nums'],
+  },
+  cacheDebug: {
+    color: COLORS.muted,
+    marginBottom: 10,
+    fontSize: 12,
+    fontWeight: '600',
   },
 });
 
