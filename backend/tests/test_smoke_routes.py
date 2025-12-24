@@ -233,7 +233,7 @@ def test_build_full_match_contract(
     assert "flat_probabilities" in full_match["odds"]
 
 
-def test_free_reward_only_once(monkeypatch, client, sample_fixture, sample_odds_raw):
+def test_ai_analysis_allows_reward_retries(monkeypatch, client, sample_fixture, sample_odds_raw):
     _install_fake_api(monkeypatch, sample_fixture, odds_raw=sample_odds_raw)
 
     r1 = client.post(
@@ -248,15 +248,13 @@ def test_free_reward_only_once(monkeypatch, client, sample_fixture, sample_odds_
         headers={"X-API-Key": "test-token", "X-Install-Id": "dev-install-1"},
         json={"trial_by_reward": True},
     )
-    assert r2.status_code == 402
+    assert r2.status_code in (200, 202)
 
 
-def test_daily_limit_blocks_after_limit(
-    monkeypatch: pytest.MonkeyPatch, client, sample_fixture, sample_odds_raw, entitlement_factory
+def test_ai_analysis_allows_over_daily_limit(
+    monkeypatch: pytest.MonkeyPatch, client, sample_fixture, sample_odds_raw
 ):
     _install_fake_api(monkeypatch, sample_fixture, odds_raw=sample_odds_raw)
-
-    entitlement_factory(install_id="dev-install-2", daily_limit=5, expires_in_days=1)
 
     for _ in range(5):
         r = client.post(
@@ -271,4 +269,4 @@ def test_daily_limit_blocks_after_limit(
         headers={"X-API-Key": "test-token", "X-Install-Id": "dev-install-2"},
         json={"trial_by_reward": False},
     )
-    assert r6.status_code == 429
+    assert r6.status_code in (200, 202)
