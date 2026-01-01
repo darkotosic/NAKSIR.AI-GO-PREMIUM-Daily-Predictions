@@ -24,7 +24,7 @@ def test_debug_routes_with_key(client):
 
 
 def test_today_matches_smoke(monkeypatch, client):
-    def fake_get_fixtures_today() -> list[Dict[str, Any]]:
+    def fake_get_fixtures_next_days(*_args, **_kwargs) -> list[Dict[str, Any]]:
         return [
             {
                 "fixture": {"id": 1},
@@ -36,8 +36,8 @@ def test_today_matches_smoke(monkeypatch, client):
             }
         ]
 
-    monkeypatch.setattr(backend_app, "get_fixtures_today", fake_get_fixtures_today)
-    monkeypatch.setattr(api_football, "get_fixtures_today", fake_get_fixtures_today)
+    monkeypatch.setattr(backend_app, "get_fixtures_next_days", fake_get_fixtures_next_days)
+    monkeypatch.setattr(api_football, "get_fixtures_next_days", fake_get_fixtures_next_days)
     monkeypatch.setattr(backend_app, "get_standings", lambda *_args, **_kwargs: [])
     monkeypatch.setattr(backend_app, "build_match_summary", lambda _fixture: {"league": {"id": 39, "season": 2024}, "teams": {"home": {"id": 10}, "away": {"id": 20}}})
 

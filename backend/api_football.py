@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import time
 from collections import deque
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Deque, Dict, List, Optional
 
 import requests
@@ -268,6 +268,37 @@ def get_fixtures_today() -> List[Dict[str, Any]]:
     return get_fixtures_by_date(_today_str())
 
 
+def get_fixtures_next_days(days: int = 2, timezone: str | None = None) -> List[Dict[str, Any]]:
+    """
+    Vrati fixture-e za danas + naredne (days-1) dane.
+
+    days=2 => danas + sutra.
+    """
+    tz_name = timezone or TIMEZONE
+    today = datetime.now(ZoneInfo(tz_name)).date()
+    merged: List[Dict[str, Any]] = []
+    seen: set[int] = set()
+
+    for offset in range(max(1, days)):
+        day = today + timedelta(days=offset)
+        fixtures = get_fixtures_by_date(day.isoformat())
+        for fx in fixtures:
+            fixture_id = (fx.get("fixture") or {}).get("id")
+            if fixture_id is not None:
+                try:
+                    fixture_id = int(fixture_id)
+                except (TypeError, ValueError):
+                    fixture_id = None
+            if fixture_id is not None:
+                if fixture_id in seen:
+                    continue
+                seen.add(fixture_id)
+            merged.append(fx)
+
+    merged.sort(key=lambda f: (f.get("fixture", {}).get("date") or ""))
+    return merged
+
+
 def get_fixture_by_id(fixture_id: int) -> Optional[Dict[str, Any]]:
     """
     Dohvati jedan fixture po ID-u.
@@ -461,6 +492,7 @@ __all__ = [
     # core
     "get_fixtures_by_date",
     "get_fixtures_today",
+    "get_fixtures_next_days",
     "get_fixture_by_id",
     # context helpers
     "get_fixture_stats",
