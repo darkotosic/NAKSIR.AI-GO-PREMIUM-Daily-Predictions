@@ -23,6 +23,8 @@ import InjuriesScreen from '@screens/InjuriesScreen';
 import SubscriptionsScreen from '@screens/SubscriptionsScreen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { RootDrawerParamList } from './types';
+import RateAppButton from '@components/RateAppButton';
+import { openRateApp } from '@lib/rateApp';
 
 const COLORS = {
   background: '#040312',
@@ -55,6 +57,11 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
   return (
     <DrawerContentScrollView {...props} style={{ backgroundColor: COLORS.background }}>
       <DrawerItemList {...props} />
+      <DrawerItem
+        label="Rate app"
+        labelStyle={{ color: COLORS.text, fontWeight: '800' }}
+        onPress={openRateApp}
+      />
       <DrawerItem
         label="Links"
         labelStyle={{ color: COLORS.text, fontWeight: '700' }}
@@ -98,6 +105,7 @@ const DrawerNavigator = () => (
         drawerActiveTintColor: COLORS.neonViolet,
         drawerInactiveTintColor: COLORS.text,
         drawerStyle: { backgroundColor: COLORS.background },
+        headerRight: () => <RateAppButton style={{ marginRight: 12 }} />,
       }}
     >
       <Drawer.Screen
