@@ -125,6 +125,7 @@ def freeze_generated_at(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _install_fake_api(monkeypatch: pytest.MonkeyPatch, fixture: Dict[str, Any], odds_raw: List[Dict[str, Any]] | None = None) -> None:
+    monkeypatch.setattr(api_football, "get_fixtures_next_days", lambda *_args, **_kwargs: [fixture])
     monkeypatch.setattr(api_football, "get_fixtures_today", lambda: [fixture])
     monkeypatch.setattr(api_football, "get_fixture_by_id", lambda _fx_id: fixture)
     monkeypatch.setattr(api_football, "get_standings", lambda *_args, **_kwargs: [])
