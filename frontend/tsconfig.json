@@ -16,5 +16,12 @@
     },
     "strict": true
   },
-  "include": ["src", "../shared"]
+  "include": [
+    "App.tsx",
+    "index.js",
+    "app.config.ts",
+    "plugins/**/*.js",
+    "src",
+    "../shared"
+  ]
 }

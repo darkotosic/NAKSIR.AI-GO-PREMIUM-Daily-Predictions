@@ -2,12 +2,14 @@
 import type { AdRequestOptions, MaxAdContentRating, RequestConfiguration } from 'react-native-google-mobile-ads';
 
 export type AdUnitKey =
+  | 'banner'
   | 'rewarded'
   | 'rewardedInterstitial'
   | 'appOpen'
   | 'nativeAdvanced';
 
 export const AD_UNIT_IDS: Record<AdUnitKey, string> = {
+  banner: 'ca-app-pub-1726722567967096/8392418269',
   rewarded: 'ca-app-pub-1726722567967096/4620291260',
   rewardedInterstitial: 'ca-app-pub-1726722567967096/7932850317',
   appOpen: 'ca-app-pub-1726722567967096/3711546035',
@@ -15,6 +17,7 @@ export const AD_UNIT_IDS: Record<AdUnitKey, string> = {
 };
 
 const TEST_IDS: Record<AdUnitKey, string> = {
+  banner: 'ca-app-pub-3940256099942544/6300978111',
   rewarded: 'ca-app-pub-3940256099942544/5224354917',
   rewardedInterstitial: 'ca-app-pub-3940256099942544/5354046379',
   appOpen: 'ca-app-pub-3940256099942544/3419835294',
