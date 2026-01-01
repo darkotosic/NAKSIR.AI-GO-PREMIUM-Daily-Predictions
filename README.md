@@ -1,6 +1,6 @@
 # Naksir GO Premium — FastAPI backend + Expo frontend
 
-Repozitorijum isporučuje kompletan FastAPI servis za nogometne feedove i Expo
+Repozitorijum isporučuje kompletan FastAPI servis za fudbalske feedove i Expo
 (React Native) klijent. Backend u realnom vremenu poziva API‑FOOTBALL, kešira
 odgovore sa TTL‑om i rate‑limit zaštitom, normalizuje podatke za kartice i AI
 analize, a frontend prikazuje listu mečeva, detalje i GPT‑generisane savete.
