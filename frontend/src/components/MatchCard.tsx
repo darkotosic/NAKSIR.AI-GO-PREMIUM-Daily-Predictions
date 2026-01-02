@@ -26,9 +26,16 @@ export const MatchCard: React.FC<Props> = ({ match, onPress, onToggleFavorite, i
   const league = summary?.league;
   const teams = summary?.teams;
   const kickoffDate = summary?.kickoff ? new Date(summary.kickoff) : undefined;
-  const kickoffLabel = kickoffDate
-    ? kickoffDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    : 'Kickoff TBD';
+  const kickoffLabel = (() => {
+    if (!kickoffDate) return 'Kickoff TBD';
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const startOfDayAfter = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2);
+    if (kickoffDate >= startOfToday && kickoffDate < startOfTomorrow) return 'Today';
+    if (kickoffDate >= startOfTomorrow && kickoffDate < startOfDayAfter) return 'Tomorrow';
+    return kickoffDate.toLocaleDateString([], { month: 'short', day: '2-digit' });
+  })();
 
   const standingsLeague = match?.standings?.[0]?.league;
   const standingGroups = standingsLeague?.standings || [];
