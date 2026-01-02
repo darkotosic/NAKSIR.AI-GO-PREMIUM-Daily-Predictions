@@ -26,7 +26,7 @@ export const MatchCard: React.FC<Props> = ({ match, onPress, onToggleFavorite, i
   const league = summary?.league;
   const teams = summary?.teams;
   const kickoffDate = summary?.kickoff ? new Date(summary.kickoff) : undefined;
-  const kickoffLabel = (() => {
+  const relativeKickoffLabel = (() => {
     if (!kickoffDate) return 'Kickoff TBD';
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -36,6 +36,10 @@ export const MatchCard: React.FC<Props> = ({ match, onPress, onToggleFavorite, i
     if (kickoffDate >= startOfTomorrow && kickoffDate < startOfDayAfter) return 'Tomorrow';
     return kickoffDate.toLocaleDateString([], { month: 'short', day: '2-digit' });
   })();
+
+  const timeKickoffLabel = kickoffDate
+    ? kickoffDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : 'Kickoff TBD';
 
   const standingsLeague = match?.standings?.[0]?.league;
   const standingGroups = standingsLeague?.standings || [];
@@ -73,13 +77,13 @@ export const MatchCard: React.FC<Props> = ({ match, onPress, onToggleFavorite, i
             <View>
               <Text style={styles.leagueText}>{league?.name || 'League'}</Text>
               <Text style={styles.metaText} numberOfLines={1}>
-                {league?.country || 'Country'} • {kickoffLabel}
+                {league?.country || 'Country'} • {relativeKickoffLabel}
               </Text>
             </View>
           </View>
 
           <View style={styles.kickoffBadge}>
-            <Text style={styles.kickoffBadgeText}>{kickoffLabel}</Text>
+            <Text style={styles.kickoffBadgeText}>{timeKickoffLabel}</Text>
           </View>
         </View>
 
@@ -104,7 +108,7 @@ export const MatchCard: React.FC<Props> = ({ match, onPress, onToggleFavorite, i
 
           <View style={styles.vsPill}>
             <Text style={styles.vsText}>VS</Text>
-            <Text style={styles.kickoff}>{kickoffLabel}</Text>
+            <Text style={styles.kickoff}>{relativeKickoffLabel}</Text>
           </View>
 
           <View style={[styles.teamColumn, styles.alignEnd]}>
