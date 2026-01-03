@@ -23,6 +23,7 @@ export const useAppOpenAd = ({
 
   const [isLoaded, setIsLoaded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isShowing, setIsShowing] = useState(false);
 
   useEffect(() => {
     const loadedListener = ad.addAdEventListener(AdEventType.LOADED, () => {
@@ -31,15 +32,21 @@ export const useAppOpenAd = ({
     });
     const closedListener = ad.addAdEventListener(AdEventType.CLOSED, () => {
       setIsLoaded(false);
+      setIsShowing(false);
+    });
+    const openedListener = ad.addAdEventListener(AdEventType.OPENED, () => {
+      setIsShowing(true);
     });
     const errorListener = ad.addAdEventListener(AdEventType.ERROR, () => {
       setIsLoading(false);
       setIsLoaded(false);
+      setIsShowing(false);
     });
 
     return () => {
       loadedListener();
       closedListener();
+      openedListener();
       errorListener();
       ad.destroy();
     };
@@ -60,6 +67,7 @@ export const useAppOpenAd = ({
     ad,
     isLoaded,
     isLoading,
+    isShowing,
     load,
     show,
     adUnitId: resolvedAdUnitId,
