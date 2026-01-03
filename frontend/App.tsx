@@ -10,6 +10,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 
 import BannerAdSticky, { BANNER_RESERVED_HEIGHT } from '@ads/BannerAdSticky';
 import { configureMobileAds } from '@ads/admob';
+import AppOpenAdManager from '@ads/AppOpenAdManager';
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,7 @@ const AppRoot: React.FC = () => {
       <View style={{ flex: 1, paddingBottom: reservedHeight }}>
         <NavigationContainer theme={navigationTheme}>
           <StatusBar style="light" />
+          <AppOpenAdManager />
           <DrawerNavigator />
         </NavigationContainer>
 
