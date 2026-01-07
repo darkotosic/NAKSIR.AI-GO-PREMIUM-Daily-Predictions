@@ -3,9 +3,9 @@ import { FlatList, RefreshControl, SafeAreaView, Text, View } from 'react-native
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import MatchCard from '@components/MatchCard';
-import LoadingState from '@components/LoadingState';
-import ErrorState from '@components/ErrorState';
+import { MatchCard } from '@components/MatchCard';
+import { LoadingState } from '@components/LoadingState';
+import { ErrorState } from '@components/ErrorState';
 
 import { useTopMatchesQuery } from '@hooks/useTopMatchesQuery';
 import type { MatchListItem } from '@naksir-types/match';
@@ -26,8 +26,8 @@ export default function TopMatchesScreen() {
     return pages.flatMap((p) => p.items ?? []);
   }, [query.data]);
 
-  if (query.isLoading) return <LoadingState title="Loading top matches..." />;
-  if (query.isError) return <ErrorState title="Failed to load top matches" />;
+  if (query.isLoading) return <LoadingState message="Loading top matches..." />;
+  if (query.isError) return <ErrorState message="Failed to load top matches" />;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }}>
@@ -43,7 +43,7 @@ export default function TopMatchesScreen() {
         keyExtractor={(it, idx) => String(it?.fixture_id ?? idx)}
         renderItem={({ item }) => (
           <MatchCard
-            item={item}
+            match={item}
             onPress={() =>
               navigation.navigate('MatchDetails', {
                 fixtureId: item.fixture_id,

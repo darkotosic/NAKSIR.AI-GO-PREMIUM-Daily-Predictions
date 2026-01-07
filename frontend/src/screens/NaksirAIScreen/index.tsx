@@ -3,8 +3,8 @@ import { SectionList, SafeAreaView, Text, TouchableOpacity, View } from 'react-n
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import LoadingState from '@components/LoadingState';
-import ErrorState from '@components/ErrorState';
+import { LoadingState } from '@components/LoadingState';
+import { ErrorState } from '@components/ErrorState';
 
 import { useCachedAiMatchesQuery } from '@hooks/useCachedAiMatchesQuery';
 import type { CachedAiMatchItem } from '@api/cachedAi';
@@ -55,8 +55,8 @@ export default function NaksirAIScreen() {
       .sort((a, b) => a.title.localeCompare(b.title));
   }, [query.data]);
 
-  if (query.isLoading) return <LoadingState title="Loading Naksir AI list..." />;
-  if (query.isError) return <ErrorState title="Failed to load cached AI matches" />;
+  if (query.isLoading) return <LoadingState message="Loading Naksir AI list..." />;
+  if (query.isError) return <ErrorState message="Failed to load cached AI matches" />;
 
   if (!sections.length) {
     return (

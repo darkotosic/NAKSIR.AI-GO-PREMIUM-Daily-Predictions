@@ -47,7 +47,7 @@ const PredictionsScreen: React.FC = () => {
   }, [predictionsRaw]);
 
   if (!fixtureId) {
-    return <ErrorState message="Fixture ID is missing." onRetry={() => navigation.navigate('TodayMatches')} />;
+    return <ErrorState message="Fixture ID is missing." onRetry={() => navigation.navigate('MainTabs')} />;
   }
 
   const goBackToMatch = () => navigation.navigate('MatchDetails', { fixtureId, summary: heroSummary ?? summary });

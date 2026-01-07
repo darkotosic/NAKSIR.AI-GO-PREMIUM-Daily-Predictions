@@ -54,7 +54,7 @@ const MatchDetailsScreen: React.FC = () => {
   }, [fixtureId, summary?.league, summary?.league?.id, summary?.league?.name]);
 
   if (!fixtureId) {
-    return <ErrorState message="Fixture ID is missing." onRetry={() => navigation.navigate('TodayMatches')} />;
+    return <ErrorState message="Fixture ID is missing." onRetry={() => navigation.navigate('MainTabs')} />;
   }
 
   const leagueStandingsLeague = data?.standings?.[0]?.league;

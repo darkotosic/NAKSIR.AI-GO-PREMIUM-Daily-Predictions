@@ -301,7 +301,7 @@ const AIAnalysisScreen: React.FC = () => {
     if (fixtureId) {
       navigation.navigate('MatchDetails', { fixtureId, summary });
     } else {
-      navigation.navigate('TodayMatches');
+      navigation.navigate('MainTabs');
     }
   };
 
