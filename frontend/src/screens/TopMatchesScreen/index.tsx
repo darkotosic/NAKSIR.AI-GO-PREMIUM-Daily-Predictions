@@ -17,7 +17,7 @@ import { ErrorState } from '@components/ErrorState';
 import TelegramBanner from '@components/TelegramBanner';
 
 import { useTopMatchesQuery } from '@hooks/useTopMatchesQuery';
-import type { MatchListItem, StandingsRow } from '@naksir-types/match';
+import type { MatchListItem, StandingsRow } from '@types/match';
 import type { RootStackParamList } from '@navigation/types';
 
 const COLORS = {
