@@ -80,6 +80,17 @@ def _get_ttl_for_endpoint(endpoint: str) -> int:
         return 10 * 60
     if endpoint in {"teams", "teams/seasons", "teams/countries"}:
         return 24 * 60 * 60
+    if endpoint in {"players/seasons", "players/profiles", "players/teams"}:
+        return 24 * 60 * 60
+    if endpoint in {
+        "players",
+        "players/squads",
+        "players/topscorers",
+        "players/topassists",
+        "players/topyellowcards",
+        "players/topredcards",
+    }:
+        return 6 * 60 * 60
     return 0
 
 
@@ -516,6 +527,129 @@ def get_injuries(fixture_id: int) -> List[Dict[str, Any]]:
     /injuries – povrede vezane za dati fixture (ako ih ima).
     """
     data = _call_api("injuries", {"fixture": fixture_id}, safe=True)
+    return _extract_response_list(data)
+
+
+# ---------------------------------------------------------------------------
+# Players – dodatni feedovi za AI/context
+# ---------------------------------------------------------------------------
+
+
+def get_player_seasons(player_id: int) -> List[Any]:
+    """
+    /players/seasons – dostupne sezone za igrača.
+    """
+    data = _call_api("players/seasons", {"player": player_id}, safe=True)
+    resp = data.get("response")
+    if isinstance(resp, list):
+        return resp
+    return []
+
+
+def get_player_profiles(player_id: int, season: Optional[int] = None) -> List[Dict[str, Any]]:
+    """
+    /players/profiles – profili igrača (opciono filtrirano po sezoni).
+    """
+    params: Dict[str, Any] = {"player": player_id}
+    if season is not None:
+        params["season"] = season
+    data = _call_api("players/profiles", params, safe=True)
+    return _extract_response_list(data)
+
+
+def get_players(
+    *,
+    player_id: Optional[int] = None,
+    team_id: Optional[int] = None,
+    league_id: Optional[int] = None,
+    season: Optional[int] = None,
+    search: Optional[str] = None,
+    page: Optional[int] = None,
+) -> Dict[str, Any]:
+    """
+    /players – statistike igrača za ligu/tim/sezonu (paging u response-u).
+    """
+    params: Dict[str, Any] = {}
+    if player_id is not None:
+        params["id"] = player_id
+    if team_id is not None:
+        params["team"] = team_id
+    if league_id is not None:
+        params["league"] = league_id
+    if season is not None:
+        params["season"] = season
+    if search:
+        params["search"] = search
+    if page is not None:
+        params["page"] = page
+
+    return _call_api("players", params, safe=True)
+
+
+def get_players_squads(team_id: int, season: Optional[int] = None) -> List[Dict[str, Any]]:
+    """
+    /players/squads – squad lista za tim (opciono sezona).
+    """
+    params: Dict[str, Any] = {"team": team_id}
+    if season is not None:
+        params["season"] = season
+    data = _call_api("players/squads", params, safe=True)
+    return _extract_response_list(data)
+
+
+def get_player_teams(player_id: int) -> List[Dict[str, Any]]:
+    """
+    /players/teams – klubovi kroz koje je igrač prošao.
+    """
+    data = _call_api("players/teams", {"player": player_id}, safe=True)
+    return _extract_response_list(data)
+
+
+def get_players_top_scorers(league_id: int, season: int) -> List[Dict[str, Any]]:
+    """
+    /players/topscorers – lista strelaca za ligu + sezonu.
+    """
+    data = _call_api(
+        "players/topscorers",
+        {"league": league_id, "season": season},
+        safe=True,
+    )
+    return _extract_response_list(data)
+
+
+def get_players_top_assists(league_id: int, season: int) -> List[Dict[str, Any]]:
+    """
+    /players/topassists – lista asistenata za ligu + sezonu.
+    """
+    data = _call_api(
+        "players/topassists",
+        {"league": league_id, "season": season},
+        safe=True,
+    )
+    return _extract_response_list(data)
+
+
+def get_players_top_yellow_cards(league_id: int, season: int) -> List[Dict[str, Any]]:
+    """
+    /players/topyellowcards – lista igrača po žutim kartonima.
+    """
+    data = _call_api(
+        "players/topyellowcards",
+        {"league": league_id, "season": season},
+        safe=True,
+    )
+    return _extract_response_list(data)
+
+
+def get_players_top_red_cards(league_id: int, season: int) -> List[Dict[str, Any]]:
+    """
+    /players/topredcards – lista igrača po crvenim kartonima.
+    """
+    data = _call_api(
+        "players/topredcards",
+        {"league": league_id, "season": season},
+        safe=True,
+    )
     return _extract_response_list(data)
 
 

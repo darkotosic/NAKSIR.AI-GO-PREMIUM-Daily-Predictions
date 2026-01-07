@@ -1,4 +1,4 @@
-from backend.routers import billing, ai, matches, meta, debug_ops, teams
+from backend.routers import billing, ai, matches, meta, debug_ops, teams, players
 
 __all__ = [
     "ai",
@@ -6,5 +6,6 @@ __all__ = [
     "debug_ops",
     "matches",
     "meta",
+    "players",
     "teams",
 ]
