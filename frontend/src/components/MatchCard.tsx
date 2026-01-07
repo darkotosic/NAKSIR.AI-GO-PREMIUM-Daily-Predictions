@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { Animated, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { MatchListItem, StandingsRow } from '@types/match';
+import { MatchListItem, StandingsRow } from '@/types/match';
 
 const COLORS = {
   background: '#040312',

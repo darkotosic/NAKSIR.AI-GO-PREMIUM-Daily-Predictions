@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { fetchTopMatchesPage } from '@api/matches';
-import { TodayMatchesPage } from '@types/match';
+import { TodayMatchesPage } from '@/types/match';
 
 export const useTopMatchesQuery = () =>
   useInfiniteQuery<TodayMatchesPage>({

@@ -12,7 +12,7 @@ import {
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { getAiAnalysis, requestAiAnalysis, AiAnalysisError } from '@api/analysis';
-import type { MatchAnalysis } from '@types/analysis';
+import type { MatchAnalysis } from '@/types/analysis';
 import { RootStackParamList } from '@navigation/types';
 import { trackEvent } from '@lib/tracking';
 import TelegramBanner from '@components/TelegramBanner';
@@ -41,11 +41,16 @@ const AIAnalysisScreen: React.FC = () => {
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
   const pollInFlightRef = useRef(false);
   const requestIdRef = useRef(0);
+  const isGeneratingRef = useRef(false);
 
   const depthWords = useMemo(() => 'NAKSIR GO IN DEPTH OF DATA'.split(' '), []);
   const depthWordAnim = useMemo(() => depthWords.map(() => new Animated.Value(0)), [depthWords]);
   const loadingBar = useRef(new Animated.Value(0)).current;
   const isGenerating = status === 'loading' || status === 'generating';
+
+  useEffect(() => {
+    isGeneratingRef.current = isGenerating;
+  }, [isGenerating]);
 
   const formatTimer = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -180,7 +185,7 @@ const AIAnalysisScreen: React.FC = () => {
   }, [fixtureId, stopPolling]);
 
   const startGeneration = useCallback(async () => {
-    if (!fixtureId || isGenerating) return;
+    if (!fixtureId || isGeneratingRef.current) return;
     const requestId = requestIdRef.current;
     setStatus('generating');
     setError(null);
@@ -217,7 +222,7 @@ const AIAnalysisScreen: React.FC = () => {
       setStatus('error');
       setError(normalized);
     }
-  }, [fixtureId, isGenerating, pollForAnalysis, stopPolling]);
+  }, [fixtureId, pollForAnalysis, stopPolling]);
 
   const readCached = useCallback(async () => {
     if (!fixtureId) return;

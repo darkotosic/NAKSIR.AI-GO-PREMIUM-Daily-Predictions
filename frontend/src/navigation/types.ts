@@ -1,4 +1,4 @@
-import { MatchSummary } from '@types/match';
+import { MatchSummary } from '@/types/match';
 
 export type MainTopTabsParamList = {
   TodayMatches: undefined;

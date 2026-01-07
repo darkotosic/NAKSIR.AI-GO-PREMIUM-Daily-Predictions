@@ -19,6 +19,9 @@ declare module 'react-native-google-mobile-ads/native-ads' {
 }
 
 declare module 'react-native-google-mobile-ads' {
+  import type { ComponentType } from 'react';
+  import type { ViewProps } from 'react-native';
+
   export type AdRequestOptions = RequestOptions;
 
   export interface AppOpenAd {
@@ -39,6 +42,16 @@ declare module 'react-native-google-mobile-ads' {
   }
 
   export const TestIds: TestIdsType;
+  export const BannerAd: ComponentType<
+    ViewProps & {
+      unitId: string;
+      size: string;
+      requestOptions?: AdRequestOptions;
+      onAdLoaded?: () => void;
+      onAdFailedToLoad?: (error: any) => void;
+    }
+  >;
+  export const BannerAdSize: Record<string, string>;
 }
 
 declare module 'react-native-iap' {
