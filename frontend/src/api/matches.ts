@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { FullMatch, MatchListItem, TodayMatchesPage } from '@naksir-types/match';
+import { FullMatch, MatchListItem, TodayMatchesPage } from '@types/match';
 
 export const fetchTodayMatchesPage = async (
   cursor = 0,

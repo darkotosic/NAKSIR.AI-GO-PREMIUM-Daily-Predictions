@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { fetchH2H } from '@api/h2h';
-import { H2HResponse } from '@naksir-types/match';
+import { H2HResponse } from '@types/match';
 
 export const useH2HQuery = (fixtureId?: number | string) =>
   useQuery<H2HResponse>({

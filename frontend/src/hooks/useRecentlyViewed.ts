@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getJson, setJson } from '@lib/storage';
-import { MatchSummary } from '@naksir-types/match';
+import { MatchSummary } from '@types/match';
 
 const RECENT_KEY = 'recently-viewed-fixtures';
 const MAX_RECENT = 10;

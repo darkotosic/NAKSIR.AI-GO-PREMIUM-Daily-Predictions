@@ -8,7 +8,7 @@ import {
   DrawerItem,
   DrawerItemList,
 } from '@react-navigation/drawer';
-import type { MatchSummary } from '@naksir-types/match';
+import type { MatchSummary } from '@types/match';
 import TodayMatchesScreen from '@screens/TodayMatchesScreen';
 import MatchDetailsScreen from '@screens/MatchDetailsScreen';
 import AIAnalysisScreen from '@screens/AIAnalysisScreen';

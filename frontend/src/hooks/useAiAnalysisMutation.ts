@@ -1,6 +1,6 @@
 import { useMutation, type UseMutationResult } from '@tanstack/react-query';
 import { postAiAnalysis, type AiAnalysisParams, type AiAnalysisError } from '@api/analysis';
-import type { MatchAnalysis } from '@naksir-types/analysis';
+import type { MatchAnalysis } from '@types/analysis';
 
 export function useAiAnalysisMutation(): UseMutationResult<
   MatchAnalysis,
