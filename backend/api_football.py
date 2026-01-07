@@ -25,6 +25,7 @@ from .cache import (
     resolve_inflight,
     wait_for_inflight,
 )
+from .observability import add_api_ms, add_upstream_call
 
 logger = logging.getLogger("naksir.go_premium.api_football")
 
@@ -35,6 +36,8 @@ MAX_BACKOFF = 10
 
 SESSION = requests.Session()
 RATE_LIMIT_EVENTS: Deque[float] = deque()
+LAST_FIXTURES_NEXT_FETCH: float | None = None
+LAST_FIXTURES_NEXT_ERROR: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -126,11 +129,14 @@ def _call_api(
     backoff_seconds = 1
     try:
         while True:
+            start_call = time.perf_counter()
+            add_upstream_call()
             try:
                 resp = SESSION.get(
                     url, headers=HEADERS, params=params, timeout=DEFAULT_TIMEOUT
                 )
             except Exception as exc:  # network / timeout / SSL...
+                add_api_ms((time.perf_counter() - start_call) * 1000)
                 logger.warning(
                     "API-Football request failed (%s, params=%s): %s",
                     endpoint,
@@ -143,6 +149,7 @@ def _call_api(
                 resolve_inflight(inflight, error=exc)
                 raise
 
+            add_api_ms((time.perf_counter() - start_call) * 1000)
             if resp.status_code == 429:
                 RATE_LIMIT_EVENTS.append(time.time())
                 if cached:
@@ -279,23 +286,30 @@ def get_fixtures_next_days(days: int = 2, timezone: str | None = None) -> List[D
     merged: List[Dict[str, Any]] = []
     seen: set[int] = set()
 
-    for offset in range(max(1, days)):
-        day = today + timedelta(days=offset)
-        fixtures = get_fixtures_by_date(day.isoformat())
-        for fx in fixtures:
-            fixture_id = (fx.get("fixture") or {}).get("id")
-            if fixture_id is not None:
-                try:
-                    fixture_id = int(fixture_id)
-                except (TypeError, ValueError):
-                    fixture_id = None
-            if fixture_id is not None:
-                if fixture_id in seen:
-                    continue
-                seen.add(fixture_id)
-            merged.append(fx)
+    global LAST_FIXTURES_NEXT_FETCH, LAST_FIXTURES_NEXT_ERROR
+    try:
+        for offset in range(max(1, days)):
+            day = today + timedelta(days=offset)
+            fixtures = get_fixtures_by_date(day.isoformat())
+            for fx in fixtures:
+                fixture_id = (fx.get("fixture") or {}).get("id")
+                if fixture_id is not None:
+                    try:
+                        fixture_id = int(fixture_id)
+                    except (TypeError, ValueError):
+                        fixture_id = None
+                if fixture_id is not None:
+                    if fixture_id in seen:
+                        continue
+                    seen.add(fixture_id)
+                merged.append(fx)
+    except Exception as exc:  # noqa: BLE001
+        LAST_FIXTURES_NEXT_ERROR = str(exc)
+        raise
 
     merged.sort(key=lambda f: (f.get("fixture", {}).get("date") or ""))
+    LAST_FIXTURES_NEXT_FETCH = time.time()
+    LAST_FIXTURES_NEXT_ERROR = None
     return merged
 
 

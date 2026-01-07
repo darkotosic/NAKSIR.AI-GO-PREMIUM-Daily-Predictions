@@ -12,6 +12,7 @@ from redis import Redis
 from redis.lock import Lock
 
 from .config import settings
+from .observability import add_cache_hit, add_cache_miss
 
 logger = logging.getLogger("naksir.go_premium.cache")
 
@@ -176,7 +177,12 @@ _BACKEND: CacheBackend = _select_backend()
 
 
 def cache_get(key: str) -> Optional[Dict[str, Any]]:
-    return _BACKEND.get(key)
+    cached = _BACKEND.get(key)
+    if cached is None:
+        add_cache_miss()
+    else:
+        add_cache_hit()
+    return cached
 
 
 def cache_set(key: str, value: Dict[str, Any], ttl_seconds: float) -> None:

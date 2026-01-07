@@ -24,6 +24,7 @@ logger = logging.getLogger("naksir.go_premium.api")
 def get_today_matches(
     cursor: int = Query(0, ge=0, description="Pagination cursor"),
     limit: int = Query(10, ge=1, le=100, description="Page size"),
+    include_enrich: bool = Query(False, description="Include odds/standings snapshots"),
 ) -> Dict[str, Any]:
     """
     Vrati listu svih *dozvoljenih* mečeva za današnji dan u paginiranom wrapper-u.
@@ -33,7 +34,8 @@ def get_today_matches(
       (allowlist liga + izbacivanje završenih / otkazanih statusa).
     - `build_match_summary()` pretvara raw fixture u lagani JSON
       spreman za karticu na frontu (liga, timovi, kickoff, status, skor, flagovi...).
-    - Lagani odds snapshot se doda samo ako već postoji u cache-u (bez novih API poziva).
+    - Lagani odds snapshot se doda samo ako već postoji u cache-u (bez novih API poziva),
+      ali samo kada je include_enrich=true.
     """
 
     fixtures = api_football.get_fixtures_next_days(2)
@@ -49,7 +51,7 @@ def get_today_matches(
         away_team_id = (summary.get("teams", {}).get("away") or {}).get("id")
 
         odds_flat = None
-        if fixture_id:
+        if include_enrich and fixture_id:
             odds_key = make_cache_key("odds", {"fixture": fixture_id, "page": 1})
             odds_payload = cache_get(odds_key)
             odds_response = odds_payload.get("response") if isinstance(odds_payload, dict) else None
@@ -66,7 +68,7 @@ def get_today_matches(
             "summary": summary,
         }
 
-        if league_id and season and (home_team_id or away_team_id):
+        if include_enrich and league_id and season and (home_team_id or away_team_id):
             cache_key = (league_id, season)
             standings_payload = standings_cache.get(cache_key)
             if standings_payload is None:
@@ -125,6 +127,7 @@ def get_today_matches(
 def get_top_matches(
     cursor: int = Query(0, ge=0, description="Pagination cursor"),
     limit: int = Query(10, ge=1, le=100, description="Page size"),
+    include_enrich: bool = Query(False, description="Include odds/standings snapshots"),
 ) -> Dict[str, Any]:
     """
     Vraća fixtures za naredna 2 dana ali filtrirano samo na TOP_LEAGUE_IDS.
@@ -147,7 +150,7 @@ def get_top_matches(
         away_team_id = ((summary.get("teams") or {}).get("away") or {}).get("id")
 
         odds_flat = None
-        if fixture_id:
+        if include_enrich and fixture_id:
             odds_key = make_cache_key("odds", {"fixture": fixture_id, "page": 1})
             odds_payload = cache_get(odds_key)
             odds_response = odds_payload.get("response") if isinstance(odds_payload, dict) else None
@@ -160,7 +163,7 @@ def get_top_matches(
         card: Dict[str, Any] = {"fixture_id": fixture_id, "summary": summary}
 
         # standings snapshot (same behavior kao /matches/today)
-        if league_id and season and (home_team_id or away_team_id):
+        if include_enrich and league_id and season and (home_team_id or away_team_id):
             cache_key = (league_id, season)
             standings_payload = standings_cache.get(cache_key)
             if standings_payload is None:

@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from typing import Any, Optional
 
-from fastapi import APIRouter, Body, Depends, Header, HTTPException, Path
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Path, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -358,20 +358,21 @@ def post_match_ai_analysis(
 
 @router.get(
     "/ai/cached-matches",
-    summary="Lista mečeva (naredna 2 dana) koji imaju cached AI analizu",
+    summary="Lista mečeva (naredni dani) koji imaju cached AI analizu",
     dependencies=[Depends(require_api_key)],
 )
 def get_cached_ai_matches(
+    days: int = Query(3, ge=1, le=14, description="Number of days ahead to include"),
     session: Session = Depends(get_db),
 ) -> dict[str, Any]:
     """
     Frontend koristi za 'Naksir AI' tab: prikaz samo mečeva koji već imaju cached AI analizu.
     Strategija:
-      1) fixtures next 2 days (1 API call / cache)
+      1) fixtures next N days (1 API call / cache)
       2) 1 DB query IN(fixture_ids) za READY cache
       3) output: items = [{fixture_id, summary, generated_at}]
     """
-    fixtures = api_football.get_fixtures_next_days(2)
+    fixtures = api_football.get_fixtures_next_days(days)
     fixture_ids: list[int] = []
     fixture_by_id: dict[int, Any] = {}
     for fx in fixtures:
