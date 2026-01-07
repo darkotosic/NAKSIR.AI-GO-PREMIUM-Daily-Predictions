@@ -50,6 +50,12 @@ export const MatchCard: React.FC<Props> = ({ match, onPress, onToggleFavorite, i
   const formatForm = (value?: string | null) => (value ? value.toUpperCase() : undefined);
   const homeForm = formatForm(homeStanding?.form as string | undefined);
   const awayForm = formatForm(awayStanding?.form as string | undefined);
+  const homeRankLabel = homeStanding?.rank ? `#${homeStanding.rank}` : '--';
+  const awayRankLabel = awayStanding?.rank ? `#${awayStanding.rank}` : '--';
+  const homeFormLabel = homeForm ?? '--';
+  const awayFormLabel = awayForm ?? '--';
+  const showHomeMeta = homeStanding || homeForm;
+  const showAwayMeta = awayStanding || awayForm;
 
   const scale = useRef(new Animated.Value(1)).current;
 
@@ -92,18 +98,16 @@ export const MatchCard: React.FC<Props> = ({ match, onPress, onToggleFavorite, i
             {teams?.home?.logo ? (
               <Image source={{ uri: teams.home.logo }} style={styles.teamLogo} />
             ) : null}
+            {showHomeMeta ? (
+              <View style={styles.formSummaryRow}>
+                <Text style={styles.formSummaryText}>{homeFormLabel}</Text>
+                <Text style={styles.formSummaryDivider}>•</Text>
+                <Text style={styles.rankSummaryText}>{homeRankLabel}</Text>
+              </View>
+            ) : null}
             <Text style={styles.teamName} numberOfLines={1}>
               {teams?.home?.name || 'Home'}
             </Text>
-            <Text style={styles.teamMeta} numberOfLines={1}>
-              {homeStanding ? `#${homeStanding.rank} • ${homeStanding.points} pts` : ''}
-            </Text>
-            {homeForm ? (
-              <View style={styles.formRow}>
-                <Text style={styles.formLabel}>Form</Text>
-                <Text style={styles.formValue}>{homeForm}</Text>
-              </View>
-            ) : null}
           </View>
 
           <View style={styles.vsPill}>
@@ -115,18 +119,16 @@ export const MatchCard: React.FC<Props> = ({ match, onPress, onToggleFavorite, i
             {teams?.away?.logo ? (
               <Image source={{ uri: teams.away.logo }} style={styles.teamLogo} />
             ) : null}
+            {showAwayMeta ? (
+              <View style={[styles.formSummaryRow, styles.formSummaryRowRight]}>
+                <Text style={styles.formSummaryText}>{awayFormLabel}</Text>
+                <Text style={styles.formSummaryDivider}>•</Text>
+                <Text style={styles.rankSummaryText}>{awayRankLabel}</Text>
+              </View>
+            ) : null}
             <Text style={[styles.teamName, { textAlign: 'right' }]} numberOfLines={1}>
               {teams?.away?.name || 'Away'}
             </Text>
-            <Text style={[styles.teamMeta, { textAlign: 'right' }]} numberOfLines={1}>
-              {awayStanding ? `#${awayStanding.rank} • ${awayStanding.points} pts` : ''}
-            </Text>
-            {awayForm ? (
-              <View style={[styles.formRow, styles.formRowRight]}>
-                <Text style={styles.formLabel}>Form</Text>
-                <Text style={styles.formValue}>{awayForm}</Text>
-              </View>
-            ) : null}
           </View>
         </View>
 
@@ -233,28 +235,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 6,
   },
-  teamMeta: {
-    color: COLORS.muted,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  formRow: {
+  formSummaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 6,
+    marginBottom: 6,
   },
-  formRowRight: {
+  formSummaryRowRight: {
     justifyContent: 'flex-end',
   },
-  formLabel: {
-    color: COLORS.muted,
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  formValue: {
+  formSummaryText: {
     color: COLORS.text,
     fontWeight: '800',
     letterSpacing: 0.8,
@@ -264,6 +254,15 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: COLORS.borderSoft,
+  },
+  formSummaryDivider: {
+    color: COLORS.muted,
+    fontWeight: '700',
+  },
+  rankSummaryText: {
+    color: COLORS.neonOrange,
+    fontWeight: '800',
+    letterSpacing: 0.4,
   },
   vsPill: {
     backgroundColor: COLORS.neonPurple,

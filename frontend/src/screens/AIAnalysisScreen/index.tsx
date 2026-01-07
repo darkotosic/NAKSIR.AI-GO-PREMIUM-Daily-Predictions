@@ -15,6 +15,7 @@ import { getAiAnalysis, requestAiAnalysis, AiAnalysisError } from '@api/analysis
 import type { MatchAnalysis } from '@naksir-types/analysis';
 import { RootStackParamList } from '@navigation/types';
 import { trackEvent } from '@lib/tracking';
+import TelegramBanner from '@components/TelegramBanner';
 
 const COLORS = {
   background: '#040312',
@@ -250,13 +251,13 @@ const AIAnalysisScreen: React.FC = () => {
       const normalized = err as AiAnalysisError;
       if (normalized.status === 404) {
         setCacheStatus('MISS');
-        setStatus('missing');
+        startGeneration();
         return;
       }
       setStatus('error');
       setError(normalized);
     }
-  }, [fixtureId, pollForAnalysis]);
+  }, [fixtureId, pollForAnalysis, startGeneration]);
 
   useEffect(() => {
     stopPolling();
@@ -308,6 +309,7 @@ const AIAnalysisScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
+        <TelegramBanner />
         <TouchableOpacity style={styles.backButton} onPress={goBackToMatch}>
           <Text style={styles.backIcon}>←</Text>
           <Text style={styles.backLabel}>Back to match</Text>

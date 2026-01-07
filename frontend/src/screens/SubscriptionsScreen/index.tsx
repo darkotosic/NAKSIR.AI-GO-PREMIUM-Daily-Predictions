@@ -1,9 +1,11 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import TelegramBanner from '@components/TelegramBanner';
 
 export default function SubscriptionsScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      <TelegramBanner />
       <View style={styles.card}>
         <Text style={styles.title}>Subscriptions</Text>
         <Text style={styles.subtitle}>

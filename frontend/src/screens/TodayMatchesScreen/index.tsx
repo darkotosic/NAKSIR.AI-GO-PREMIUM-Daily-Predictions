@@ -1,17 +1,10 @@
 import React, { useCallback, useMemo } from 'react';
-import {
-  FlatList,
-  Linking,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { MatchCard } from '@components/MatchCard';
 import { ErrorState } from '@components/ErrorState';
+import TelegramBanner from '@components/TelegramBanner';
 import { useTodayMatchesQuery } from '@hooks/useTodayMatchesQuery';
 import { useFavorites } from '@hooks/useFavorites';
 import { RootStackParamList } from '@navigation/types';
@@ -25,19 +18,8 @@ const COLORS = {
   neonOrange: '#fb923c',
   text: '#f8fafc',
   muted: '#a5b4fc',
-  accentBlue: '#0ea5e9',
   borderSoft: '#1f1f3a',
 };
-
-const TelegramBanner = () => (
-  <TouchableOpacity
-    style={styles.telegramButton}
-    onPress={() => Linking.openURL('https://t.me/naksiranalysis')}
-    activeOpacity={0.88}
-  >
-    <Text style={styles.telegramText}>Join Naksir Analysis on Telegram</Text>
-  </TouchableOpacity>
-);
 
 const SortBar = ({
   sortOption,
@@ -235,26 +217,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: '#cbd5e1',
-  },
-  telegramButton: {
-    backgroundColor: COLORS.neonPurple,
-    paddingVertical: 18,
-    paddingHorizontal: 20,
-    borderRadius: 18,
-    marginBottom: 18,
-    borderWidth: 1,
-    borderColor: COLORS.accentBlue,
-    shadowColor: COLORS.accentBlue,
-    shadowOpacity: 0.5,
-    shadowOffset: { width: 0, height: 12 },
-    shadowRadius: 20,
-    elevation: 6,
-  },
-  telegramText: {
-    color: '#fff',
-    fontSize: 18,
-    textAlign: 'center',
-    fontWeight: '700',
   },
   sortRow: {
     marginBottom: 12,

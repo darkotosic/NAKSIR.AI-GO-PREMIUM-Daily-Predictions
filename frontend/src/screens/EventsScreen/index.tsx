@@ -14,6 +14,7 @@ import { useMatchDetailsQuery } from '@hooks/useMatchDetailsQuery';
 import { RootStackParamList } from '@navigation/types';
 import { ErrorState } from '@components/ErrorState';
 import { MatchEvent } from '@naksir-types/match';
+import TelegramBanner from '@components/TelegramBanner';
 
 const COLORS = {
   background: '#040312',
@@ -53,6 +54,7 @@ const EventsScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
+        <TelegramBanner />
         <TouchableOpacity style={styles.backButton} onPress={goBackToMatch}>
           <Text style={styles.backIcon}>←</Text>
           <Text style={styles.backLabel}>Back to match</Text>

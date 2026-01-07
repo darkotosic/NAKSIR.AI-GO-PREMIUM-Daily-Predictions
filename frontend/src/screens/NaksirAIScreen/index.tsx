@@ -5,6 +5,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { LoadingState } from '@components/LoadingState';
 import { ErrorState } from '@components/ErrorState';
+import TelegramBanner from '@components/TelegramBanner';
 
 import { useCachedAiMatchesQuery } from '@hooks/useCachedAiMatchesQuery';
 import type { CachedAiMatchItem } from '@api/cachedAi';
@@ -20,6 +21,34 @@ const COLORS = {
 };
 
 type Section = { title: string; data: CachedAiMatchItem[] };
+
+const FLAG_OVERRIDES: Record<string, string> = {
+  world: '🌍',
+  europe: '🇪🇺',
+  england: '🏴',
+  scotland: '🏴',
+  wales: '🏴',
+  'united states': '🇺🇸',
+  usa: '🇺🇸',
+  germany: '🇩🇪',
+  france: '🇫🇷',
+  spain: '🇪🇸',
+  italy: '🇮🇹',
+  portugal: '🇵🇹',
+  brazil: '🇧🇷',
+  argentina: '🇦🇷',
+  serbia: '🇷🇸',
+  croatia: '🇭🇷',
+  netherlands: '🇳🇱',
+  turkey: '🇹🇷',
+  greece: '🇬🇷',
+};
+
+const getFlagEmoji = (country?: string) => {
+  if (!country) return '🏳️';
+  const key = country.trim().toLowerCase();
+  return FLAG_OVERRIDES[key] ?? '🏳️';
+};
 
 function formatKickoff(kickoff?: string) {
   if (!kickoff) return '--:--';
@@ -40,7 +69,8 @@ export default function NaksirAIScreen() {
     for (const it of items) {
       const leagueName = it?.summary?.league?.name ?? 'Unknown League';
       const country = it?.summary?.league?.country ?? '';
-      const title = country ? `${country}: ${leagueName}` : leagueName;
+      const flag = getFlagEmoji(country);
+      const title = country ? `${flag} ${country}: ${leagueName}` : `${flag} ${leagueName}`;
 
       const arr = map.get(title) ?? [];
       arr.push(it);
@@ -61,6 +91,7 @@ export default function NaksirAIScreen() {
   if (!sections.length) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background, padding: 16 }}>
+        <TelegramBanner />
         <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: '900' }}>Naksir AI</Text>
         <Text style={{ color: COLORS.muted, marginTop: 8 }}>
           No cached AI analyses yet for the next 2 days.
@@ -71,16 +102,18 @@ export default function NaksirAIScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }}>
-      <View style={{ paddingHorizontal: 14, paddingTop: 10, paddingBottom: 6 }}>
-        <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: '900' }}>Naksir AI</Text>
-        <Text style={{ color: COLORS.muted, marginTop: 2 }}>
-          Cached analyses (tap Preview)
-        </Text>
-      </View>
-
       <SectionList
         sections={sections}
         keyExtractor={(item, idx) => String(item.fixture_id ?? idx)}
+        ListHeaderComponent={() => (
+          <View style={{ paddingHorizontal: 14, paddingTop: 10, paddingBottom: 6 }}>
+            <TelegramBanner />
+            <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: '900' }}>Naksir AI</Text>
+            <Text style={{ color: COLORS.muted, marginTop: 2 }}>
+              Full In-Depth match analysis (tap Preview)
+            </Text>
+          </View>
+        )}
         renderSectionHeader={({ section }) => (
           <View style={{ paddingHorizontal: 14, paddingVertical: 8, backgroundColor: COLORS.background }}>
             <Text style={{ color: COLORS.muted, fontWeight: '900' }}>{section.title}</Text>

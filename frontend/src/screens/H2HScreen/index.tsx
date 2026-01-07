@@ -15,6 +15,7 @@ import { useH2HQuery } from '@hooks/useH2HQuery';
 import { RootStackParamList } from '@navigation/types';
 import { ErrorState } from '@components/ErrorState';
 import { H2HMatch } from '@naksir-types/match';
+import TelegramBanner from '@components/TelegramBanner';
 
 const COLORS = {
   background: '#040312',
@@ -86,6 +87,7 @@ const H2HScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
+        <TelegramBanner />
         <TouchableOpacity style={styles.backButton} onPress={goBackToMatch}>
           <Text style={styles.backIcon}>←</Text>
           <Text style={styles.backLabel}>Back to match</Text>

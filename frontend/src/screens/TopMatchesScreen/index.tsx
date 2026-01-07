@@ -6,6 +6,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MatchCard } from '@components/MatchCard';
 import { LoadingState } from '@components/LoadingState';
 import { ErrorState } from '@components/ErrorState';
+import TelegramBanner from '@components/TelegramBanner';
 
 import { useTopMatchesQuery } from '@hooks/useTopMatchesQuery';
 import type { MatchListItem } from '@naksir-types/match';
@@ -31,16 +32,18 @@ export default function TopMatchesScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }}>
-      <View style={{ paddingHorizontal: 14, paddingTop: 10, paddingBottom: 6 }}>
-        <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: '900' }}>Top Matches</Text>
-        <Text style={{ color: COLORS.muted, marginTop: 2 }}>
-          Top 5 leagues + UEFA competitions
-        </Text>
-      </View>
-
       <FlatList
         data={items}
         keyExtractor={(it, idx) => String(it?.fixture_id ?? idx)}
+        ListHeaderComponent={
+          <View style={{ paddingHorizontal: 14, paddingTop: 10, paddingBottom: 6 }}>
+            <TelegramBanner />
+            <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: '900' }}>Top Matches</Text>
+            <Text style={{ color: COLORS.muted, marginTop: 2 }}>
+              Top 5 leagues + UEFA competitions
+            </Text>
+          </View>
+        }
         renderItem={({ item }) => (
           <MatchCard
             match={item}
