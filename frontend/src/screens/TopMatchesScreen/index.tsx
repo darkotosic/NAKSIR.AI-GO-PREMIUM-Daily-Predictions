@@ -17,7 +17,7 @@ import { ErrorState } from '@components/ErrorState';
 import TelegramBanner from '@components/TelegramBanner';
 
 import { useTopMatchesQuery } from '@hooks/useTopMatchesQuery';
-import type { MatchListItem, StandingsRow } from '@types/match';
+import type { MatchListItem, StandingsRow } from '@/types/match';
 import type { RootStackParamList } from '@navigation/types';
 
 const COLORS = {
@@ -150,12 +150,16 @@ export default function TopMatchesScreen() {
           const awayRank = awayStanding?.rank ? `#${awayStanding.rank}` : '--';
           const homeForm = homeStanding?.form ? homeStanding.form.toUpperCase() : '--';
           const awayForm = awayStanding?.form ? awayStanding.form.toUpperCase() : '--';
-          const odds = item?.odds?.flat?.match_winner;
-          const btts = item?.odds?.flat?.btts;
-          const oddsLabel = odds
-            ? `1X2 ${formatOdd(odds.home)} • ${formatOdd(odds.draw)} • ${formatOdd(odds.away)}`
-            : null;
-          const bttsLabel = btts ? `BTTS ${formatOdd(btts.yes)} / ${formatOdd(btts.no)}` : null;
+          const flatOdds = item?.odds?.flat;
+          const oddsChips = [
+            { key: 'home', label: 'HOME', value: flatOdds?.match_winner?.home },
+            { key: 'draw', label: 'DRAW', value: flatOdds?.match_winner?.draw },
+            { key: 'away', label: 'AWAY', value: flatOdds?.match_winner?.away },
+            { key: 'over25', label: 'OVER 2.5', value: flatOdds?.totals?.over_2_5 },
+            { key: 'under25', label: 'UNDER 2.5', value: flatOdds?.totals?.under_2_5 },
+            { key: 'bttsYes', label: 'BTTS YES', value: flatOdds?.btts?.yes },
+            { key: 'bttsNo', label: 'BTTS NO', value: flatOdds?.btts?.no },
+          ].filter((chip) => chip.value !== null && chip.value !== undefined);
 
           return (
             <TouchableOpacity
@@ -213,18 +217,12 @@ export default function TopMatchesScreen() {
                     {homeForm} | {awayForm}
                   </Text>
                 </View>
-                {oddsLabel ? (
-                  <View style={[styles.valuePill, styles.valueWide]}>
-                    <Text style={styles.valueLabel}>Market</Text>
-                    <Text style={styles.valueText}>{oddsLabel}</Text>
+                {oddsChips.map((chip) => (
+                  <View key={chip.key} style={styles.oddsChip}>
+                    <Text style={styles.oddsLabel}>{chip.label}</Text>
+                    <Text style={styles.oddsValue}>{formatOdd(chip.value)}</Text>
                   </View>
-                ) : null}
-                {bttsLabel ? (
-                  <View style={[styles.valuePill, styles.valueWide]}>
-                    <Text style={styles.valueLabel}>BTTS</Text>
-                    <Text style={styles.valueText}>{bttsLabel}</Text>
-                  </View>
-                ) : null}
+                ))}
               </View>
             </TouchableOpacity>
           );
@@ -330,6 +328,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
+    alignItems: 'center',
+    marginTop: 10,
   },
   valuePill: {
     borderRadius: 10,
@@ -351,6 +351,25 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 10,
     fontWeight: '700',
+    marginTop: 2,
+  },
+  oddsChip: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.borderSoft,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: '#0f162b',
+  },
+  oddsLabel: {
+    color: COLORS.muted,
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  oddsValue: {
+    color: COLORS.text,
+    fontSize: 10,
+    fontWeight: '800',
     marginTop: 2,
   },
 });

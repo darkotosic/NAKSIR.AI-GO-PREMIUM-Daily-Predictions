@@ -1,5 +1,5 @@
 import { apiClient } from '@api/client';
-import type { MatchListItem } from '@types/match';
+import type { MatchListItem } from '@/types/match';
 
 export type CachedAiMatchItem = MatchListItem & {
   generated_at?: string | null;

@@ -14,7 +14,7 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useH2HQuery } from '@hooks/useH2HQuery';
 import { RootStackParamList } from '@navigation/types';
 import { ErrorState } from '@components/ErrorState';
-import { H2HMatch } from '@types/match';
+import { H2HMatch } from '@/types/match';
 import TelegramBanner from '@components/TelegramBanner';
 
 const COLORS = {

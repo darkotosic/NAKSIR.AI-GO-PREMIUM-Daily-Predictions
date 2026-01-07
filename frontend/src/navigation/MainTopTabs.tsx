@@ -19,17 +19,18 @@ export default function MainTopTabs() {
       screenOptions={{
         tabBarStyle: {
           backgroundColor: COLORS.card,
-          paddingTop: insets.top,
-          height: 48 + insets.top,
+          paddingTop: insets.top + 10,
+          height: 58 + insets.top,
         },
         tabBarIndicatorStyle: { backgroundColor: COLORS.neonViolet, height: 3 },
         tabBarLabelStyle: { color: COLORS.text, fontWeight: '900', fontSize: 12 },
         tabBarItemStyle: {
           borderWidth: 1,
           borderColor: '#ff4fd8',
-          borderRadius: 999,
+          borderRadius: 12,
           marginHorizontal: 6,
           marginVertical: 6,
+          height: 30,
         },
         tabBarActiveTintColor: COLORS.text,
         tabBarInactiveTintColor: COLORS.text,
