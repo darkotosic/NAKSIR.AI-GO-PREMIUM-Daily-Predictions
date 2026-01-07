@@ -238,7 +238,9 @@ def get_match_full(
         description=(
             "Comma-separated list of sections to include "
             "(summary,odds,standings,stats,team_stats,team_profiles,team_seasons,"
-            "team_countries,h2h,events,lineups,players,predictions,injuries)"
+            "team_countries,players_stats,players_squads,top_scorers,top_assists,"
+            "top_yellow_cards,top_red_cards,h2h,events,lineups,players,"
+            "predictions,injuries)"
         ),
     ),
 ) -> Dict[str, Any]:

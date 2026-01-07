@@ -161,6 +161,12 @@ full_context = {
     "team_profiles": team_profiles,
     "team_seasons": team_seasons,
     "team_countries": team_countries,
+    "players_stats": players_stats,
+    "players_squads": players_squads,
+    "top_scorers": top_scorers,
+    "top_assists": top_assists,
+    "top_yellow_cards": top_yellow_cards,
+    "top_red_cards": top_red_cards,
     "standings": standings,
     "h2h": h2h,
     "events": events,
@@ -300,6 +306,104 @@ full_context = {
             getattr(api_football, "get_team_countries", None),
         )
 
+    players_stats_home = None
+    players_stats_away = None
+    if _should_include("players_stats", sections) and league_id and season:
+        players_stats_home = (
+            _safe_call(
+                "players_stats_home",
+                getattr(api_football, "get_players", None),
+                team_id=home_team_id,
+                league_id=league_id,
+                season=season,
+                page=1,
+            )
+            if home_team_id
+            else None
+        )
+        players_stats_away = (
+            _safe_call(
+                "players_stats_away",
+                getattr(api_football, "get_players", None),
+                team_id=away_team_id,
+                league_id=league_id,
+                season=season,
+                page=1,
+            )
+            if away_team_id
+            else None
+        )
+
+    players_stats = (
+        {"home": players_stats_home, "away": players_stats_away}
+        if players_stats_home or players_stats_away
+        else None
+    )
+
+    players_squads_home = None
+    players_squads_away = None
+    if _should_include("players_squads", sections):
+        players_squads_home = (
+            _safe_call(
+                "players_squads_home",
+                getattr(api_football, "get_players_squads", None),
+                team_id=home_team_id,
+                season=season,
+            )
+            if home_team_id
+            else None
+        )
+        players_squads_away = (
+            _safe_call(
+                "players_squads_away",
+                getattr(api_football, "get_players_squads", None),
+                team_id=away_team_id,
+                season=season,
+            )
+            if away_team_id
+            else None
+        )
+
+    players_squads = (
+        {"home": players_squads_home, "away": players_squads_away}
+        if players_squads_home or players_squads_away
+        else None
+    )
+
+    top_scorers = None
+    top_assists = None
+    top_yellow_cards = None
+    top_red_cards = None
+    if league_id and season:
+        if _should_include("top_scorers", sections):
+            top_scorers = _safe_call(
+                "top_scorers",
+                getattr(api_football, "get_players_top_scorers", None),
+                league_id,
+                season,
+            )
+        if _should_include("top_assists", sections):
+            top_assists = _safe_call(
+                "top_assists",
+                getattr(api_football, "get_players_top_assists", None),
+                league_id,
+                season,
+            )
+        if _should_include("top_yellow_cards", sections):
+            top_yellow_cards = _safe_call(
+                "top_yellow_cards",
+                getattr(api_football, "get_players_top_yellow_cards", None),
+                league_id,
+                season,
+            )
+        if _should_include("top_red_cards", sections):
+            top_red_cards = _safe_call(
+                "top_red_cards",
+                getattr(api_football, "get_players_top_red_cards", None),
+                league_id,
+                season,
+            )
+
     # ---- Rich context (ako su helperi implementirani u api_football) -------------
 
     h2h_helper = getattr(api_football, "get_fixture_h2h", None)
@@ -409,6 +513,12 @@ full_context = {
         "team_profiles": team_profiles,
         "team_seasons": team_seasons,
         "team_countries": team_countries,
+        "players_stats": players_stats,
+        "players_squads": players_squads,
+        "top_scorers": top_scorers,
+        "top_assists": top_assists,
+        "top_yellow_cards": top_yellow_cards,
+        "top_red_cards": top_red_cards,
         "standings": standings,
         "h2h": h2h,
         "events": events,
