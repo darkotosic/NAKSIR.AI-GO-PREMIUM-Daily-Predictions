@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import os
 
+import time
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from .config import settings
+from .observability import add_db_ms
 
 
 def _normalize_database_url(raw_url: str) -> str:
@@ -38,7 +41,9 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, futu
 
 def get_db():
     db = SessionLocal()
+    start = time.perf_counter()
     try:
         yield db
     finally:
         db.close()
+        add_db_ms((time.perf_counter() - start) * 1000)
