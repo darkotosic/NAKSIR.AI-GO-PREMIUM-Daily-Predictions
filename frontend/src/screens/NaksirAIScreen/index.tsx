@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { SectionList, SafeAreaView, Text, TouchableOpacity, View } from 'react-native';
+import { Image, SectionList, SafeAreaView, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -122,6 +122,8 @@ export default function NaksirAIScreen() {
         renderItem={({ item }) => {
           const home = item.summary?.teams?.home?.name ?? 'Home';
           const away = item.summary?.teams?.away?.name ?? 'Away';
+          const homeLogo = item.summary?.teams?.home?.logo;
+          const awayLogo = item.summary?.teams?.away?.logo;
           const time = formatKickoff(item.summary?.kickoff);
 
           return (
@@ -144,12 +146,18 @@ export default function NaksirAIScreen() {
               </View>
 
               <View style={{ flex: 1 }}>
-                <Text style={{ color: COLORS.text, fontWeight: '900' }} numberOfLines={1}>
-                  {home}
-                </Text>
-                <Text style={{ color: COLORS.text, fontWeight: '900' }} numberOfLines={1}>
-                  {away}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  {homeLogo ? <Image source={{ uri: homeLogo }} style={{ width: 18, height: 18 }} /> : null}
+                  <Text style={{ color: COLORS.text, fontWeight: '900' }} numberOfLines={1}>
+                    {home}
+                  </Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  {awayLogo ? <Image source={{ uri: awayLogo }} style={{ width: 18, height: 18 }} /> : null}
+                  <Text style={{ color: COLORS.text, fontWeight: '900' }} numberOfLines={1}>
+                    {away}
+                  </Text>
+                </View>
               </View>
 
               <TouchableOpacity
@@ -157,14 +165,14 @@ export default function NaksirAIScreen() {
                   navigation.navigate('AIAnalysis', { fixtureId: item.fixture_id, summary: item.summary })
                 }
                 style={{
-                  paddingHorizontal: 12,
-                  paddingVertical: 8,
-                  borderRadius: 10,
+                  paddingHorizontal: 8,
+                  paddingVertical: 6,
+                  borderRadius: 7,
                   borderWidth: 1,
                   borderColor: COLORS.neonViolet,
                 }}
               >
-                <Text style={{ color: COLORS.neonViolet, fontWeight: '900' }}>PREVIEW</Text>
+                <Text style={{ color: COLORS.neonViolet, fontWeight: '300' }}>PREVIEW</Text>
               </TouchableOpacity>
             </View>
           );
