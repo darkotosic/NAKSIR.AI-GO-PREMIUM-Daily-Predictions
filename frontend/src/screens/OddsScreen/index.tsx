@@ -8,10 +8,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { DrawerNavigationProp } from '@react-navigation/drawer';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useMatchDetailsQuery } from '@hooks/useMatchDetailsQuery';
-import { RootDrawerParamList } from '@navigation/types';
+import { RootStackParamList } from '@navigation/types';
 import { ErrorState } from '@components/ErrorState';
 import { OddsSnapshot } from '@naksir-types/match';
 
@@ -41,8 +41,8 @@ const OddsGroup = ({ title, children }: { title: string; children: React.ReactNo
 );
 
 const OddsScreen: React.FC = () => {
-  const navigation = useNavigation<DrawerNavigationProp<RootDrawerParamList>>();
-  const route = useRoute<RouteProp<RootDrawerParamList, 'Odds'>>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<RootStackParamList, 'Odds'>>();
   const fixtureId = route.params?.fixtureId;
   const summary = route.params?.summary;
   const selectedMarket = route.params?.selectedMarket;

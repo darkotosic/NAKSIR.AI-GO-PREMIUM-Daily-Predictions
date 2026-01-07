@@ -8,10 +8,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { DrawerNavigationProp } from '@react-navigation/drawer';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useMatchDetailsQuery } from '@hooks/useMatchDetailsQuery';
-import { RootDrawerParamList } from '@navigation/types';
+import { RootStackParamList } from '@navigation/types';
 import { ErrorState } from '@components/ErrorState';
 import { PlayerStatisticEntry, PlayerStatsTeam } from '@naksir-types/match';
 
@@ -57,8 +57,8 @@ const TeamCard = ({ block }: { block: PlayerStatsTeam }) => (
 );
 
 const PlayersScreen: React.FC = () => {
-  const navigation = useNavigation<DrawerNavigationProp<RootDrawerParamList>>();
-  const route = useRoute<RouteProp<RootDrawerParamList, 'Players'>>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<RootStackParamList, 'Players'>>();
   const fixtureId = route.params?.fixtureId;
   const summary = route.params?.summary;
 

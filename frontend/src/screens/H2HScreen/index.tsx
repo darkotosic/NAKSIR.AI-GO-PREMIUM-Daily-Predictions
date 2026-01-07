@@ -9,10 +9,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { DrawerNavigationProp } from '@react-navigation/drawer';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useH2HQuery } from '@hooks/useH2HQuery';
-import { RootDrawerParamList } from '@navigation/types';
+import { RootStackParamList } from '@navigation/types';
 import { ErrorState } from '@components/ErrorState';
 import { H2HMatch } from '@naksir-types/match';
 
@@ -69,8 +69,8 @@ const H2HRow = ({ match }: { match: H2HMatch }) => {
 };
 
 const H2HScreen: React.FC = () => {
-  const navigation = useNavigation<DrawerNavigationProp<RootDrawerParamList>>();
-  const route = useRoute<RouteProp<RootDrawerParamList, 'H2H'>>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<RootStackParamList, 'H2H'>>();
   const fixtureId = route.params?.fixtureId;
   const summary = route.params?.summary;
 

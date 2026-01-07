@@ -157,6 +157,18 @@ ALLOW_LIST: List[int] = [
     322, 140, 141, 113, 207, 208, 202, 203, 909, 268, 269, 270, 340,
 ]
 
+# Top 5 EU leagues + UEFA competitions (Top Matches tab)
+TOP_LEAGUE_IDS: List[int] = [
+    39,   # England Premier League
+    140,  # Spain La Liga
+    135,  # Italy Serie A
+    78,   # Germany Bundesliga
+    61,   # France Ligue 1
+    2,    # UEFA Champions League
+    3,    # UEFA Europa League
+    848,  # UEFA Europa Conference League
+]
+
 # Statusi koje SKLANJAM iz feeda
 SKIP_STATUS = {"FT", "AET", "PEN", "PST", "CANC", "ABD", "WO"}
 

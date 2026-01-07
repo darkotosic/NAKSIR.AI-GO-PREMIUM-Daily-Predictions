@@ -9,11 +9,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { DrawerNavigationProp } from '@react-navigation/drawer';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { getAiAnalysis, requestAiAnalysis, AiAnalysisError } from '@api/analysis';
 import type { MatchAnalysis } from '@naksir-types/analysis';
-import { RootDrawerParamList } from '@navigation/types';
+import { RootStackParamList } from '@navigation/types';
 import { trackEvent } from '@lib/tracking';
 
 const COLORS = {
@@ -26,8 +26,8 @@ const COLORS = {
 };
 
 const AIAnalysisScreen: React.FC = () => {
-  const navigation = useNavigation<DrawerNavigationProp<RootDrawerParamList>>();
-  const route = useRoute<RouteProp<RootDrawerParamList, 'AIAnalysis'>>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<RootStackParamList, 'AIAnalysis'>>();
   const fixtureId = route.params?.fixtureId;
   const summary = route.params?.summary;
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
