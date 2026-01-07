@@ -1,12 +1,22 @@
 import { MatchSummary } from '@naksir-types/match';
 
-export type RootDrawerParamList = {
+export type MainTopTabsParamList = {
   TodayMatches: undefined;
+  TopMatches: undefined;
+  NaksirAI: undefined;
+};
+
+export type RootStackParamList = {
+  MainTabs: undefined;
+
+  // Hidden / drill-down screens:
   Subscriptions: undefined;
   MatchDetails: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
   AIAnalysis: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
   H2H: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
-  Odds: { fixtureId?: number | string; summary?: MatchSummary; selectedMarket?: string } | undefined;
+  Odds:
+    | { fixtureId?: number | string; summary?: MatchSummary; selectedMarket?: string }
+    | undefined;
   Stats: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
   TeamStats: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
   Events: { fixtureId?: number | string; summary?: MatchSummary } | undefined;

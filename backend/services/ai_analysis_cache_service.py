@@ -18,6 +18,25 @@ POLL_INTERVAL_SECONDS = 0.5
 READY_STATUSES = {"ready", "ok"}
 
 
+def list_cached_ready_for_fixture_ids(
+    session: Session,
+    fixture_ids: list[int],
+) -> dict[int, AiAnalysisCache]:
+    """
+    Vraća mapu fixture_id -> AiAnalysisCache za sve koji su READY.
+    Efikasno: 1 DB query (IN).
+    """
+    if not fixture_ids:
+        return {}
+    rows = session.execute(
+        select(AiAnalysisCache).where(
+            AiAnalysisCache.fixture_id.in_(fixture_ids),  # type: ignore[attr-defined]
+            AiAnalysisCache.status.in_(list(READY_STATUSES)),  # type: ignore[attr-defined]
+        )
+    ).scalars().all()
+    return {int(r.fixture_id): r for r in rows if r and r.analysis_json}
+
+
 def make_cache_key(
     *,
     fixture_id: int,

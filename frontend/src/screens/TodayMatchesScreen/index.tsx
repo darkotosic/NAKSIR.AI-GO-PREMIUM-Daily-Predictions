@@ -8,13 +8,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { DrawerNavigationProp } from '@react-navigation/drawer';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { MatchCard } from '@components/MatchCard';
 import { ErrorState } from '@components/ErrorState';
 import { useTodayMatchesQuery } from '@hooks/useTodayMatchesQuery';
 import { useFavorites } from '@hooks/useFavorites';
-import { RootDrawerParamList } from '@navigation/types';
+import { RootStackParamList } from '@navigation/types';
 import { trackEvent } from '@lib/tracking';
 
 const COLORS = {
@@ -90,7 +90,7 @@ const SkeletonCard = () => (
 );
 
 const TodayMatchesScreen: React.FC = () => {
-  const navigation = useNavigation<DrawerNavigationProp<RootDrawerParamList>>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const {
     data,
     isLoading,

@@ -14,7 +14,7 @@ from backend.ai_analysis import build_fallback_analysis, run_ai_analysis
 from backend.config import TIMEZONE
 from backend.db import get_db
 from backend.dependencies import require_api_key
-from backend.match_full import build_full_match
+from backend.match_full import build_full_match, build_match_summary
 from backend.services.ai_analysis_cache_service import (
     READY_STATUSES,
     get_cached_ok,
@@ -24,6 +24,7 @@ from backend.services.ai_analysis_cache_service import (
     save_ok,
     try_mark_generating,
     wait_for_ready,
+    list_cached_ready_for_fixture_ids,
 )
 from backend.services.users_service import get_or_create_user
 
@@ -353,3 +354,47 @@ def post_match_ai_analysis(
             content={"status": "failed", "message": "AI analysis failed"},
             headers=_cache_headers(cache_key, "FAIL"),
         )
+
+
+@router.get(
+    "/ai/cached-matches",
+    summary="Lista mečeva (naredna 2 dana) koji imaju cached AI analizu",
+    dependencies=[Depends(require_api_key)],
+)
+def get_cached_ai_matches(
+    session: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """
+    Frontend koristi za 'Naksir AI' tab: prikaz samo mečeva koji već imaju cached AI analizu.
+    Strategija:
+      1) fixtures next 2 days (1 API call / cache)
+      2) 1 DB query IN(fixture_ids) za READY cache
+      3) output: items = [{fixture_id, summary, generated_at}]
+    """
+    fixtures = api_football.get_fixtures_next_days(2)
+    fixture_ids: list[int] = []
+    fixture_by_id: dict[int, Any] = {}
+    for fx in fixtures:
+        fid = (fx.get("fixture") or {}).get("id")
+        if isinstance(fid, int):
+            fixture_ids.append(fid)
+            fixture_by_id[fid] = fx
+
+    cached_map = list_cached_ready_for_fixture_ids(session, fixture_ids)
+
+    items: list[dict[str, Any]] = []
+    for fid, row in cached_map.items():
+        fx = fixture_by_id.get(fid)
+        if not fx:
+            continue
+        summary = build_match_summary(fx)
+        items.append(
+            {
+                "fixture_id": fid,
+                "summary": summary,
+                "generated_at": row.updated_at.isoformat() if row.updated_at else None,
+            }
+        )
+
+    items.sort(key=lambda x: (x.get("summary", {}).get("kickoff") or ""))
+    return {"items": items, "total": len(items)}

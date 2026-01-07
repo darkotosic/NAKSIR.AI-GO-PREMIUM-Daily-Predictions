@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
 from backend import api_football
 from backend.cache import cache_get, make_cache_key
+from backend.config import TOP_LEAGUE_IDS
 from backend.dependencies import require_api_key
 from backend.match_full import build_full_match, build_match_summary
 from backend.odds_summary import build_odds_summary
@@ -113,6 +114,92 @@ def get_today_matches(
 
     logger.info("Today matches requested -> %s cards (cursor=%s, limit=%s)", total, cursor, limit)
 
+    return {"items": items, "next_cursor": next_cursor, "total": total}
+
+
+@router.get(
+    "/matches/top",
+    summary="Top mečevi (Top 5 EU lige + UEFA) u card formatu",
+    dependencies=[Depends(require_api_key)],
+)
+def get_top_matches(
+    cursor: int = Query(0, ge=0, description="Pagination cursor"),
+    limit: int = Query(10, ge=1, le=100, description="Page size"),
+) -> Dict[str, Any]:
+    """
+    Vraća fixtures za naredna 2 dana ali filtrirano samo na TOP_LEAGUE_IDS.
+    Output je 1:1 kao /matches/today da frontend može reuse MatchCard.
+    """
+    fixtures = api_football.get_fixtures_next_days(2)
+    cards: List[Dict[str, Any]] = []
+    standings_cache: Dict[tuple[int, int], List[Dict[str, Any]]] = {}
+
+    for fx in fixtures:
+        fixture_id = (fx.get("fixture") or {}).get("id")
+        summary = build_match_summary(fx)
+
+        league_id = (summary.get("league") or {}).get("id")
+        if league_id not in set(TOP_LEAGUE_IDS):
+            continue
+
+        season = (summary.get("league") or {}).get("season")
+        home_team_id = ((summary.get("teams") or {}).get("home") or {}).get("id")
+        away_team_id = ((summary.get("teams") or {}).get("away") or {}).get("id")
+
+        odds_flat = None
+        if fixture_id:
+            odds_key = make_cache_key("odds", {"fixture": fixture_id, "page": 1})
+            odds_payload = cache_get(odds_key)
+            odds_response = odds_payload.get("response") if isinstance(odds_payload, dict) else None
+            if isinstance(odds_response, list) and odds_response:
+                try:
+                    odds_flat = build_odds_summary(odds_response)
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("Failed to build odds snapshot for fixture_id=%s: %s", fixture_id, exc)
+
+        card: Dict[str, Any] = {"fixture_id": fixture_id, "summary": summary}
+
+        # standings snapshot (same behavior kao /matches/today)
+        if league_id and season and (home_team_id or away_team_id):
+            cache_key = (league_id, season)
+            standings_payload = standings_cache.get(cache_key)
+            if standings_payload is None:
+                standings_payload = api_football.get_standings(league_id, season)
+                standings_cache[cache_key] = standings_payload
+
+            league_block = (standings_payload[0].get("league") or {}) if standings_payload else {}
+            standings_groups = league_block.get("standings") or []
+            table_rows = [row for group in standings_groups for row in (group or [])]
+
+            def _find_row(team_id: Optional[int]) -> Optional[Dict[str, Any]]:
+                if not team_id:
+                    return None
+                row = next(
+                    (item for item in table_rows if (item.get("team") or {}).get("id") == team_id),
+                    None,
+                )
+                if not row:
+                    return None
+                return {"rank": row.get("rank"), "points": row.get("points"), "form": row.get("form"), "team": row.get("team")}
+
+            home_standing = _find_row(home_team_id)
+            away_standing = _find_row(away_team_id)
+            if home_standing or away_standing:
+                card["standings_snapshot"] = {"home": home_standing, "away": away_standing}
+
+        if odds_flat:
+            card["odds"] = {"flat": odds_flat}
+
+        cards.append(card)
+
+    cards.sort(key=lambda c: (c.get("summary", {}).get("kickoff") or ""))
+    total = len(cards)
+    start = min(cursor, total)
+    end = min(start + limit, total)
+    items = cards[start:end]
+    next_cursor = end if end < total else None
+
+    logger.info("Top matches requested -> %s cards (cursor=%s, limit=%s)", total, cursor, limit)
     return {"items": items, "next_cursor": next_cursor, "total": total}
 
 

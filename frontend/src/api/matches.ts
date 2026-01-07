@@ -22,3 +22,20 @@ export const fetchMatchDetails = async (fixtureId: number | string): Promise<Ful
   const response = await apiClient.get(`/matches/${fixtureId}/full`);
   return response.data;
 };
+
+export const fetchTopMatchesPage = async (
+  cursor = 0,
+  limit = 10,
+): Promise<TodayMatchesPage> => {
+  const response = await apiClient.get('/matches/top', {
+    params: { cursor, limit },
+  });
+  const data = response.data || {};
+  const items = Array.isArray(data.items) ? data.items : [];
+
+  return {
+    items: items.filter((item: MatchListItem) => item?.summary),
+    next_cursor: data.next_cursor ?? null,
+    total: data.total ?? items.length,
+  };
+};

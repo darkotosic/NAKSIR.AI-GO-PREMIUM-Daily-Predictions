@@ -8,6 +8,7 @@ import {
   DrawerItem,
   DrawerItemList,
 } from '@react-navigation/drawer';
+import type { MatchSummary } from '@naksir-types/match';
 import TodayMatchesScreen from '@screens/TodayMatchesScreen';
 import MatchDetailsScreen from '@screens/MatchDetailsScreen';
 import AIAnalysisScreen from '@screens/AIAnalysisScreen';
@@ -22,7 +23,6 @@ import PredictionsScreen from '@screens/PredictionsScreen';
 import InjuriesScreen from '@screens/InjuriesScreen';
 import SubscriptionsScreen from '@screens/SubscriptionsScreen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { RootDrawerParamList } from './types';
 import RateAppButton from '@components/RateAppButton';
 import { openRateApp } from '@lib/rateApp';
 
@@ -53,6 +53,24 @@ const legalLinks = [
   { label: 'Telegram', url: 'https://t.me/naksiranalysis' },
 ];
 
+type DrawerParamList = {
+  TodayMatches: undefined;
+  Subscriptions: undefined;
+  MatchDetails: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
+  AIAnalysis: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
+  H2H: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
+  Odds:
+    | { fixtureId?: number | string; summary?: MatchSummary; selectedMarket?: string }
+    | undefined;
+  Stats: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
+  TeamStats: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
+  Events: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
+  Lineups: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
+  Players: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
+  Predictions: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
+  Injuries: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
+};
+
 function CustomDrawerContent(props: DrawerContentComponentProps) {
   return (
     <DrawerContentScrollView {...props} style={{ backgroundColor: COLORS.background }}>
@@ -80,7 +98,7 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
   );
 }
 
-const Drawer = createDrawerNavigator<RootDrawerParamList>();
+const Drawer = createDrawerNavigator<DrawerParamList>();
 
 export const navigationTheme = {
   ...DefaultTheme,
