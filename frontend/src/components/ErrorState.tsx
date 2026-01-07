@@ -1,21 +1,26 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useI18n } from '@lib/i18n';
 
 interface Props {
   message: string;
   onRetry?: () => void;
 }
 
-export const ErrorState: React.FC<Props> = ({ message, onRetry }) => (
-  <View style={styles.container}>
-    <Text style={styles.text}>{message}</Text>
-    {onRetry ? (
-      <TouchableOpacity onPress={onRetry} style={styles.button}>
-        <Text style={styles.buttonText}>Try again</Text>
-      </TouchableOpacity>
-    ) : null}
-  </View>
-);
+export const ErrorState: React.FC<Props> = ({ message, onRetry }) => {
+  const { t } = useI18n();
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.text}>{message}</Text>
+      {onRetry ? (
+        <TouchableOpacity onPress={onRetry} style={styles.button}>
+          <Text style={styles.buttonText}>{t('common.tryAgain')}</Text>
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {

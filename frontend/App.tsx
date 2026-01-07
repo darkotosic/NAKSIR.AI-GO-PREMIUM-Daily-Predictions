@@ -8,6 +8,7 @@ import RootNavigator from '@navigation/RootNavigator';
 import { navigationTheme } from '@navigation/theme';
 import { initAnalytics } from '@lib/tracking';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { I18nProvider } from '@lib/i18n';
 
 import BannerAdSticky, { BANNER_RESERVED_HEIGHT } from '@ads/BannerAdSticky';
 import { configureMobileAds } from '@ads/admob';
@@ -76,7 +77,9 @@ const AppRoot: React.FC = () => {
 
 const App: React.FC = () => (
   <SafeAreaProvider>
-    <AppRoot />
+    <I18nProvider>
+      <AppRoot />
+    </I18nProvider>
   </SafeAreaProvider>
 );
 

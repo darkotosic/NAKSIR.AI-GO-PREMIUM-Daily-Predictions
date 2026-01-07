@@ -14,6 +14,7 @@ import { useMatchDetailsQuery } from '@hooks/useMatchDetailsQuery';
 import { RootStackParamList } from '@navigation/types';
 import { ErrorState } from '@components/ErrorState';
 import { InjuryRecord } from '@naksir-types/match';
+import { useI18n } from '@lib/i18n';
 
 const COLORS = {
   background: '#040312',
@@ -26,15 +27,10 @@ const COLORS = {
   borderSoft: '#1f1f3a',
 };
 
-const formatDate = (value?: string) => {
-  if (!value) return 'Date TBD';
-  const date = new Date(value);
-  return date.toLocaleDateString();
-};
-
 const InjuriesScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'Injuries'>>();
+  const { t, formatDate } = useI18n();
   const fixtureId = route.params?.fixtureId;
   const summary = route.params?.summary;
 
@@ -49,7 +45,12 @@ const InjuriesScreen: React.FC = () => {
   const hasInjuries = injuries.length > 0;
 
   if (!fixtureId) {
-    return <ErrorState message="Fixture ID is missing." onRetry={() => navigation.navigate('TodayMatches')} />;
+    return (
+      <ErrorState
+        message={t('match.fixtureMissing')}
+        onRetry={() => navigation.navigate('TodayMatches')}
+      />
+    );
   }
 
   const goBackToMatch = () => navigation.navigate('MatchDetails', { fixtureId, summary: heroSummary ?? summary });
@@ -59,31 +60,33 @@ const InjuriesScreen: React.FC = () => {
       <ScrollView contentContainerStyle={styles.container}>
         <TouchableOpacity style={styles.backButton} onPress={goBackToMatch}>
           <Text style={styles.backIcon}>←</Text>
-          <Text style={styles.backLabel}>Back to match</Text>
+          <Text style={styles.backLabel}>{t('common.backToMatch')}</Text>
         </TouchableOpacity>
 
-        <Text style={styles.title}>Injuries</Text>
+        <Text style={styles.title}>{t('injuries.title')}</Text>
         <Text style={styles.subtitle}>
-          {heroSummary?.teams?.home?.name || 'Home'} vs {heroSummary?.teams?.away?.name || 'Away'}
+          {heroSummary?.teams?.home?.name || t('common.home')} vs {heroSummary?.teams?.away?.name || t('common.away')}
         </Text>
 
         {isLoading ? <ActivityIndicator color={COLORS.neonViolet} size="large" style={styles.loader} /> : null}
-        {isError ? <ErrorState message="Unable to load injuries" onRetry={refetch} /> : null}
+        {isError ? <ErrorState message={t('injuries.loadingError')} onRetry={refetch} /> : null}
 
         {!isLoading && !isError && !hasInjuries ? (
           <View style={styles.card}>
-            <Text style={styles.emptyText}>No injuries reported.</Text>
+            <Text style={styles.emptyText}>{t('injuries.empty')}</Text>
           </View>
         ) : null}
 
         {injuries.map((injury, idx) => (
           <View style={styles.card} key={injury.player?.id || idx}>
             <View style={styles.cardHeader}>
-              <Text style={styles.playerName}>{injury.player?.name || 'Player'}</Text>
+              <Text style={styles.playerName}>{injury.player?.name || t('common.player')}</Text>
               <Text style={styles.dateText}>{formatDate(injury.fixture?.date)}</Text>
             </View>
-            <Text style={styles.teamName}>{injury.team?.name || 'Team'}</Text>
-            {injury.player?.type ? <Text style={styles.detailText}>Status: {injury.player.type}</Text> : null}
+            <Text style={styles.teamName}>{injury.team?.name || t('common.team')}</Text>
+            {injury.player?.type ? (
+              <Text style={styles.detailText}>{t('injuries.statusLabel', { status: injury.player.type })}</Text>
+            ) : null}
             {injury.information ? <Text style={styles.detailText}>{injury.information}</Text> : null}
             {injury.league?.name ? (
               <Text style={styles.mutedText}>

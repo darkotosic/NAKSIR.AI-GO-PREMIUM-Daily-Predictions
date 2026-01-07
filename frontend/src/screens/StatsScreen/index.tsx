@@ -15,6 +15,7 @@ import { useMatchDetailsQuery } from '@hooks/useMatchDetailsQuery';
 import { RootStackParamList } from '@navigation/types';
 import { ErrorState } from '@components/ErrorState';
 import { MatchStatEntry } from '@naksir-types/match';
+import { useI18n } from '@lib/i18n';
 
 const COLORS = {
   background: '#040312',
@@ -29,6 +30,7 @@ const COLORS = {
 const StatsScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'Stats'>>();
+  const { t } = useI18n();
   const fixtureId = route.params?.fixtureId;
   const summary = route.params?.summary;
 
@@ -38,7 +40,12 @@ const StatsScreen: React.FC = () => {
   const hasStats = Array.isArray(stats) && stats.length > 0;
 
   if (!fixtureId) {
-    return <ErrorState message="Fixture ID is missing." onRetry={() => navigation.navigate('TodayMatches')} />;
+    return (
+      <ErrorState
+        message={t('match.fixtureMissing')}
+        onRetry={() => navigation.navigate('TodayMatches')}
+      />
+    );
   }
 
   const goBackToMatch = () => navigation.navigate('MatchDetails', { fixtureId, summary: heroSummary ?? summary });
@@ -48,21 +55,21 @@ const StatsScreen: React.FC = () => {
       <ScrollView contentContainerStyle={styles.container}>
         <TouchableOpacity style={styles.backButton} onPress={goBackToMatch}>
           <Text style={styles.backIcon}>←</Text>
-          <Text style={styles.backLabel}>Back to match</Text>
+          <Text style={styles.backLabel}>{t('common.backToMatch')}</Text>
         </TouchableOpacity>
 
-        <Text style={styles.title}>Match stats</Text>
+        <Text style={styles.title}>{t('stats.title')}</Text>
         <Text style={styles.subtitle}>
-          {heroSummary?.teams?.home?.name || 'Home'} vs {heroSummary?.teams?.away?.name || 'Away'}
+          {heroSummary?.teams?.home?.name || t('common.home')} vs {heroSummary?.teams?.away?.name || t('common.away')}
         </Text>
 
         {isLoading ? <ActivityIndicator color={COLORS.neonViolet} size="large" style={styles.loader} /> : null}
 
-        {isError ? <ErrorState message="Unable to load match stats" onRetry={refetch} /> : null}
+        {isError ? <ErrorState message={t('stats.loadingError')} onRetry={refetch} /> : null}
 
         {!isLoading && !isError && !hasStats ? (
           <View style={styles.card}>
-            <Text style={styles.emptyText}>No match statistics available.</Text>
+            <Text style={styles.emptyText}>{t('stats.empty')}</Text>
           </View>
         ) : null}
 
@@ -71,9 +78,9 @@ const StatsScreen: React.FC = () => {
             <View style={styles.cardHeader}>
               <View style={styles.teamBlock}>
                 {teamStat.team?.logo ? <Image source={{ uri: teamStat.team.logo }} style={styles.teamLogo} /> : null}
-                <Text style={styles.teamName}>{teamStat.team?.name || 'Team'}</Text>
+                <Text style={styles.teamName}>{teamStat.team?.name || t('common.team')}</Text>
               </View>
-              <Text style={styles.sectionMeta}>Statistic overview</Text>
+              <Text style={styles.sectionMeta}>{t('stats.overview')}</Text>
             </View>
             <View style={styles.statGrid}>
               {teamStat.statistics?.map((stat, idx) => (

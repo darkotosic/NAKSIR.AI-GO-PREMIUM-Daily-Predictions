@@ -15,6 +15,7 @@ import { useH2HQuery } from '@hooks/useH2HQuery';
 import { RootStackParamList } from '@navigation/types';
 import { ErrorState } from '@components/ErrorState';
 import { H2HMatch } from '@naksir-types/match';
+import { useI18n } from '@lib/i18n';
 
 const COLORS = {
   background: '#040312',
@@ -26,13 +27,8 @@ const COLORS = {
   borderSoft: '#1f1f3a',
 };
 
-const formatDate = (dateString?: string) => {
-  if (!dateString) return 'Date TBD';
-  const date = new Date(dateString);
-  return `${date.toLocaleDateString()} • ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-};
-
-const H2HRow = ({ match }: { match: H2HMatch }) => {
+const H2HRow = ({ match, formatDate }: { match: H2HMatch; formatDate: (date?: string) => string }) => {
+  const { t } = useI18n();
   const home = match.teams?.home;
   const away = match.teams?.away;
   const goals = match.goals || {};
@@ -40,14 +36,14 @@ const H2HRow = ({ match }: { match: H2HMatch }) => {
   return (
     <View style={styles.rowCard}>
       <View style={styles.rowHeader}>
-        <Text style={styles.rowLeague}>{match.league?.name || 'League'}</Text>
+        <Text style={styles.rowLeague}>{match.league?.name || t('common.league')}</Text>
         <Text style={styles.rowDate}>{formatDate(match.fixture?.date)}</Text>
       </View>
       <View style={styles.rowTeams}>
         <View style={styles.rowTeamBlock}>
           {home?.logo ? <Image source={{ uri: home.logo }} style={styles.teamLogo} /> : null}
           <Text style={styles.teamName} numberOfLines={1}>
-            {home?.name || 'Home'}
+            {home?.name || t('common.home')}
           </Text>
         </View>
 
@@ -60,7 +56,7 @@ const H2HRow = ({ match }: { match: H2HMatch }) => {
         <View style={[styles.rowTeamBlock, { alignItems: 'flex-end' }]}>
           {away?.logo ? <Image source={{ uri: away.logo }} style={styles.teamLogo} /> : null}
           <Text style={[styles.teamName, { textAlign: 'right' }]} numberOfLines={1}>
-            {away?.name || 'Away'}
+            {away?.name || t('common.away')}
           </Text>
         </View>
       </View>
@@ -71,6 +67,7 @@ const H2HRow = ({ match }: { match: H2HMatch }) => {
 const H2HScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'H2H'>>();
+  const { t, formatDateTime } = useI18n();
   const fixtureId = route.params?.fixtureId;
   const summary = route.params?.summary;
 
@@ -80,7 +77,12 @@ const H2HScreen: React.FC = () => {
   const goBackToMatch = () => navigation.navigate('MatchDetails', { fixtureId, summary });
 
   if (!fixtureId) {
-    return <ErrorState message="Fixture ID is missing." onRetry={() => navigation.navigate('TodayMatches')} />;
+    return (
+      <ErrorState
+        message={t('match.fixtureMissing')}
+        onRetry={() => navigation.navigate('TodayMatches')}
+      />
+    );
   }
 
   return (
@@ -88,28 +90,37 @@ const H2HScreen: React.FC = () => {
       <ScrollView contentContainerStyle={styles.container}>
         <TouchableOpacity style={styles.backButton} onPress={goBackToMatch}>
           <Text style={styles.backIcon}>←</Text>
-          <Text style={styles.backLabel}>Back to match</Text>
+          <Text style={styles.backLabel}>{t('common.backToMatch')}</Text>
         </TouchableOpacity>
 
-        <Text style={styles.title}>Head-to-head</Text>
+        <Text style={styles.title}>{t('h2h.title')}</Text>
         <Text style={styles.subtitle}>
-          Recent meetings between {summary?.teams?.home?.name || 'Home'} and {summary?.teams?.away?.name || 'Away'}.
+          {t('h2h.subtitle', {
+            home: summary?.teams?.home?.name || t('common.home'),
+            away: summary?.teams?.away?.name || t('common.away'),
+          })}
         </Text>
 
         {isLoading ? <ActivityIndicator color={COLORS.neonViolet} size="large" style={styles.loader} /> : null}
 
         {isError ? (
-          <ErrorState message="Unable to load head-to-head results" onRetry={refetch} />
+          <ErrorState message={t('h2h.loadingError')} onRetry={refetch} />
         ) : null}
 
         {!isLoading && !isError && matches.length === 0 ? (
           <View style={styles.card}>
-            <Text style={styles.emptyText}>No head-to-head results available.</Text>
+            <Text style={styles.emptyText}>{t('h2h.empty')}</Text>
           </View>
         ) : null}
 
         {matches.map((match, idx) => (
-          <H2HRow key={match.fixture?.id || idx} match={match} />
+          <H2HRow
+            key={match.fixture?.id || idx}
+            match={match}
+            formatDate={(dateString) =>
+              dateString ? formatDateTime(dateString, { dateStyle: 'medium', timeStyle: 'short' }) : t('common.dateTbd')
+            }
+          />
         ))}
       </ScrollView>
     </SafeAreaView>

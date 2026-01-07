@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { Animated, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { MatchListItem, StandingsRow } from '@naksir-types/match';
+import { useI18n } from '@lib/i18n';
 
 const COLORS = {
   background: '#040312',
@@ -22,24 +23,17 @@ interface Props {
 }
 
 export const MatchCard: React.FC<Props> = ({ match, onPress, onToggleFavorite, isFavorite }) => {
+  const { t, formatRelativeDay, formatTime, formatNumber } = useI18n();
   const summary = match.summary;
   const league = summary?.league;
   const teams = summary?.teams;
   const kickoffDate = summary?.kickoff ? new Date(summary.kickoff) : undefined;
   const relativeKickoffLabel = (() => {
-    if (!kickoffDate) return 'Kickoff TBD';
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-    const startOfDayAfter = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2);
-    if (kickoffDate >= startOfToday && kickoffDate < startOfTomorrow) return 'Today';
-    if (kickoffDate >= startOfTomorrow && kickoffDate < startOfDayAfter) return 'Tomorrow';
-    return kickoffDate.toLocaleDateString([], { month: 'short', day: '2-digit' });
+    if (!kickoffDate) return t('common.kickoffTbd');
+    return formatRelativeDay(kickoffDate);
   })();
 
-  const timeKickoffLabel = kickoffDate
-    ? kickoffDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    : 'Kickoff TBD';
+  const timeKickoffLabel = kickoffDate ? formatTime(kickoffDate) : t('common.kickoffTbd');
 
   const standingsLeague = match?.standings?.[0]?.league;
   const standingGroups = standingsLeague?.standings || [];
@@ -75,9 +69,9 @@ export const MatchCard: React.FC<Props> = ({ match, onPress, onToggleFavorite, i
           <View style={styles.leagueBlock}>
             {league?.logo ? <Image source={{ uri: league.logo }} style={styles.logo} /> : null}
             <View>
-              <Text style={styles.leagueText}>{league?.name || 'League'}</Text>
+              <Text style={styles.leagueText}>{league?.name || t('common.league')}</Text>
               <Text style={styles.metaText} numberOfLines={1}>
-                {league?.country || 'Country'} • {relativeKickoffLabel}
+                {league?.country || t('common.country')} • {relativeKickoffLabel}
               </Text>
             </View>
           </View>
@@ -93,21 +87,26 @@ export const MatchCard: React.FC<Props> = ({ match, onPress, onToggleFavorite, i
               <Image source={{ uri: teams.home.logo }} style={styles.teamLogo} />
             ) : null}
             <Text style={styles.teamName} numberOfLines={1}>
-              {teams?.home?.name || 'Home'}
+              {teams?.home?.name || t('common.home')}
             </Text>
             <Text style={styles.teamMeta} numberOfLines={1}>
-              {homeStanding ? `#${homeStanding.rank} • ${homeStanding.points} pts` : ''}
+              {homeStanding
+                ? t('common.pointsLabel', {
+                    rank: formatNumber(homeStanding.rank),
+                    points: formatNumber(homeStanding.points),
+                  })
+                : ''}
             </Text>
             {homeForm ? (
               <View style={styles.formRow}>
-                <Text style={styles.formLabel}>Form</Text>
+                <Text style={styles.formLabel}>{t('common.form')}</Text>
                 <Text style={styles.formValue}>{homeForm}</Text>
               </View>
             ) : null}
           </View>
 
           <View style={styles.vsPill}>
-            <Text style={styles.vsText}>VS</Text>
+            <Text style={styles.vsText}>{t('match.vs')}</Text>
             <Text style={styles.kickoff}>{relativeKickoffLabel}</Text>
           </View>
 
@@ -116,14 +115,19 @@ export const MatchCard: React.FC<Props> = ({ match, onPress, onToggleFavorite, i
               <Image source={{ uri: teams.away.logo }} style={styles.teamLogo} />
             ) : null}
             <Text style={[styles.teamName, { textAlign: 'right' }]} numberOfLines={1}>
-              {teams?.away?.name || 'Away'}
+              {teams?.away?.name || t('common.away')}
             </Text>
             <Text style={[styles.teamMeta, { textAlign: 'right' }]} numberOfLines={1}>
-              {awayStanding ? `#${awayStanding.rank} • ${awayStanding.points} pts` : ''}
+              {awayStanding
+                ? t('common.pointsLabel', {
+                    rank: formatNumber(awayStanding.rank),
+                    points: formatNumber(awayStanding.points),
+                  })
+                : ''}
             </Text>
             {awayForm ? (
               <View style={[styles.formRow, styles.formRowRight]}>
-                <Text style={styles.formLabel}>Form</Text>
+                <Text style={styles.formLabel}>{t('common.form')}</Text>
                 <Text style={styles.formValue}>{awayForm}</Text>
               </View>
             ) : null}
@@ -131,7 +135,7 @@ export const MatchCard: React.FC<Props> = ({ match, onPress, onToggleFavorite, i
         </View>
 
         <TouchableOpacity style={styles.fullMatchButton} onPress={onPress} activeOpacity={0.88}>
-          <Text style={styles.fullMatchText}>Full Match details →</Text>
+          <Text style={styles.fullMatchText}>{t('match.fullDetails')}</Text>
         </TouchableOpacity>
       </TouchableOpacity>
     </Animated.View>

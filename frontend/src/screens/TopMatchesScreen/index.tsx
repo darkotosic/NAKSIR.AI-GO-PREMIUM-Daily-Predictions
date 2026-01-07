@@ -10,6 +10,7 @@ import ErrorState from '@components/ErrorState';
 import { useTopMatchesQuery } from '@hooks/useTopMatchesQuery';
 import type { MatchListItem } from '@naksir-types/match';
 import type { RootStackParamList } from '@navigation/types';
+import { useI18n } from '@lib/i18n';
 
 const COLORS = {
   background: '#040312',
@@ -19,6 +20,7 @@ const COLORS = {
 
 export default function TopMatchesScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { t } = useI18n();
   const query = useTopMatchesQuery();
 
   const items: MatchListItem[] = useMemo(() => {
@@ -26,15 +28,15 @@ export default function TopMatchesScreen() {
     return pages.flatMap((p) => p.items ?? []);
   }, [query.data]);
 
-  if (query.isLoading) return <LoadingState title="Loading top matches..." />;
-  if (query.isError) return <ErrorState title="Failed to load top matches" />;
+  if (query.isLoading) return <LoadingState message={t('topMatches.loading')} />;
+  if (query.isError) return <ErrorState message={t('topMatches.error')} />;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }}>
       <View style={{ paddingHorizontal: 14, paddingTop: 10, paddingBottom: 6 }}>
-        <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: '900' }}>Top Matches</Text>
+        <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: '900' }}>{t('topMatches.title')}</Text>
         <Text style={{ color: COLORS.muted, marginTop: 2 }}>
-          Top 5 leagues + UEFA competitions
+          {t('topMatches.subtitle')}
         </Text>
       </View>
 

@@ -1,6 +1,7 @@
 import axios, { AxiosError, AxiosHeaders } from 'axios';
 import Constants from 'expo-constants';
 import { getOrCreateInstallId } from '@lib/installId';
+import { getActiveLocale } from '@lib/i18n';
 
 const env = process.env as Record<string, string | undefined>;
 const extra = (
@@ -74,6 +75,7 @@ apiClient.interceptors.request.use(async (config) => {
   const installId = await getOrCreateInstallId();
   const headers = new AxiosHeaders(config.headers as any);
   headers.set('X-Install-Id', installId);
+  headers.set('Accept-Language', getActiveLocale());
 
   if (apiAuthToken) {
     headers.set('X-API-Key', apiAuthToken);

@@ -9,6 +9,7 @@ import ErrorState from '@components/ErrorState';
 import { useCachedAiMatchesQuery } from '@hooks/useCachedAiMatchesQuery';
 import type { CachedAiMatchItem } from '@api/cachedAi';
 import type { RootStackParamList } from '@navigation/types';
+import { useI18n } from '@lib/i18n';
 
 const COLORS = {
   background: '#040312',
@@ -21,16 +22,9 @@ const COLORS = {
 
 type Section = { title: string; data: CachedAiMatchItem[] };
 
-function formatKickoff(kickoff?: string) {
-  if (!kickoff) return '--:--';
-  const d = new Date(kickoff);
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  return `${hh}:${mm}`;
-}
-
 export default function NaksirAIScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { t, formatTime } = useI18n();
   const query = useCachedAiMatchesQuery();
 
   const sections: Section[] = useMemo(() => {
@@ -38,7 +32,7 @@ export default function NaksirAIScreen() {
     const map = new Map<string, CachedAiMatchItem[]>();
 
     for (const it of items) {
-      const leagueName = it?.summary?.league?.name ?? 'Unknown League';
+      const leagueName = it?.summary?.league?.name ?? t('common.league');
       const country = it?.summary?.league?.country ?? '';
       const title = country ? `${country}: ${leagueName}` : leagueName;
 
@@ -53,17 +47,17 @@ export default function NaksirAIScreen() {
         data: data.sort((a, b) => (a.summary?.kickoff ?? '').localeCompare(b.summary?.kickoff ?? '')),
       }))
       .sort((a, b) => a.title.localeCompare(b.title));
-  }, [query.data]);
+  }, [query.data, t]);
 
-  if (query.isLoading) return <LoadingState title="Loading Naksir AI list..." />;
-  if (query.isError) return <ErrorState title="Failed to load cached AI matches" />;
+  if (query.isLoading) return <LoadingState message={t('naksirAi.loading')} />;
+  if (query.isError) return <ErrorState message={t('naksirAi.error')} />;
 
   if (!sections.length) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background, padding: 16 }}>
-        <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: '900' }}>Naksir AI</Text>
+        <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: '900' }}>{t('naksirAi.title')}</Text>
         <Text style={{ color: COLORS.muted, marginTop: 8 }}>
-          No cached AI analyses yet for the next 2 days.
+          {t('naksirAi.empty')}
         </Text>
       </SafeAreaView>
     );
@@ -72,9 +66,9 @@ export default function NaksirAIScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }}>
       <View style={{ paddingHorizontal: 14, paddingTop: 10, paddingBottom: 6 }}>
-        <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: '900' }}>Naksir AI</Text>
+        <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: '900' }}>{t('naksirAi.title')}</Text>
         <Text style={{ color: COLORS.muted, marginTop: 2 }}>
-          Cached analyses (tap Preview)
+          {t('naksirAi.cachedSubtitle')}
         </Text>
       </View>
 
@@ -87,9 +81,9 @@ export default function NaksirAIScreen() {
           </View>
         )}
         renderItem={({ item }) => {
-          const home = item.summary?.teams?.home?.name ?? 'Home';
-          const away = item.summary?.teams?.away?.name ?? 'Away';
-          const time = formatKickoff(item.summary?.kickoff);
+          const home = item.summary?.teams?.home?.name ?? t('common.home');
+          const away = item.summary?.teams?.away?.name ?? t('common.away');
+          const time = item.summary?.kickoff ? formatTime(item.summary.kickoff) : t('common.kickoffTbd');
 
           return (
             <View
@@ -131,7 +125,7 @@ export default function NaksirAIScreen() {
                   borderColor: COLORS.neonViolet,
                 }}
               >
-                <Text style={{ color: COLORS.neonViolet, fontWeight: '900' }}>PREVIEW</Text>
+                <Text style={{ color: COLORS.neonViolet, fontWeight: '900' }}>{t('naksirAi.preview')}</Text>
               </TouchableOpacity>
             </View>
           );

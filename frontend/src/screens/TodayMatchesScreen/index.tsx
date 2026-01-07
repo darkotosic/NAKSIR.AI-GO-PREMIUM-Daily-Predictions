@@ -16,6 +16,7 @@ import { useTodayMatchesQuery } from '@hooks/useTodayMatchesQuery';
 import { useFavorites } from '@hooks/useFavorites';
 import { RootStackParamList } from '@navigation/types';
 import { trackEvent } from '@lib/tracking';
+import { useI18n } from '@lib/i18n';
 
 const COLORS = {
   background: '#040312',
@@ -29,29 +30,31 @@ const COLORS = {
   borderSoft: '#1f1f3a',
 };
 
-const TelegramBanner = () => (
+const TelegramBanner = ({ label }: { label: string }) => (
   <TouchableOpacity
     style={styles.telegramButton}
     onPress={() => Linking.openURL('https://t.me/naksiranalysis')}
     activeOpacity={0.88}
   >
-    <Text style={styles.telegramText}>Join Naksir Analysis on Telegram</Text>
+    <Text style={styles.telegramText}>{label}</Text>
   </TouchableOpacity>
 );
 
 const SortBar = ({
   sortOption,
   onSortChange,
+  labels,
 }: {
   sortOption: 'time' | 'team';
   onSortChange: (value: 'time' | 'team') => void;
+  labels: { sortBy: string; kickoffTime: string; teamName: string };
 }) => (
   <View style={styles.sortRow}>
-    <Text style={styles.filterLabel}>Sort by</Text>
+    <Text style={styles.filterLabel}>{labels.sortBy}</Text>
     <View style={styles.sortButtons}>
       {[
-        { key: 'time', label: 'Kickoff time' },
-        { key: 'team', label: 'Team name' },
+        { key: 'time', label: labels.kickoffTime },
+        { key: 'team', label: labels.teamName },
       ].map((option) => {
         const isActive = sortOption === option.key;
         return (
@@ -91,6 +94,7 @@ const SkeletonCard = () => (
 
 const TodayMatchesScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { t } = useI18n();
   const {
     data,
     isLoading,
@@ -132,11 +136,19 @@ const TodayMatchesScreen: React.FC = () => {
 
   const renderHeader = () => (
     <View>
-      <TelegramBanner />
-      <SortBar sortOption={sortOption} onSortChange={setSortOption} />
+      <TelegramBanner label={t('todayMatches.telegram')} />
+      <SortBar
+        sortOption={sortOption}
+        onSortChange={setSortOption}
+        labels={{
+          sortBy: t('common.sortBy'),
+          kickoffTime: t('common.kickoffTime'),
+          teamName: t('common.teamName'),
+        }}
+      />
       <View style={styles.refreshRow}>
         <TouchableOpacity style={styles.refreshButton} onPress={onRefresh} activeOpacity={0.85}>
-          <Text style={styles.refreshText}>↻ Refresh</Text>
+          <Text style={styles.refreshText}>{t('todayMatches.refresh')}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -180,12 +192,17 @@ const TodayMatchesScreen: React.FC = () => {
     }
 
     if (isError) {
-      return <ErrorState message={error?.message || 'Unable to load matches'} onRetry={onRefresh} />;
+      return (
+        <ErrorState
+          message={error?.message || t('todayMatches.unavailable')}
+          onRetry={onRefresh}
+        />
+      );
     }
 
     return (
       <View style={styles.emptyBox}>
-        <Text style={styles.emptyText}>No matches available right now.</Text>
+        <Text style={styles.emptyText}>{t('todayMatches.empty')}</Text>
       </View>
     );
   };

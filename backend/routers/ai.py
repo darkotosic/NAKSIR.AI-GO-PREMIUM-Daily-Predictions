@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from backend import api_football
-from backend.ai_analysis import build_fallback_analysis, run_ai_analysis
+from backend.ai_analysis import build_fallback_analysis, resolve_locale, run_ai_analysis
 from backend.config import TIMEZONE
 from backend.db import get_db
 from backend.dependencies import require_api_key
@@ -37,6 +37,10 @@ class AIAnalysisRequest(BaseModel):
     question: Optional[str] = Field(
         default=None,
         description="Dodatno objašnjenje šta tačno AI treba da naglasi (npr. 'objasni value bet', 'short TikTok opis', itd.)",
+    )
+    locale: Optional[str] = Field(
+        default=None,
+        description="I18n locale hint (e.g. en, es, pt). Overrides Accept-Language when provided.",
     )
     trial_by_reward: bool = Field(
         default=False,
@@ -75,6 +79,7 @@ def _cache_headers(cache_key: str, cache_status: str) -> dict[str, str]:
 def get_match_ai_analysis(
     fixture_id: int = Path(..., description="API-Football fixture ID"),
     install_id: Optional[str] = Header(None, alias="X-Install-Id"),
+    accept_language: Optional[str] = Header(None, alias="Accept-Language"),
     session: Session = Depends(get_db),
 ) -> Any:
     _require_install_id(install_id)
@@ -82,10 +87,12 @@ def get_match_ai_analysis(
     user, wallet = get_or_create_user(session, install_id)
     _enforce_ai_access(session, user_id=user.id, trial_by_reward=False, consume=False, wallet=wallet)
 
+    locale = resolve_locale(accept_language)
+
     cache_key = make_cache_key(
         fixture_id=fixture_id,
         prompt_version="v1",
-        locale="en",
+        locale=locale,
     )
     row = get_cached_row(session, cache_key)
     if not row:
@@ -102,6 +109,7 @@ def get_match_ai_analysis(
             "fixture_id": fixture_id,
             "generated_at": row.updated_at.isoformat() if row.updated_at else None,
             "timezone": TIMEZONE,
+            "locale": locale,
             "analysis": row.analysis_json.get("analysis", row.analysis_json),
             "odds_probabilities": row.analysis_json.get("odds_probabilities"),
             "cached": True,
@@ -141,6 +149,7 @@ def post_match_ai_analysis(
         description="Opcioni user prompt kojim se usmerava AI analiza.",
     ),
     install_id: Optional[str] = Header(None, alias="X-Install-Id"),
+    accept_language: Optional[str] = Header(None, alias="Accept-Language"),
     session: Session = Depends(get_db),
 ) -> Any:
     """
@@ -152,6 +161,7 @@ def post_match_ai_analysis(
     3) Taj kontekst + opcioni `question` se šalju u `run_ai_analysis`.
     """
     user_question = payload.question.strip() if payload.question else None
+    locale = resolve_locale(payload.locale or accept_language)
     logger.info(
         "AI analysis requested for fixture_id=%s (custom_question=%s)",
         fixture_id,
@@ -173,7 +183,7 @@ def post_match_ai_analysis(
     cache_key = make_cache_key(
         fixture_id=fixture_id,
         prompt_version="v1",
-        locale="en",
+        locale=locale,
     )
     cached = get_cached_ok(session, cache_key)
     if cached:
@@ -185,6 +195,7 @@ def post_match_ai_analysis(
                 "fixture_id": fixture_id,
                 "generated_at": datetime.now().isoformat(),
                 "timezone": TIMEZONE,
+                "locale": locale,
                 "question": user_question,
                 "analysis": cached_payload.get("analysis", cached_payload),
                 "odds_probabilities": cached_payload.get("odds_probabilities"),
@@ -199,7 +210,7 @@ def post_match_ai_analysis(
         fixture_id=fixture_id,
         cache_key=cache_key,
         prompt_version="v1",
-        locale="en",
+        locale=locale,
         model="default",
     )
     if not acquired:
@@ -213,6 +224,7 @@ def post_match_ai_analysis(
                     "fixture_id": fixture_id,
                     "generated_at": datetime.now().isoformat(),
                     "timezone": TIMEZONE,
+                    "locale": locale,
                     "question": user_question,
                     "analysis": cached_payload.get("analysis", cached_payload),
                     "odds_probabilities": cached_payload.get("odds_probabilities"),
@@ -242,6 +254,7 @@ def post_match_ai_analysis(
                     "fixture_id": fixture_id,
                     "generated_at": datetime.now().isoformat(),
                     "timezone": TIMEZONE,
+                    "locale": locale,
                     "question": user_question,
                     "analysis": cached_payload.get("analysis", cached_payload),
                     "odds_probabilities": cached_payload.get("odds_probabilities"),
@@ -288,10 +301,11 @@ def post_match_ai_analysis(
             fixture_error_reason = f"API-Football fetch failed: {exc}"
 
         if not fixture:
-            analysis = build_fallback_analysis(
-                fixture_error_reason or "fixture not found or API-Football unavailable"
-            )
-            odds_probabilities = None
+                analysis = build_fallback_analysis(
+                    fixture_error_reason or "fixture not found or API-Football unavailable",
+                    locale,
+                )
+                odds_probabilities = None
         else:
             try:
                 full_context = build_full_match(fixture)
@@ -308,7 +322,8 @@ def post_match_ai_analysis(
 
             if not full_context:
                 analysis = build_fallback_analysis(
-                    context_error_reason or "context build failed"
+                    context_error_reason or "context build failed",
+                    locale,
                 )
                 odds_probabilities = None
             else:
@@ -320,6 +335,7 @@ def post_match_ai_analysis(
                 analysis = run_ai_analysis(
                     full_match=full_context,
                     user_question=user_question,
+                    locale=locale,
                 )
 
         save_ok(
@@ -338,6 +354,7 @@ def post_match_ai_analysis(
                 "fixture_id": fixture_id,
                 "generated_at": datetime.now().isoformat(),
                 "timezone": TIMEZONE,
+                "locale": locale,
                 "question": user_question,
                 "analysis": analysis,
                 "odds_probabilities": odds_probabilities,

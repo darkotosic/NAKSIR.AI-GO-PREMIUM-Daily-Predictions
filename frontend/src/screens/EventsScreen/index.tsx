@@ -14,6 +14,7 @@ import { useMatchDetailsQuery } from '@hooks/useMatchDetailsQuery';
 import { RootStackParamList } from '@navigation/types';
 import { ErrorState } from '@components/ErrorState';
 import { MatchEvent } from '@naksir-types/match';
+import { useI18n } from '@lib/i18n';
 
 const COLORS = {
   background: '#040312',
@@ -36,6 +37,7 @@ const formatMinute = (event: MatchEvent) => {
 const EventsScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'Events'>>();
+  const { t } = useI18n();
   const fixtureId = route.params?.fixtureId;
   const summary = route.params?.summary;
 
@@ -45,7 +47,12 @@ const EventsScreen: React.FC = () => {
   const hasEvents = Array.isArray(events) && events.length > 0;
 
   if (!fixtureId) {
-    return <ErrorState message="Fixture ID is missing." onRetry={() => navigation.navigate('TodayMatches')} />;
+    return (
+      <ErrorState
+        message={t('match.fixtureMissing')}
+        onRetry={() => navigation.navigate('TodayMatches')}
+      />
+    );
   }
 
   const goBackToMatch = () => navigation.navigate('MatchDetails', { fixtureId, summary: heroSummary ?? summary });
@@ -55,20 +62,20 @@ const EventsScreen: React.FC = () => {
       <ScrollView contentContainerStyle={styles.container}>
         <TouchableOpacity style={styles.backButton} onPress={goBackToMatch}>
           <Text style={styles.backIcon}>←</Text>
-          <Text style={styles.backLabel}>Back to match</Text>
+          <Text style={styles.backLabel}>{t('common.backToMatch')}</Text>
         </TouchableOpacity>
 
-        <Text style={styles.title}>Events</Text>
+        <Text style={styles.title}>{t('events.title')}</Text>
         <Text style={styles.subtitle}>
-          {heroSummary?.teams?.home?.name || 'Home'} vs {heroSummary?.teams?.away?.name || 'Away'}
+          {heroSummary?.teams?.home?.name || t('common.home')} vs {heroSummary?.teams?.away?.name || t('common.away')}
         </Text>
 
         {isLoading ? <ActivityIndicator color={COLORS.neonViolet} size="large" style={styles.loader} /> : null}
-        {isError ? <ErrorState message="Unable to load match events" onRetry={refetch} /> : null}
+        {isError ? <ErrorState message={t('events.loadingError')} onRetry={refetch} /> : null}
 
         {!isLoading && !isError && !hasEvents ? (
           <View style={styles.card}>
-            <Text style={styles.emptyText}>No events recorded for this match.</Text>
+            <Text style={styles.emptyText}>{t('events.empty')}</Text>
           </View>
         ) : null}
 
@@ -76,12 +83,14 @@ const EventsScreen: React.FC = () => {
           <View style={styles.card} key={`${event.time?.elapsed}-${event.player?.id}-${idx}`}>
             <View style={styles.cardHeader}>
               <Text style={styles.minute}>{formatMinute(event)}</Text>
-              <Text style={styles.eventType}>{event.type || 'Event'}</Text>
+              <Text style={styles.eventType}>{event.type || t('events.eventFallback')}</Text>
             </View>
-            <Text style={styles.teamName}>{event.team?.name || 'Team'}</Text>
-            <Text style={styles.playerName}>{event.player?.name || 'Player'}</Text>
+            <Text style={styles.teamName}>{event.team?.name || t('common.team')}</Text>
+            <Text style={styles.playerName}>{event.player?.name || t('common.player')}</Text>
             {event.detail ? <Text style={styles.detailText}>{event.detail}</Text> : null}
-            {event.assist?.name ? <Text style={styles.assistText}>Assist: {event.assist.name}</Text> : null}
+            {event.assist?.name ? (
+              <Text style={styles.assistText}>{t('events.assistLabel', { name: event.assist.name })}</Text>
+            ) : null}
             {event.comments ? <Text style={styles.commentText}>{event.comments}</Text> : null}
           </View>
         ))}

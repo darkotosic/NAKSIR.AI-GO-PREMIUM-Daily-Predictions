@@ -14,6 +14,7 @@ import { useMatchDetailsQuery } from '@hooks/useMatchDetailsQuery';
 import { RootStackParamList } from '@navigation/types';
 import { ErrorState } from '@components/ErrorState';
 import { TeamStatsBlock, TeamStatsSummary } from '@naksir-types/match';
+import { useI18n } from '@lib/i18n';
 
 const COLORS = {
   background: '#040312',
@@ -41,28 +42,33 @@ const TeamStatsCard = ({
   title: string;
   stats?: TeamStatsSummary | null;
   badge?: string;
-}) => (
-  <View style={styles.card}>
-    <View style={styles.cardHeader}>
-      <Text style={styles.title}>{title}</Text>
-      {badge ? <Text style={styles.badge}>{badge}</Text> : null}
+}) => {
+  const { t } = useI18n();
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardHeader}>
+        <Text style={styles.title}>{title}</Text>
+        {badge ? <Text style={styles.badge}>{badge}</Text> : null}
+      </View>
+      <View style={styles.statGrid}>
+        <StatLine label={t('teamStats.form')} value={stats?.form} />
+        <StatLine label={t('teamStats.played')} value={stats?.fixtures?.played?.total} />
+        <StatLine label={t('teamStats.wins')} value={stats?.fixtures?.wins?.total} />
+        <StatLine label={t('teamStats.draws')} value={stats?.fixtures?.draws?.total} />
+        <StatLine label={t('teamStats.losses')} value={stats?.fixtures?.loses?.total} />
+        <StatLine label={t('teamStats.goalsFor')} value={stats?.goals?.for?.total?.total} />
+        <StatLine label={t('teamStats.goalsAgainst')} value={stats?.goals?.against?.total?.total} />
+        <StatLine label={t('teamStats.avgGoalsFor')} value={stats?.goals?.for?.average?.total} />
+      </View>
     </View>
-    <View style={styles.statGrid}>
-      <StatLine label="Form" value={stats?.form} />
-      <StatLine label="Played" value={stats?.fixtures?.played?.total} />
-      <StatLine label="Wins" value={stats?.fixtures?.wins?.total} />
-      <StatLine label="Draws" value={stats?.fixtures?.draws?.total} />
-      <StatLine label="Losses" value={stats?.fixtures?.loses?.total} />
-      <StatLine label="Goals for" value={stats?.goals?.for?.total?.total} />
-      <StatLine label="Goals against" value={stats?.goals?.against?.total?.total} />
-      <StatLine label="Avg goals for" value={stats?.goals?.for?.average?.total} />
-    </View>
-  </View>
-);
+  );
+};
 
 const TeamStatsScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'TeamStats'>>();
+  const { t } = useI18n();
   const fixtureId = route.params?.fixtureId;
   const summary = route.params?.summary;
 
@@ -72,7 +78,12 @@ const TeamStatsScreen: React.FC = () => {
   const hasTeamStats = Boolean(teamStats?.home || teamStats?.away);
 
   if (!fixtureId) {
-    return <ErrorState message="Fixture ID is missing." onRetry={() => navigation.navigate('TodayMatches')} />;
+    return (
+      <ErrorState
+        message={t('match.fixtureMissing')}
+        onRetry={() => navigation.navigate('TodayMatches')}
+      />
+    );
   }
 
   const goBackToMatch = () => navigation.navigate('MatchDetails', { fixtureId, summary: heroSummary ?? summary });
@@ -82,28 +93,36 @@ const TeamStatsScreen: React.FC = () => {
       <ScrollView contentContainerStyle={styles.container}>
         <TouchableOpacity style={styles.backButton} onPress={goBackToMatch}>
           <Text style={styles.backIcon}>←</Text>
-          <Text style={styles.backLabel}>Back to match</Text>
+          <Text style={styles.backLabel}>{t('common.backToMatch')}</Text>
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>Team stats</Text>
+        <Text style={styles.headerTitle}>{t('teamStats.title')}</Text>
         <Text style={styles.subtitle}>
-          {heroSummary?.teams?.home?.name || 'Home'} vs {heroSummary?.teams?.away?.name || 'Away'}
+          {heroSummary?.teams?.home?.name || t('common.home')} vs {heroSummary?.teams?.away?.name || t('common.away')}
         </Text>
 
         {isLoading ? <ActivityIndicator color={COLORS.neonViolet} size="large" style={styles.loader} /> : null}
-        {isError ? <ErrorState message="Unable to load team stats" onRetry={refetch} /> : null}
+        {isError ? <ErrorState message={t('teamStats.loadingError')} onRetry={refetch} /> : null}
 
         {!isLoading && !isError && !hasTeamStats ? (
           <View style={styles.card}>
-            <Text style={styles.emptyText}>No team statistics available.</Text>
+            <Text style={styles.emptyText}>{t('teamStats.empty')}</Text>
           </View>
         ) : null}
 
         {teamStats?.home ? (
-          <TeamStatsCard title={heroSummary?.teams?.home?.name || 'Home'} stats={teamStats.home} badge="Home" />
+          <TeamStatsCard
+            title={heroSummary?.teams?.home?.name || t('common.home')}
+            stats={teamStats.home}
+            badge={t('teamStats.homeBadge')}
+          />
         ) : null}
         {teamStats?.away ? (
-          <TeamStatsCard title={heroSummary?.teams?.away?.name || 'Away'} stats={teamStats.away} badge="Away" />
+          <TeamStatsCard
+            title={heroSummary?.teams?.away?.name || t('common.away')}
+            stats={teamStats.away}
+            badge={t('teamStats.awayBadge')}
+          />
         ) : null}
       </ScrollView>
     </SafeAreaView>

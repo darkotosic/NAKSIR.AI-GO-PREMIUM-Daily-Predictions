@@ -15,6 +15,7 @@ import { getAiAnalysis, requestAiAnalysis, AiAnalysisError } from '@api/analysis
 import type { MatchAnalysis } from '@naksir-types/analysis';
 import { RootStackParamList } from '@navigation/types';
 import { trackEvent } from '@lib/tracking';
+import { useI18n } from '@lib/i18n';
 
 const COLORS = {
   background: '#040312',
@@ -28,6 +29,7 @@ const COLORS = {
 const AIAnalysisScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'AIAnalysis'>>();
+  const { t, formatPercent } = useI18n();
   const fixtureId = route.params?.fixtureId;
   const summary = route.params?.summary;
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -172,11 +174,11 @@ const AIAnalysisScreen: React.FC = () => {
 
       if (requestId === requestIdRef.current && Date.now() - startedAt > 60000) {
         setStatus('error');
-        setError(new AiAnalysisError('AI analysis is taking longer than expected.'));
+        setError(new AiAnalysisError(t('analysis.error')));
         stopPolling();
       }
     }, 2500);
-  }, [fixtureId, stopPolling]);
+  }, [fixtureId, stopPolling, t]);
 
   const startGeneration = useCallback(async () => {
     if (!fixtureId || isGenerating) return;
@@ -207,7 +209,7 @@ const AIAnalysisScreen: React.FC = () => {
       }
 
       setStatus('error');
-      setError(new AiAnalysisError('AI analysis failed. Please try again.'));
+      setError(new AiAnalysisError(t('analysis.error')));
     } catch (err) {
       if (requestId !== requestIdRef.current) {
         return;
@@ -216,7 +218,7 @@ const AIAnalysisScreen: React.FC = () => {
       setStatus('error');
       setError(normalized);
     }
-  }, [fixtureId, isGenerating, pollForAnalysis, stopPolling]);
+  }, [fixtureId, isGenerating, pollForAnalysis, stopPolling, t]);
 
   const readCached = useCallback(async () => {
     if (!fixtureId) return;
@@ -273,8 +275,7 @@ const AIAnalysisScreen: React.FC = () => {
 
   const analysisPayload = analysisPayloadState;
   const analysis = (analysisPayload as any)?.analysis || analysisPayload;
-  const summaryText =
-    analysis?.preview || analysis?.summary || 'AI has insufficient data for a summary.';
+  const summaryText = analysis?.preview || analysis?.summary || t('analysis.missingSummary');
   const keyFactors =
     Array.isArray((analysis as any)?.key_factors) && (analysis as any)?.key_factors.length > 0
       ? (analysis as any).key_factors
@@ -294,8 +295,7 @@ const AIAnalysisScreen: React.FC = () => {
       ? (analysis as any)?.risk_flags
       : null;
 
-  const formatPct = (value?: number | null) =>
-    value === null || value === undefined ? '-' : `${value}%`;
+  const formatPct = (value?: number | null) => formatPercent(value ?? null);
 
   const goBackToMatch = () => {
     if (fixtureId) {
@@ -310,11 +310,11 @@ const AIAnalysisScreen: React.FC = () => {
       <ScrollView contentContainerStyle={styles.container}>
         <TouchableOpacity style={styles.backButton} onPress={goBackToMatch}>
           <Text style={styles.backIcon}>←</Text>
-          <Text style={styles.backLabel}>Back to match</Text>
+          <Text style={styles.backLabel}>{t('analysis.backToMatch')}</Text>
         </TouchableOpacity>
 
         {__DEV__ && cacheStatus ? (
-          <Text style={styles.cacheDebug}>Cache status: {cacheStatus}</Text>
+          <Text style={styles.cacheDebug}>{t('analysis.cacheStatus', { status: cacheStatus })}</Text>
         ) : null}
 
         {isGenerating && (
@@ -350,9 +350,7 @@ const AIAnalysisScreen: React.FC = () => {
               })}
             </View>
             <ActivityIndicator color={COLORS.neonPurple} size="large" style={styles.loader} />
-            <Text style={styles.loadingText}>
-              Analyzing odds, recent team form, goals trends, h2h, standings...
-            </Text>
+            <Text style={styles.loadingText}>{t('analysis.loadingTitle')}</Text>
             <View style={styles.loadingBarTrack}>
               <Animated.View
                 style={[
@@ -367,7 +365,7 @@ const AIAnalysisScreen: React.FC = () => {
               />
             </View>
             <View style={styles.timerPill}>
-              <Text style={styles.timerLabel}>Time elapsed</Text>
+              <Text style={styles.timerLabel}>{t('analysis.loadingTime')}</Text>
               <Text style={styles.timerValue}>{formatTimer(elapsedSeconds)}</Text>
             </View>
           </View>
@@ -375,40 +373,44 @@ const AIAnalysisScreen: React.FC = () => {
 
         {analysisPayloadState ? (
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Summary</Text>
+            <Text style={styles.sectionTitle}>{t('analysis.summary')}</Text>
             <Text style={styles.bodyText}>{summaryText}</Text>
 
-            <Text style={styles.sectionTitle}>Key factors</Text>
+            <Text style={styles.sectionTitle}>{t('analysis.keyFactors')}</Text>
             <Text style={styles.bodyText}>
-              {keyFactors ? '• ' + keyFactors.join('\n• ') : 'No key factors highlighted.'}
+              {keyFactors ? '• ' + keyFactors.join('\n• ') : t('analysis.keyFactorsEmpty')}
             </Text>
 
             {oddsProbabilities && (
               <View style={styles.sectionBlock}>
-                <Text style={styles.sectionTitle}>Implied odds probabilities</Text>
+                <Text style={styles.sectionTitle}>{t('analysis.impliedOdds')}</Text>
                 <Text style={styles.bodyText}>
-                  Match winner: {'\n'}Home: {formatPct(oddsProbabilities.match_winner?.home)} | Draw:{' '}
-                  {formatPct(oddsProbabilities.match_winner?.draw)} | Away: {formatPct(oddsProbabilities.match_winner?.away)}
+                  {t('analysis.matchWinner')}: {'\n'}
+                  {t('analysis.marketHome')}: {formatPct(oddsProbabilities.match_winner?.home)} |{' '}
+                  {t('analysis.marketDraw')}: {formatPct(oddsProbabilities.match_winner?.draw)} |{' '}
+                  {t('analysis.marketAway')}: {formatPct(oddsProbabilities.match_winner?.away)}
                 </Text>
                 <Text style={styles.bodyText}>
-                  Double chance: {'\n'}12: {formatPct(oddsProbabilities.double_chance?.['12'])} | 1X:{' '}
-                  {formatPct(oddsProbabilities.double_chance?.['1X'])} | X2:{' '}
-                  {formatPct(oddsProbabilities.double_chance?.['X2'])}
+                  {t('analysis.doubleChance')}: {'\n'}12: {formatPct(oddsProbabilities.double_chance?.['12'])} | 1X:{' '}
+                  {formatPct(oddsProbabilities.double_chance?.['1X'])} | X2: {formatPct(oddsProbabilities.double_chance?.['X2'])}
                 </Text>
                 <Text style={styles.bodyText}>
-                  BTTS: Yes: {formatPct(oddsProbabilities.btts?.yes)} | No: {formatPct(oddsProbabilities.btts?.no)}
-                </Text>
-                <Text style={styles.bodyText}>HT over 0.5: {formatPct(oddsProbabilities.ht_over_0_5)}</Text>
-                <Text style={styles.bodyText}>
-                  Team over 0.5: Home {formatPct(oddsProbabilities.home_goals_over_0_5)} | Away{' '}
-                  {formatPct(oddsProbabilities.away_goals_over_0_5)}
+                  {t('analysis.btts')}: {t('analysis.marketYes')}: {formatPct(oddsProbabilities.btts?.yes)} |{' '}
+                  {t('analysis.marketNo')}: {formatPct(oddsProbabilities.btts?.no)}
                 </Text>
                 <Text style={styles.bodyText}>
-                  Totals (Over): O1.5 {formatPct(oddsProbabilities.totals?.over_1_5)} | O2.5{' '}
+                  {t('analysis.htOver')}: {formatPct(oddsProbabilities.ht_over_0_5)}
+                </Text>
+                <Text style={styles.bodyText}>
+                  {t('analysis.teamOver')}: {t('analysis.marketHome')} {formatPct(oddsProbabilities.home_goals_over_0_5)} |{' '}
+                  {t('analysis.marketAway')} {formatPct(oddsProbabilities.away_goals_over_0_5)}
+                </Text>
+                <Text style={styles.bodyText}>
+                  {t('analysis.totalsOver')}: O1.5 {formatPct(oddsProbabilities.totals?.over_1_5)} | O2.5{' '}
                   {formatPct(oddsProbabilities.totals?.over_2_5)} | O3.5 {formatPct(oddsProbabilities.totals?.over_3_5)}
                 </Text>
                 <Text style={styles.bodyText}>
-                  Totals (Under): U3.5 {formatPct(oddsProbabilities.totals?.under_3_5)} | U4.5{' '}
+                  {t('analysis.totalsUnder')}: U3.5 {formatPct(oddsProbabilities.totals?.under_3_5)} | U4.5{' '}
                   {formatPct(oddsProbabilities.totals?.under_4_5)}
                 </Text>
               </View>
@@ -416,21 +418,22 @@ const AIAnalysisScreen: React.FC = () => {
 
             {valueBet ? (
               <View style={styles.sectionBlock}>
-                <Text style={styles.sectionTitle}>Value bets</Text>
+                <Text style={styles.sectionTitle}>{t('analysis.valueBets')}</Text>
                 <Text style={styles.bodyText}>
-                  Market: {valueBet.market}{'\n'}Selection: {valueBet.selection}{'\n'}Success probability:{' '}
-                  {formatPct(valueBet.model_probability_pct)}
+                  {t('analysis.valueBetMarket')}: {valueBet.market}{'\n'}
+                  {t('analysis.valueBetSelection')}: {valueBet.selection}{'\n'}
+                  {t('analysis.valueBetSuccess')}: {formatPct(valueBet.model_probability_pct)}
                 </Text>
               </View>
             ) : null}
 
             {correctScores ? (
               <View style={styles.sectionBlock}>
-                <Text style={styles.sectionTitle}>Most probable correct scores</Text>
+                <Text style={styles.sectionTitle}>{t('analysis.correctScores')}</Text>
                 <Text style={styles.bodyText}>
                   {correctScores
                     .map((item: any, idx: number) =>
-                      `${idx + 1}. ${item.score || 'N/A'} (${formatPct(item.probability_pct)})`,
+                      `${idx + 1}. ${item.score || t('common.notAvailableShort')} (${formatPct(item.probability_pct)})`,
                     )
                     .join('\n')}
                 </Text>
@@ -439,7 +442,7 @@ const AIAnalysisScreen: React.FC = () => {
 
             {cornerProbabilities ? (
               <View style={styles.sectionBlock}>
-                <Text style={styles.sectionTitle}>Corners probability</Text>
+                <Text style={styles.sectionTitle}>{t('analysis.corners')}</Text>
                 <Text style={styles.bodyText}>
                   Over 8.5: {formatPct(cornerProbabilities.over_8_5_pct)}{'\n'}Over 9.5:{' '}
                   {formatPct(cornerProbabilities.over_9_5_pct)}{'\n'}Over 10.5:{' '}
@@ -450,7 +453,7 @@ const AIAnalysisScreen: React.FC = () => {
 
             {cardProbabilities ? (
               <View style={styles.sectionBlock}>
-                <Text style={styles.sectionTitle}>Yellow cards probability</Text>
+                <Text style={styles.sectionTitle}>{t('analysis.cards')}</Text>
                 <Text style={styles.bodyText}>
                   Over 3.5: {formatPct(cardProbabilities.over_3_5_pct)}{'\n'}Over 4.5:{' '}
                   {formatPct(cardProbabilities.over_4_5_pct)}{'\n'}Over 5.5:{' '}
@@ -460,15 +463,15 @@ const AIAnalysisScreen: React.FC = () => {
             ) : null}
 
             <View style={styles.sectionBlock}>
-              <Text style={styles.sectionTitle}>Risks</Text>
+              <Text style={styles.sectionTitle}>{t('analysis.risks')}</Text>
               <Text style={styles.bodyText}>
-                {risks ? '• ' + risks.join('\n• ') : 'No major risks flagged.'}
+                {risks ? '• ' + risks.join('\n• ') : t('analysis.risksEmpty')}
               </Text>
             </View>
 
             {analysis?.disclaimer ? (
               <View style={styles.sectionBlock}>
-                <Text style={styles.sectionTitle}>Disclaimer</Text>
+                <Text style={styles.sectionTitle}>{t('analysis.disclaimer')}</Text>
                 <Text style={styles.bodyText}>{analysis.disclaimer}</Text>
               </View>
             ) : null}
@@ -477,15 +480,13 @@ const AIAnalysisScreen: React.FC = () => {
 
         {status === 'missing' && (
           <View style={styles.card}>
-            <Text style={styles.bodyText}>
-              No cached AI analysis yet for this match. Run it once to generate the report.
-            </Text>
+            <Text style={styles.bodyText}>{t('analysis.noCached')}</Text>
             <TouchableOpacity
               style={[styles.retryButton, isGenerating && styles.retryButtonDisabled]}
               onPress={startGeneration}
               disabled={isGenerating}
             >
-              <Text style={styles.retryButtonLabel}>Run analysis</Text>
+              <Text style={styles.retryButtonLabel}>{t('analysis.run')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -493,14 +494,14 @@ const AIAnalysisScreen: React.FC = () => {
         {status === 'error' && (
           <View style={styles.card}>
             <Text style={styles.errorText}>
-              {error?.message || 'AI analysis is temporarily unavailable. Please try again.'}
+              {error?.message || t('analysis.error')}
             </Text>
             <TouchableOpacity
               style={[styles.retryButton, isGenerating && styles.retryButtonDisabled]}
               onPress={startGeneration}
               disabled={isGenerating}
             >
-              <Text style={styles.retryButtonLabel}>Try again</Text>
+              <Text style={styles.retryButtonLabel}>{t('analysis.retry')}</Text>
             </TouchableOpacity>
           </View>
         )}
