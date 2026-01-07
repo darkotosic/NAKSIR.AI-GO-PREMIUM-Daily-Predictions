@@ -1,0 +1,60 @@
+version: 1
+owners:
+  AGENT_BACKEND_FETCH_CACHE:
+    paths:
+      - backend/api_football.py
+      - backend/cache.py
+      - backend/config.py
+      - backend/contracts/api_football.py
+  AGENT_BACKEND_MATCH_AGG:
+    paths:
+      - backend/match_full.py
+      - backend/contracts/match.py
+  AGENT_BACKEND_ODDS:
+    paths:
+      - backend/odds_normalizer.py
+      - backend/odds_summary.py
+      - backend/contracts/odds.py
+  AGENT_BACKEND_AI:
+    paths:
+      - backend/ai_analysis.py
+      - backend/services/ai_analysis_cache_service.py
+      - backend/contracts/ai_analysis.py
+      - backend/routers/ai.py
+  AGENT_BACKEND_API:
+    paths:
+      - backend/main.py
+      - backend/app.py
+      - backend/routers
+      - backend/monitoring.py
+      - backend/observability.py
+      - backend/dependencies.py
+      - backend/contracts/api.py
+  AGENT_BACKEND_DATA:
+    paths:
+      - backend/db.py
+      - backend/models
+      - backend/services
+      - alembic
+      - backend/billing_plans.py
+      - backend/contracts/data.py
+  AGENT_FRONTEND_APP:
+    paths:
+      - frontend
+  AGENT_SHARED_BILLING:
+    paths:
+      - shared/billing_skus.ts
+      - shared/contracts/index.ts
+  AGENT_INFRA_GOVERNANCE:
+    paths:
+      - docs/microchip
+      - scripts
+      - OWNERSHIP.yml
+      - AGENTS.md
+      - Makefile
+      - .github/workflows
+      - backend/contracts/__init__.py
+      - backend/tests
+      - tests
+      - mypy.ini
+      - requirements.txt
