@@ -158,6 +158,9 @@ full_context = {
     "summary": summary,
     "stats": stats,
     "team_stats": team_stats,
+    "team_profiles": team_profiles,
+    "team_seasons": team_seasons,
+    "team_countries": team_countries,
     "standings": standings,
     "h2h": h2h,
     "events": events,
@@ -241,6 +244,61 @@ full_context = {
         if _should_include("standings", sections)
         else None
     )
+
+    team_profiles = None
+    if _should_include("team_profiles", sections):
+        home_profile = (
+            _safe_call(
+                "team_profile_home",
+                getattr(api_football, "get_team_by_id", None),
+                home_team_id,
+            )
+            if home_team_id
+            else None
+        )
+        away_profile = (
+            _safe_call(
+                "team_profile_away",
+                getattr(api_football, "get_team_by_id", None),
+                away_team_id,
+            )
+            if away_team_id
+            else None
+        )
+        if home_profile or away_profile:
+            team_profiles = {"home": home_profile, "away": away_profile}
+
+    team_seasons = None
+    if _should_include("team_seasons", sections):
+        home_seasons = (
+            _safe_call(
+                "team_seasons_home",
+                getattr(api_football, "get_team_seasons", None),
+                home_team_id,
+                True,
+            )
+            if home_team_id
+            else None
+        )
+        away_seasons = (
+            _safe_call(
+                "team_seasons_away",
+                getattr(api_football, "get_team_seasons", None),
+                away_team_id,
+                True,
+            )
+            if away_team_id
+            else None
+        )
+        if home_seasons or away_seasons:
+            team_seasons = {"home": home_seasons, "away": away_seasons}
+
+    team_countries = None
+    if _should_include("team_countries", sections):
+        team_countries = _safe_call(
+            "team_countries",
+            getattr(api_football, "get_team_countries", None),
+        )
 
     # ---- Rich context (ako su helperi implementirani u api_football) -------------
 
@@ -348,6 +406,9 @@ full_context = {
         "summary": build_match_summary(fixture),
         "stats": stats,
         "team_stats": team_stats_block,
+        "team_profiles": team_profiles,
+        "team_seasons": team_seasons,
+        "team_countries": team_countries,
         "standings": standings,
         "h2h": h2h,
         "events": events,
