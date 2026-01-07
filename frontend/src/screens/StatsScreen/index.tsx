@@ -14,7 +14,7 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useMatchDetailsQuery } from '@hooks/useMatchDetailsQuery';
 import { RootStackParamList } from '@navigation/types';
 import { ErrorState } from '@components/ErrorState';
-import { MatchStatEntry } from '@naksir-types/match';
+import { MatchStatEntry } from '@types/match';
 import TelegramBanner from '@components/TelegramBanner';
 
 const COLORS = {

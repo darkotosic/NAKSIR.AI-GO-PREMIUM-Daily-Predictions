@@ -1,4 +1,4 @@
-import { MatchSummary } from '@naksir-types/match';
+import { MatchSummary } from '@types/match';
 
 export type MainTopTabsParamList = {
   TodayMatches: undefined;

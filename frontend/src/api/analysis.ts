@@ -1,5 +1,5 @@
 import { apiClient } from '@api/client';
-import type { MatchAnalysis } from '@naksir-types/analysis';
+import type { MatchAnalysis } from '@types/analysis';
 
 export interface AiAnalysisParams {
   fixtureId: number | string;

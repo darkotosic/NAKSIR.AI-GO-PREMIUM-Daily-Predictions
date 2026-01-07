@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { MatchAnalysis } from '@naksir-types/analysis';
+import { MatchAnalysis } from '@types/analysis';
 
 interface Props {
   analysis?: MatchAnalysis;

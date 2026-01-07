@@ -12,7 +12,7 @@ import {
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { getAiAnalysis, requestAiAnalysis, AiAnalysisError } from '@api/analysis';
-import type { MatchAnalysis } from '@naksir-types/analysis';
+import type { MatchAnalysis } from '@types/analysis';
 import { RootStackParamList } from '@navigation/types';
 import { trackEvent } from '@lib/tracking';
 import TelegramBanner from '@components/TelegramBanner';
