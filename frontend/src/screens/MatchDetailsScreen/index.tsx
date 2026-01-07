@@ -15,6 +15,7 @@ import { RootStackParamList } from '@navigation/types';
 import { trackEvent } from '@lib/tracking';
 import { ErrorState } from '@components/ErrorState';
 import NeonAnalysisButton from '@components/NeonAnalysisButton';
+import TelegramBanner from '@components/TelegramBanner';
 
 const COLORS = {
   background: '#040312',
@@ -130,6 +131,7 @@ const MatchDetailsScreen: React.FC = () => {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      <TelegramBanner />
       {summary ? (
         <>
           <View style={styles.detailHero}>
