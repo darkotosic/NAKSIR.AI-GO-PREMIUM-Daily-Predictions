@@ -14,6 +14,7 @@ import { useMatchDetailsQuery } from '@hooks/useMatchDetailsQuery';
 import { RootStackParamList } from '@navigation/types';
 import { ErrorState } from '@components/ErrorState';
 import { OddsSnapshot } from '@naksir-types/match';
+import { useI18n } from '@lib/i18n';
 
 const COLORS = {
   background: '#040312',
@@ -43,6 +44,7 @@ const OddsGroup = ({ title, children }: { title: string; children: React.ReactNo
 const OddsScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'Odds'>>();
+  const { t } = useI18n();
   const fixtureId = route.params?.fixtureId;
   const summary = route.params?.summary;
   const selectedMarket = route.params?.selectedMarket;
@@ -56,7 +58,12 @@ const OddsScreen: React.FC = () => {
   const goBackToMatch = () => navigation.navigate('MatchDetails', { fixtureId, summary: heroSummary ?? summary });
 
   if (!fixtureId) {
-    return <ErrorState message="Fixture ID is missing." onRetry={() => navigation.navigate('TodayMatches')} />;
+    return (
+      <ErrorState
+        message={t('match.fixtureMissing')}
+        onRetry={() => navigation.navigate('TodayMatches')}
+      />
+    );
   }
 
   return (
@@ -64,62 +71,66 @@ const OddsScreen: React.FC = () => {
       <ScrollView contentContainerStyle={styles.container}>
         <TouchableOpacity style={styles.backButton} onPress={goBackToMatch}>
           <Text style={styles.backIcon}>←</Text>
-          <Text style={styles.backLabel}>Back to match</Text>
+          <Text style={styles.backLabel}>{t('common.backToMatch')}</Text>
         </TouchableOpacity>
 
-        <Text style={styles.title}>Odds snapshot</Text>
+        <Text style={styles.title}>{t('odds.title')}</Text>
         <Text style={styles.subtitle}>
-          {heroSummary?.teams?.home?.name || 'Home'} vs {heroSummary?.teams?.away?.name || 'Away'}
+          {heroSummary?.teams?.home?.name || t('common.home')} vs {heroSummary?.teams?.away?.name || t('common.away')}
         </Text>
         {selectedMarket ? (
           <View style={styles.pill}>
-            <Text style={styles.pillText}>Opened from: {selectedMarket}</Text>
+            <Text style={styles.pillText}>{t('odds.openedFrom', { market: selectedMarket })}</Text>
           </View>
         ) : null}
 
         {isLoading ? <ActivityIndicator color={COLORS.neonViolet} size="large" style={styles.loader} /> : null}
 
-        {isError ? (
-          <ErrorState message="Unable to load odds" onRetry={refetch} />
-        ) : null}
+        {isError ? <ErrorState message={t('odds.loadingError')} onRetry={refetch} /> : null}
 
         {!isLoading && !isError && !odds ? (
           <View style={styles.card}>
-            <Text style={styles.emptyText}>No odds available for this fixture.</Text>
+            <Text style={styles.emptyText}>{t('odds.empty')}</Text>
           </View>
         ) : null}
 
         {odds ? (
           <View style={styles.grid}>
-            <OddsGroup title="Match Winner">
-              <OddsChip label="Home" value={odds.match_winner?.home} />
-              <OddsChip label="Draw" value={odds.match_winner?.draw} />
-              <OddsChip label="Away" value={odds.match_winner?.away} />
+            <OddsGroup title={t('common.matchWinner')}>
+              <OddsChip label={t('analysis.marketHome')} value={odds.match_winner?.home} />
+              <OddsChip label={t('analysis.marketDraw')} value={odds.match_winner?.draw} />
+              <OddsChip label={t('analysis.marketAway')} value={odds.match_winner?.away} />
             </OddsGroup>
 
-            <OddsGroup title="Double Chance">
+            <OddsGroup title={t('match.doubleChance')}>
               <OddsChip label="1X" value={odds.double_chance?.['1X']} />
               <OddsChip label="12" value={odds.double_chance?.['12']} />
               <OddsChip label="X2" value={odds.double_chance?.['X2']} />
             </OddsGroup>
 
-            <OddsGroup title="BTTS">
-              <OddsChip label="YES" value={odds.btts?.yes} />
-              <OddsChip label="NO" value={odds.btts?.no} />
+            <OddsGroup title={t('analysis.btts')}>
+              <OddsChip label={t('analysis.marketYes')} value={odds.btts?.yes} />
+              <OddsChip label={t('analysis.marketNo')} value={odds.btts?.no} />
             </OddsGroup>
 
-            <OddsGroup title="Totals">
-              <OddsChip label="Over 1.5" value={odds.totals?.over_1_5} />
-              <OddsChip label="Over 2.5" value={odds.totals?.over_2_5} />
-              <OddsChip label="Over 3.5" value={odds.totals?.over_3_5} />
-              <OddsChip label="Under 3.5" value={odds.totals?.under_3_5} />
-              <OddsChip label="Under 4.5" value={odds.totals?.under_4_5} />
-              <OddsChip label="HT Over 0.5" value={odds.ht_over_0_5} />
+            <OddsGroup title={t('odds.totals')}>
+              <OddsChip label={`${t('analysis.oddsTotalsOver')} 1.5`} value={odds.totals?.over_1_5} />
+              <OddsChip label={`${t('analysis.oddsTotalsOver')} 2.5`} value={odds.totals?.over_2_5} />
+              <OddsChip label={`${t('analysis.oddsTotalsOver')} 3.5`} value={odds.totals?.over_3_5} />
+              <OddsChip label={`${t('analysis.oddsTotalsUnder')} 3.5`} value={odds.totals?.under_3_5} />
+              <OddsChip label={`${t('analysis.oddsTotalsUnder')} 4.5`} value={odds.totals?.under_4_5} />
+              <OddsChip label={t('analysis.htOver')} value={odds.ht_over_0_5} />
             </OddsGroup>
 
-            <OddsGroup title="Team Goals">
-              <OddsChip label="Home Over 0.5" value={odds.home_goals_over_0_5 as number | string} />
-              <OddsChip label="Away Over 0.5" value={odds.away_goals_over_0_5 as number | string} />
+            <OddsGroup title={t('odds.teamGoals')}>
+              <OddsChip
+                label={`${t('analysis.marketHome')} ${t('odds.over')} 0.5`}
+                value={odds.home_goals_over_0_5 as number | string}
+              />
+              <OddsChip
+                label={`${t('analysis.marketAway')} ${t('odds.over')} 0.5`}
+                value={odds.away_goals_over_0_5 as number | string}
+              />
             </OddsGroup>
           </View>
         ) : null}

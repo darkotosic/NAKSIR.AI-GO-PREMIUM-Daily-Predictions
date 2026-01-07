@@ -14,6 +14,7 @@ import { useMatchDetailsQuery } from '@hooks/useMatchDetailsQuery';
 import { RootStackParamList } from '@navigation/types';
 import { ErrorState } from '@components/ErrorState';
 import { Lineup } from '@naksir-types/match';
+import { useI18n } from '@lib/i18n';
 
 const COLORS = {
   background: '#040312',
@@ -32,37 +33,42 @@ const PlayerRow = ({ label, value }: { label: string; value?: string | number | 
   </View>
 );
 
-const LineupCard = ({ lineup }: { lineup: Lineup }) => (
-  <View style={styles.card}>
-    <View style={styles.cardHeader}>
-      <Text style={styles.title}>{lineup.team?.name || 'Team'}</Text>
-      <Text style={styles.badge}>{lineup.formation || 'Formation TBD'}</Text>
+const LineupCard = ({ lineup }: { lineup: Lineup }) => {
+  const { t } = useI18n();
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardHeader}>
+        <Text style={styles.title}>{lineup.team?.name || t('common.team')}</Text>
+        <Text style={styles.badge}>{lineup.formation || t('lineups.formation')}</Text>
+      </View>
+      {lineup.coach?.name ? <Text style={styles.subtitle}>{t('lineups.coach', { name: lineup.coach.name })}</Text> : null}
+
+      {lineup.startXI?.length ? <Text style={styles.sectionLabel}>{t('lineups.starting')}</Text> : null}
+      {lineup.startXI?.map((entry, idx) => (
+        <PlayerRow
+          key={`${entry.player?.id || idx}-start`}
+          label={`${entry.player?.number ?? '?'} • ${entry.player?.pos || ''}`.trim()}
+          value={entry.player?.name}
+        />
+      ))}
+
+      {lineup.substitutes?.length ? <Text style={styles.sectionLabel}>{t('lineups.subs')}</Text> : null}
+      {lineup.substitutes?.map((entry, idx) => (
+        <PlayerRow
+          key={`${entry.player?.id || idx}-sub`}
+          label={`${entry.player?.number ?? '?'} • ${entry.player?.pos || ''}`.trim()}
+          value={entry.player?.name}
+        />
+      ))}
     </View>
-    {lineup.coach?.name ? <Text style={styles.subtitle}>Coach: {lineup.coach.name}</Text> : null}
-
-    {lineup.startXI?.length ? <Text style={styles.sectionLabel}>Starting XI</Text> : null}
-    {lineup.startXI?.map((entry, idx) => (
-      <PlayerRow
-        key={`${entry.player?.id || idx}-start`}
-        label={`${entry.player?.number ?? '?'} • ${entry.player?.pos || ''}`.trim()}
-        value={entry.player?.name}
-      />
-    ))}
-
-    {lineup.substitutes?.length ? <Text style={styles.sectionLabel}>Substitutes</Text> : null}
-    {lineup.substitutes?.map((entry, idx) => (
-      <PlayerRow
-        key={`${entry.player?.id || idx}-sub`}
-        label={`${entry.player?.number ?? '?'} • ${entry.player?.pos || ''}`.trim()}
-        value={entry.player?.name}
-      />
-    ))}
-  </View>
-);
+  );
+};
 
 const LineupsScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'Lineups'>>();
+  const { t } = useI18n();
   const fixtureId = route.params?.fixtureId;
   const summary = route.params?.summary;
 
@@ -72,7 +78,12 @@ const LineupsScreen: React.FC = () => {
   const hasLineups = Array.isArray(lineups) && lineups.length > 0;
 
   if (!fixtureId) {
-    return <ErrorState message="Fixture ID is missing." onRetry={() => navigation.navigate('TodayMatches')} />;
+    return (
+      <ErrorState
+        message={t('lineups.fixtureMissing')}
+        onRetry={() => navigation.navigate('TodayMatches')}
+      />
+    );
   }
 
   const goBackToMatch = () => navigation.navigate('MatchDetails', { fixtureId, summary: heroSummary ?? summary });
@@ -82,20 +93,20 @@ const LineupsScreen: React.FC = () => {
       <ScrollView contentContainerStyle={styles.container}>
         <TouchableOpacity style={styles.backButton} onPress={goBackToMatch}>
           <Text style={styles.backIcon}>←</Text>
-          <Text style={styles.backLabel}>Back to match</Text>
+          <Text style={styles.backLabel}>{t('common.backToMatch')}</Text>
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>Lineups</Text>
+        <Text style={styles.headerTitle}>{t('lineups.title')}</Text>
         <Text style={styles.subtitle}>
-          {heroSummary?.teams?.home?.name || 'Home'} vs {heroSummary?.teams?.away?.name || 'Away'}
+          {heroSummary?.teams?.home?.name || t('common.home')} vs {heroSummary?.teams?.away?.name || t('common.away')}
         </Text>
 
         {isLoading ? <ActivityIndicator color={COLORS.neonViolet} size="large" style={styles.loader} /> : null}
-        {isError ? <ErrorState message="Unable to load lineups" onRetry={refetch} /> : null}
+        {isError ? <ErrorState message={t('lineups.loadingError')} onRetry={refetch} /> : null}
 
         {!isLoading && !isError && !hasLineups ? (
           <View style={styles.card}>
-            <Text style={styles.emptyText}>No lineups available.</Text>
+            <Text style={styles.emptyText}>{t('lineups.empty')}</Text>
           </View>
         ) : null}
 

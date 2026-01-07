@@ -15,6 +15,7 @@ import { RootStackParamList } from '@navigation/types';
 import { trackEvent } from '@lib/tracking';
 import { ErrorState } from '@components/ErrorState';
 import NeonAnalysisButton from '@components/NeonAnalysisButton';
+import { useI18n } from '@lib/i18n';
 
 const COLORS = {
   background: '#040312',
@@ -31,6 +32,7 @@ const COLORS = {
 const MatchDetailsScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'MatchDetails'>>();
+  const { t, formatTime, formatDate, formatDateTime, formatNumber } = useI18n();
   const fixtureId = route.params?.fixtureId;
   const fallbackSummary = route.params?.summary;
   const { data, isLoading, isError, refetch } = useMatchDetailsQuery(fixtureId);
@@ -39,9 +41,7 @@ const MatchDetailsScreen: React.FC = () => {
   const league = summary?.league;
   const teams = summary?.teams;
   const kickoffDate = summary?.kickoff ? new Date(summary.kickoff) : undefined;
-  const kickoffTimeLabel = kickoffDate
-    ? kickoffDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    : 'Kickoff TBD';
+  const kickoffTimeLabel = kickoffDate ? formatTime(kickoffDate) : t('common.kickoffTbd');
 
   useEffect(() => {
     if (fixtureId && summary?.league) {
@@ -54,7 +54,12 @@ const MatchDetailsScreen: React.FC = () => {
   }, [fixtureId, summary?.league, summary?.league?.id, summary?.league?.name]);
 
   if (!fixtureId) {
-    return <ErrorState message="Fixture ID is missing." onRetry={() => navigation.navigate('TodayMatches')} />;
+    return (
+      <ErrorState
+        message={t('match.fixtureMissing')}
+        onRetry={() => navigation.navigate('TodayMatches')}
+      />
+    );
   }
 
   const leagueStandingsLeague = data?.standings?.[0]?.league;
@@ -88,9 +93,7 @@ const MatchDetailsScreen: React.FC = () => {
       : Boolean(injuriesBlock);
   const lastMeeting = h2hMatches[0];
   const lastMeetingGoals = lastMeeting?.goals || {};
-  const lastMeetingDate = lastMeeting?.fixture?.date
-    ? new Date(lastMeeting.fixture.date).toLocaleDateString()
-    : null;
+  const lastMeetingDate = lastMeeting?.fixture?.date ? formatDate(lastMeeting.fixture.date) : null;
 
   const openH2H = () =>
     navigation.navigate('H2H', {
@@ -119,13 +122,13 @@ const MatchDetailsScreen: React.FC = () => {
     });
 
   const deepDiveSections = [
-    { key: 'stats', label: 'Match stats', visible: hasStats, onPress: openStats },
-    { key: 'team_stats', label: 'Team stats', visible: hasTeamStats, onPress: openTeamStats },
-    { key: 'events', label: 'Events', visible: hasEvents, onPress: openEvents },
-    { key: 'lineups', label: 'Lineups', visible: hasLineups, onPress: openLineups },
-    { key: 'players', label: 'Players', visible: hasPlayers, onPress: openPlayers },
-    { key: 'predictions', label: 'Predictions', visible: hasPredictions, onPress: openPredictions },
-    { key: 'injuries', label: 'Injuries', visible: hasInjuries, onPress: openInjuries },
+    { key: 'stats', label: t('match.stats'), visible: hasStats, onPress: openStats },
+    { key: 'team_stats', label: t('match.teamStats'), visible: hasTeamStats, onPress: openTeamStats },
+    { key: 'events', label: t('match.events'), visible: hasEvents, onPress: openEvents },
+    { key: 'lineups', label: t('match.lineups'), visible: hasLineups, onPress: openLineups },
+    { key: 'players', label: t('match.players'), visible: hasPlayers, onPress: openPlayers },
+    { key: 'predictions', label: t('match.predictions'), visible: hasPredictions, onPress: openPredictions },
+    { key: 'injuries', label: t('match.injuries'), visible: hasInjuries, onPress: openInjuries },
   ].filter((section) => section.visible);
 
   return (
@@ -140,7 +143,7 @@ const MatchDetailsScreen: React.FC = () => {
                 activeOpacity={0.9}
               >
                 <Text style={styles.backIcon}>←</Text>
-                <Text style={styles.backLabel}>Back</Text>
+                <Text style={styles.backLabel}>{t('common.back')}</Text>
               </TouchableOpacity>
 
               <View style={styles.heroLeagueBlock}>
@@ -148,9 +151,9 @@ const MatchDetailsScreen: React.FC = () => {
                   <Image source={{ uri: league.logo }} style={styles.heroLeagueLogo} resizeMode="contain" />
                 ) : null}
                 <View>
-                  <Text style={styles.heroLeagueText}>{league?.name || 'League'}</Text>
+                  <Text style={styles.heroLeagueText}>{league?.name || t('common.league')}</Text>
                   <Text style={styles.heroMetaText}>
-                    {league?.country || 'Country'} • {kickoffTimeLabel}
+                    {league?.country || t('common.country')} • {kickoffTimeLabel}
                   </Text>
                 </View>
               </View>
@@ -162,15 +165,20 @@ const MatchDetailsScreen: React.FC = () => {
                   <Image source={{ uri: teams.home.logo }} style={styles.heroTeamLogo} resizeMode="contain" />
                 ) : null}
                 <Text style={styles.heroTeamName} numberOfLines={1}>
-                  {teams?.home?.name || 'Home'}
+                  {teams?.home?.name || t('common.home')}
                 </Text>
                 <Text style={styles.heroTeamMeta} numberOfLines={1}>
-                  {homeStanding ? `#${homeStanding.rank} • ${homeStanding.points} pts` : ''}
+                  {homeStanding
+                    ? t('common.pointsLabel', {
+                        rank: formatNumber(homeStanding.rank),
+                        points: formatNumber(homeStanding.points),
+                      })
+                    : ''}
                 </Text>
               </View>
 
-              <View style={styles.heroVsPill}>
-                <Text style={styles.heroVsText}>VS</Text>
+            <View style={styles.heroVsPill}>
+                <Text style={styles.heroVsText}>{t('match.vs')}</Text>
                 <Text style={styles.heroKickoff}>{kickoffTimeLabel}</Text>
               </View>
 
@@ -179,10 +187,15 @@ const MatchDetailsScreen: React.FC = () => {
                   <Image source={{ uri: teams.away.logo }} style={styles.heroTeamLogo} resizeMode="contain" />
                 ) : null}
                 <Text style={[styles.heroTeamName, { textAlign: 'right' }]} numberOfLines={1}>
-                  {teams?.away?.name || 'Away'}
+                  {teams?.away?.name || t('common.away')}
                 </Text>
                 <Text style={[styles.heroTeamMeta, { textAlign: 'right' }]} numberOfLines={1}>
-                  {awayStanding ? `#${awayStanding.rank} • ${awayStanding.points} pts` : ''}
+                  {awayStanding
+                    ? t('common.pointsLabel', {
+                        rank: formatNumber(awayStanding.rank),
+                        points: formatNumber(awayStanding.points),
+                      })
+                    : ''}
                 </Text>
               </View>
             </View>
@@ -197,7 +210,7 @@ const MatchDetailsScreen: React.FC = () => {
       )}
 
       {isError && fixtureId ? (
-        <ErrorState message="Unable to load match details" onRetry={refetch} />
+        <ErrorState message={t('match.matchDetailsError')} onRetry={refetch} />
       ) : null}
 
       {summary ? (
@@ -205,66 +218,88 @@ const MatchDetailsScreen: React.FC = () => {
           <View style={styles.leagueHeaderRow}>
             <View style={styles.teamColumn}>
               {teams?.home?.logo ? <Image source={{ uri: teams.home.logo }} style={styles.teamLogoLarge} /> : null}
-              <Text style={styles.detailTitle}>{teams?.home?.name || 'Home team'}</Text>
+              <Text style={styles.detailTitle}>{teams?.home?.name || t('match.homeTeam')}</Text>
               {homeStanding ? (
                 <Text style={styles.formText}>
-                  #{homeStanding.rank} • {homeStanding.points} pts • {homeStanding.form}
+                  {t('common.pointsFormLabel', {
+                    rank: formatNumber(homeStanding.rank),
+                    points: formatNumber(homeStanding.points),
+                    form: homeStanding.form ?? '-',
+                  })}
                 </Text>
               ) : null}
             </View>
 
             <View style={styles.vsColumn}>
               {league?.logo ? <Image source={{ uri: league.logo }} style={styles.leagueLogo} /> : null}
-              <Text style={styles.vsText}>VS</Text>
+              <Text style={styles.vsText}>{t('match.vs')}</Text>
             </View>
 
             <View style={styles.teamColumnRight}>
               {teams?.away?.logo ? <Image source={{ uri: teams.away.logo }} style={styles.teamLogoLarge} /> : null}
-              <Text style={[styles.detailTitle, { textAlign: 'right' }]}>{teams?.away?.name || 'Away team'}</Text>
+              <Text style={[styles.detailTitle, { textAlign: 'right' }]}>
+                {teams?.away?.name || t('match.awayTeam')}
+              </Text>
               {awayStanding ? (
-                <Text style={[styles.formText, { textAlign: 'right' }]}>#{awayStanding.rank} • {awayStanding.points} pts • {awayStanding.form}</Text>
+                <Text style={[styles.formText, { textAlign: 'right' }]}>
+                  {t('common.pointsFormLabel', {
+                    rank: formatNumber(awayStanding.rank),
+                    points: formatNumber(awayStanding.points),
+                    form: awayStanding.form ?? '-',
+                  })}
+                </Text>
               ) : null}
             </View>
           </View>
 
           <Text style={styles.detailSubtitle}>
-            {league?.name || 'League'} • {league?.country || 'Country'}
+            {t('match.leagueCountry', {
+              league: league?.name || t('common.league'),
+              country: league?.country || t('common.country'),
+            })}
           </Text>
 
           <View style={styles.sectionRow}>
-            <Text style={styles.sectionLabel}>Date</Text>
+            <Text style={styles.sectionLabel}>{t('common.date')}</Text>
             <Text style={styles.sectionValue}>
-              {kickoffDate ? kickoffDate.toLocaleString() : 'Not available'}
+              {kickoffDate ? formatDateTime(kickoffDate) : t('common.notAvailable')}
             </Text>
           </View>
 
           <View style={styles.sectionRow}>
-            <Text style={styles.sectionLabel}>Stadium</Text>
-            <Text style={styles.sectionValue}>{summary?.venue?.name || 'Not provided'}</Text>
+            <Text style={styles.sectionLabel}>{t('common.stadium')}</Text>
+            <Text style={styles.sectionValue}>{summary?.venue?.name || t('common.notProvided')}</Text>
           </View>
 
           <View style={styles.sectionRow}>
-            <Text style={styles.sectionLabel}>Referee</Text>
-            <Text style={styles.sectionValue}>{summary?.referee || 'Not assigned'}</Text>
+            <Text style={styles.sectionLabel}>{t('common.referee')}</Text>
+            <Text style={styles.sectionValue}>{summary?.referee || t('common.notAssigned')}</Text>
           </View>
 
           <View style={styles.sectionBlock}>
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionLabel}>Head-to-head</Text>
+              <Text style={styles.sectionLabel}>{t('match.headToHead')}</Text>
               <TouchableOpacity onPress={openH2H} style={styles.linkChip} activeOpacity={0.85}>
-                <Text style={styles.linkText}>Open full H2H</Text>
+                <Text style={styles.linkText}>{t('match.openH2H')}</Text>
               </TouchableOpacity>
             </View>
             {lastMeeting ? (
               <Text style={styles.sectionValue}>
-                Last meeting{lastMeetingDate ? ` (${lastMeetingDate})` : ''}: {teams?.home?.name || 'Home'}{' '}
-                {lastMeetingGoals.home ?? '-'} : {lastMeetingGoals.away ?? '-'} {teams?.away?.name || 'Away'}
+                {t('match.h2hSummary', {
+                  date: lastMeetingDate ? ` (${lastMeetingDate})` : '',
+                  home: teams?.home?.name || t('common.home'),
+                  away: teams?.away?.name || t('common.away'),
+                  homeGoals: lastMeetingGoals.home ?? '-',
+                  awayGoals: lastMeetingGoals.away ?? '-',
+                })}
               </Text>
             ) : (
-              <Text style={styles.sectionValue}>No head-to-head results available.</Text>
+              <Text style={styles.sectionValue}>{t('match.noH2H')}</Text>
             )}
             {h2hMatches.length > 0 ? (
-              <Text style={styles.sectionMeta}>Showing last {h2hMatches.length} meetings.</Text>
+              <Text style={styles.sectionMeta}>
+                {t('match.showingMeetings', { count: formatNumber(h2hMatches.length) })}
+              </Text>
             ) : null}
           </View>
 
@@ -291,38 +326,44 @@ const MatchDetailsScreen: React.FC = () => {
 
           {flatOdds ? (
               <View style={styles.sectionBlock}>
-                <Text style={styles.sectionLabel}>Odds snapshot</Text>
+                <Text style={styles.sectionLabel}>{t('match.oddsSnapshot')}</Text>
                 <View style={styles.oddsGrid}>
                   <View style={styles.oddsTile}>
-                    <Text style={styles.oddsTileLabel}>Match Winner</Text>
+                    <Text style={styles.oddsTileLabel}>{t('common.matchWinner')}</Text>
                     <View style={styles.oddsChipRow}>
                       <TouchableOpacity
                         style={styles.oddsChip}
                         onPress={() => openOdds('Match Winner - Home')}
                         activeOpacity={0.85}
                       >
-                        <Text style={styles.oddsChipText}>Home: {flatOdds.match_winner?.home ?? '-'}</Text>
+                        <Text style={styles.oddsChipText}>
+                          {t('analysis.marketHome')}: {flatOdds.match_winner?.home ?? '-'}
+                        </Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.oddsChip}
                         onPress={() => openOdds('Match Winner - Draw')}
                         activeOpacity={0.85}
                       >
-                        <Text style={styles.oddsChipText}>Draw: {flatOdds.match_winner?.draw ?? '-'}</Text>
+                        <Text style={styles.oddsChipText}>
+                          {t('analysis.marketDraw')}: {flatOdds.match_winner?.draw ?? '-'}
+                        </Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.oddsChip}
                         onPress={() => openOdds('Match Winner - Away')}
                         activeOpacity={0.85}
                       >
-                        <Text style={styles.oddsChipText}>Away: {flatOdds.match_winner?.away ?? '-'}</Text>
+                        <Text style={styles.oddsChipText}>
+                          {t('analysis.marketAway')}: {flatOdds.match_winner?.away ?? '-'}
+                        </Text>
                       </TouchableOpacity>
                     </View>
-                    <Text style={styles.oddsMeta}>Match Winner odds</Text>
+                    <Text style={styles.oddsMeta}>{t('match.oddsMatchWinner')}</Text>
                   </View>
 
                   <View style={styles.oddsTile}>
-                    <Text style={styles.oddsTileLabel}>Double Chance</Text>
+                    <Text style={styles.oddsTileLabel}>{t('match.doubleChance')}</Text>
                     <View style={styles.oddsChipRow}>
                       <TouchableOpacity
                         style={styles.oddsChip}
@@ -346,25 +387,29 @@ const MatchDetailsScreen: React.FC = () => {
                         <Text style={styles.oddsChipText}>X2: {flatOdds.double_chance?.['X2'] ?? '-'}</Text>
                       </TouchableOpacity>
                     </View>
-                    <Text style={styles.oddsMeta}>Double chance odds</Text>
+                    <Text style={styles.oddsMeta}>{t('match.oddsDoubleChance')}</Text>
                   </View>
 
                   <View style={styles.oddsTile}>
-                    <Text style={styles.oddsTileLabel}>BTTS & Goals</Text>
+                    <Text style={styles.oddsTileLabel}>{t('match.bttsGoals')}</Text>
                     <View style={styles.oddsChipRow}>
                       <TouchableOpacity
                         style={styles.oddsChip}
                         onPress={() => openOdds('BTTS YES/NO')}
                         activeOpacity={0.85}
                       >
-                        <Text style={styles.oddsChipText}>BTTS YES: {flatOdds.btts?.yes ?? '-'}</Text>
+                        <Text style={styles.oddsChipText}>
+                          {t('analysis.btts')} {t('analysis.marketYes')}: {flatOdds.btts?.yes ?? '-'}
+                        </Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.oddsChip}
                         onPress={() => openOdds('BTTS YES/NO')}
                         activeOpacity={0.85}
                       >
-                        <Text style={styles.oddsChipText}>BTTS NO: {flatOdds.btts?.no ?? '-'}</Text>
+                        <Text style={styles.oddsChipText}>
+                          {t('analysis.btts')} {t('analysis.marketNo')}: {flatOdds.btts?.no ?? '-'}
+                        </Text>
                       </TouchableOpacity>
                     </View>
                     <View style={styles.oddsChipRow}>
@@ -373,21 +418,27 @@ const MatchDetailsScreen: React.FC = () => {
                         onPress={() => openOdds('Totals - Overs')}
                         activeOpacity={0.85}
                       >
-                        <Text style={styles.oddsChipText}>Over 1.5: {flatOdds.totals?.over_1_5 ?? '-'}</Text>
+                        <Text style={styles.oddsChipText}>
+                          {t('analysis.oddsTotalsOver')} 1.5: {flatOdds.totals?.over_1_5 ?? '-'}
+                        </Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.oddsChip}
                         onPress={() => openOdds('Totals - Overs')}
                         activeOpacity={0.85}
                       >
-                        <Text style={styles.oddsChipText}>Over 2.5: {flatOdds.totals?.over_2_5 ?? '-'}</Text>
+                        <Text style={styles.oddsChipText}>
+                          {t('analysis.oddsTotalsOver')} 2.5: {flatOdds.totals?.over_2_5 ?? '-'}
+                        </Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.oddsChip}
                         onPress={() => openOdds('Totals - Overs')}
                         activeOpacity={0.85}
                       >
-                        <Text style={styles.oddsChipText}>Over 3.5: {flatOdds.totals?.over_3_5 ?? '-'}</Text>
+                        <Text style={styles.oddsChipText}>
+                          {t('analysis.oddsTotalsOver')} 3.5: {flatOdds.totals?.over_3_5 ?? '-'}
+                        </Text>
                       </TouchableOpacity>
                     </View>
                     <View style={styles.oddsChipRow}>
@@ -396,45 +447,55 @@ const MatchDetailsScreen: React.FC = () => {
                         onPress={() => openOdds('Totals - Unders')}
                         activeOpacity={0.85}
                       >
-                        <Text style={styles.oddsChipText}>Under 3.5: {flatOdds.totals?.under_3_5 ?? '-'}</Text>
+                        <Text style={styles.oddsChipText}>
+                          {t('analysis.oddsTotalsUnder')} 3.5: {flatOdds.totals?.under_3_5 ?? '-'}
+                        </Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.oddsChip}
                         onPress={() => openOdds('Totals - Unders')}
                         activeOpacity={0.85}
                       >
-                        <Text style={styles.oddsChipText}>Under 4.5: {flatOdds.totals?.under_4_5 ?? '-'}</Text>
+                        <Text style={styles.oddsChipText}>
+                          {t('analysis.oddsTotalsUnder')} 4.5: {flatOdds.totals?.under_4_5 ?? '-'}
+                        </Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.oddsChip}
                         onPress={() => openOdds('Half Time Totals')}
                         activeOpacity={0.85}
                       >
-                        <Text style={styles.oddsChipText}>HT Over 0.5: {flatOdds.ht_over_0_5 ?? '-'}</Text>
+                        <Text style={styles.oddsChipText}>
+                          {t('analysis.htOver')}: {flatOdds.ht_over_0_5 ?? '-'}
+                        </Text>
                       </TouchableOpacity>
                     </View>
-                    <Text style={styles.oddsMeta}>BTTS & Over/Under odds</Text>
+                    <Text style={styles.oddsMeta}>{t('match.oddsBttsGoals')}</Text>
                   </View>
 
                   <View style={styles.oddsTile}>
-                    <Text style={styles.oddsTileLabel}>Team Over 0.5</Text>
+                    <Text style={styles.oddsTileLabel}>{t('match.teamOver')}</Text>
                     <View style={styles.oddsChipRow}>
                       <TouchableOpacity
                         style={styles.oddsChip}
                         onPress={() => openOdds('Team Goals - Home')}
                         activeOpacity={0.85}
                       >
-                        <Text style={styles.oddsChipText}>Home: {flatOdds.home_goals_over_0_5 ?? '-'}</Text>
+                        <Text style={styles.oddsChipText}>
+                          {t('analysis.marketHome')}: {flatOdds.home_goals_over_0_5 ?? '-'}
+                        </Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.oddsChip}
                         onPress={() => openOdds('Team Goals - Away')}
                         activeOpacity={0.85}
                       >
-                        <Text style={styles.oddsChipText}>Away: {flatOdds.away_goals_over_0_5 ?? '-'}</Text>
+                        <Text style={styles.oddsChipText}>
+                          {t('analysis.marketAway')}: {flatOdds.away_goals_over_0_5 ?? '-'}
+                        </Text>
                       </TouchableOpacity>
                     </View>
-                    <Text style={styles.oddsMeta}>Home/Away Goals Over 0.5 odds</Text>
+                    <Text style={styles.oddsMeta}>{t('match.oddsTeamOver')}</Text>
                   </View>
               </View>
             </View>

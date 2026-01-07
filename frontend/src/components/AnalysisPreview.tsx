@@ -1,25 +1,30 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { MatchAnalysis } from '@naksir-types/analysis';
+import { useI18n } from '@lib/i18n';
 
 interface Props {
   analysis?: MatchAnalysis;
   onPress: () => void;
 }
 
-export const AnalysisPreview: React.FC<Props> = ({ analysis, onPress }) => (
-  <View style={styles.container}>
-    <View style={{ flex: 1 }}>
-      <Text style={styles.title}>AI Analysis</Text>
-      <Text style={styles.subtitle} numberOfLines={3}>
-        {analysis?.summary || 'AI insights summary, Key factors, DC + Goals, Probabilities: Correct scores, Corners, Yellow cards, Risks'}
-      </Text>
+export const AnalysisPreview: React.FC<Props> = ({ analysis, onPress }) => {
+  const { t } = useI18n();
+
+  return (
+    <View style={styles.container}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.title}>{t('analysis.previewTitle')}</Text>
+        <Text style={styles.subtitle} numberOfLines={3}>
+        {(analysis as any)?.preview || analysis?.summary || t('analysis.previewFallback')}
+        </Text>
+      </View>
+      <TouchableOpacity onPress={onPress} style={styles.button}>
+        <Text style={styles.buttonText}>{t('common.open')}</Text>
+      </TouchableOpacity>
     </View>
-    <TouchableOpacity onPress={onPress} style={styles.button}>
-      <Text style={styles.buttonText}>Open</Text>
-    </TouchableOpacity>
-  </View>
-);
+  );
+};
 
 const styles = StyleSheet.create({
   container: {

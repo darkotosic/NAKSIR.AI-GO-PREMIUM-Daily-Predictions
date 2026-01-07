@@ -1,15 +1,15 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useI18n } from '@lib/i18n';
 
 export default function SubscriptionsScreen() {
+  const { t } = useI18n();
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.card}>
-        <Text style={styles.title}>Subscriptions</Text>
-        <Text style={styles.subtitle}>
-          Subscriptions are currently hidden in the app experience. AI analysis is available
-          without ads or subscription prompts.
-        </Text>
+        <Text style={styles.title}>{t('subscriptions.title')}</Text>
+        <Text style={styles.subtitle}>{t('subscriptions.subtitle')}</Text>
       </View>
     </ScrollView>
   );

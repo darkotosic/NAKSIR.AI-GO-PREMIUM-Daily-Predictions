@@ -14,6 +14,7 @@ import { useMatchDetailsQuery } from '@hooks/useMatchDetailsQuery';
 import { RootStackParamList } from '@navigation/types';
 import { ErrorState } from '@components/ErrorState';
 import { PlayerStatisticEntry, PlayerStatsTeam } from '@naksir-types/match';
+import { useI18n } from '@lib/i18n';
 
 const COLORS = {
   background: '#040312',
@@ -26,39 +27,45 @@ const COLORS = {
 };
 
 const PlayerRow = ({ player }: { player: PlayerStatisticEntry }) => {
+  const { t } = useI18n();
   const stats = player.statistics?.[0];
   return (
     <View style={styles.playerRow}>
       <View style={styles.playerMeta}>
-        <Text style={styles.playerName}>{player.player?.name || 'Player'}</Text>
+        <Text style={styles.playerName}>{player.player?.name || t('common.player')}</Text>
         <Text style={styles.playerSubtitle}>
-          #{player.player?.number ?? '?'} • {stats?.games?.position || player.player?.pos || 'Pos'}
+          #{player.player?.number ?? '?'} • {stats?.games?.position || player.player?.pos || t('players.positionFallback')}
         </Text>
       </View>
       <View style={styles.playerBadges}>
         {stats?.games?.minutes ? <Text style={styles.badge}>{stats.games.minutes}m</Text> : null}
-        {stats?.games?.rating ? <Text style={styles.badge}>Rating {stats.games.rating}</Text> : null}
-        {typeof stats?.goals?.total === 'number' ? <Text style={styles.badge}>G {stats.goals.total}</Text> : null}
-        {typeof stats?.assists === 'number' ? <Text style={styles.badge}>A {stats.assists}</Text> : null}
+        {stats?.games?.rating ? <Text style={styles.badge}>{t('players.rating')}: {stats.games.rating}</Text> : null}
+        {typeof stats?.goals?.total === 'number' ? <Text style={styles.badge}>{t('players.goalsAbbr')} {stats.goals.total}</Text> : null}
+        {typeof stats?.assists === 'number' ? <Text style={styles.badge}>{t('players.assistsAbbr')} {stats.assists}</Text> : null}
       </View>
     </View>
   );
 };
 
-const TeamCard = ({ block }: { block: PlayerStatsTeam }) => (
-  <View style={styles.card}>
-    <Text style={styles.title}>{block.team?.name || 'Team'}</Text>
-    <View style={styles.playerList}>
-      {block.players?.map((player, idx) => (
-        <PlayerRow key={player.player?.id || idx} player={player} />
-      ))}
+const TeamCard = ({ block }: { block: PlayerStatsTeam }) => {
+  const { t } = useI18n();
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.title}>{block.team?.name || t('common.team')}</Text>
+      <View style={styles.playerList}>
+        {block.players?.map((player, idx) => (
+          <PlayerRow key={player.player?.id || idx} player={player} />
+        ))}
+      </View>
     </View>
-  </View>
-);
+  );
+};
 
 const PlayersScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'Players'>>();
+  const { t } = useI18n();
   const fixtureId = route.params?.fixtureId;
   const summary = route.params?.summary;
 
@@ -68,7 +75,12 @@ const PlayersScreen: React.FC = () => {
   const hasPlayers = Array.isArray(playerBlocks) && playerBlocks.length > 0;
 
   if (!fixtureId) {
-    return <ErrorState message="Fixture ID is missing." onRetry={() => navigation.navigate('TodayMatches')} />;
+    return (
+      <ErrorState
+        message={t('match.fixtureMissing')}
+        onRetry={() => navigation.navigate('TodayMatches')}
+      />
+    );
   }
 
   const goBackToMatch = () => navigation.navigate('MatchDetails', { fixtureId, summary: heroSummary ?? summary });
@@ -78,20 +90,20 @@ const PlayersScreen: React.FC = () => {
       <ScrollView contentContainerStyle={styles.container}>
         <TouchableOpacity style={styles.backButton} onPress={goBackToMatch}>
           <Text style={styles.backIcon}>←</Text>
-          <Text style={styles.backLabel}>Back to match</Text>
+          <Text style={styles.backLabel}>{t('common.backToMatch')}</Text>
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>Players</Text>
+        <Text style={styles.headerTitle}>{t('players.title')}</Text>
         <Text style={styles.subtitle}>
-          {heroSummary?.teams?.home?.name || 'Home'} vs {heroSummary?.teams?.away?.name || 'Away'}
+          {heroSummary?.teams?.home?.name || t('common.home')} vs {heroSummary?.teams?.away?.name || t('common.away')}
         </Text>
 
         {isLoading ? <ActivityIndicator color={COLORS.neonViolet} size="large" style={styles.loader} /> : null}
-        {isError ? <ErrorState message="Unable to load player stats" onRetry={refetch} /> : null}
+        {isError ? <ErrorState message={t('players.loadingError')} onRetry={refetch} /> : null}
 
         {!isLoading && !isError && !hasPlayers ? (
           <View style={styles.card}>
-            <Text style={styles.emptyText}>No player statistics available.</Text>
+            <Text style={styles.emptyText}>{t('players.empty')}</Text>
           </View>
         ) : null}
 

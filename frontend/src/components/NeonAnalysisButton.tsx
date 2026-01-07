@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useI18n } from '@lib/i18n';
 
 const COLORS = {
   neonPurple: '#b06bff',
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export const NeonAnalysisButton: React.FC<Props> = ({ onPress }) => {
+  const { t } = useI18n();
   const glow = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -63,10 +65,8 @@ export const NeonAnalysisButton: React.FC<Props> = ({ onPress }) => {
       <Animated.View pointerEvents="none" style={[styles.analysisGlowHalo, { opacity: glowOpacity }]} />
 
       <TouchableOpacity style={styles.analysisButton} onPress={onPress} activeOpacity={0.9}>
-        <Text style={styles.analysisButtonText}>Naksir In-depth Analysis</Text>
-        <Text style={styles.analysisButtonSub}>
-          AI insights summary, Key factors, DC + Goals, Probabilities: Correct scores, Corners, Yellow cards, Risks
-        </Text>
+        <Text style={styles.analysisButtonText}>{t('analysis.buttonTitle')}</Text>
+        <Text style={styles.analysisButtonSub}>{t('analysis.buttonSubtitle')}</Text>
       </TouchableOpacity>
     </Animated.View>
   );

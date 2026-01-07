@@ -14,6 +14,7 @@ import { useMatchDetailsQuery } from '@hooks/useMatchDetailsQuery';
 import { RootStackParamList } from '@navigation/types';
 import { ErrorState } from '@components/ErrorState';
 import { PredictionEntry, PredictionsBlock } from '@naksir-types/match';
+import { useI18n } from '@lib/i18n';
 
 const COLORS = {
   background: '#040312',
@@ -28,6 +29,7 @@ const COLORS = {
 const PredictionsScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'Predictions'>>();
+  const { t } = useI18n();
   const fixtureId = route.params?.fixtureId;
   const summary = route.params?.summary;
 
@@ -47,7 +49,12 @@ const PredictionsScreen: React.FC = () => {
   }, [predictionsRaw]);
 
   if (!fixtureId) {
-    return <ErrorState message="Fixture ID is missing." onRetry={() => navigation.navigate('TodayMatches')} />;
+    return (
+      <ErrorState
+        message={t('match.fixtureMissing')}
+        onRetry={() => navigation.navigate('TodayMatches')}
+      />
+    );
   }
 
   const goBackToMatch = () => navigation.navigate('MatchDetails', { fixtureId, summary: heroSummary ?? summary });
@@ -57,62 +64,64 @@ const PredictionsScreen: React.FC = () => {
       <ScrollView contentContainerStyle={styles.container}>
         <TouchableOpacity style={styles.backButton} onPress={goBackToMatch}>
           <Text style={styles.backIcon}>←</Text>
-          <Text style={styles.backLabel}>Back to match</Text>
+          <Text style={styles.backLabel}>{t('common.backToMatch')}</Text>
         </TouchableOpacity>
 
-        <Text style={styles.title}>Predictions</Text>
+        <Text style={styles.title}>{t('predictions.title')}</Text>
         <Text style={styles.subtitle}>
-          {heroSummary?.teams?.home?.name || 'Home'} vs {heroSummary?.teams?.away?.name || 'Away'}
+          {heroSummary?.teams?.home?.name || t('common.home')} vs {heroSummary?.teams?.away?.name || t('common.away')}
         </Text>
 
         {isLoading ? <ActivityIndicator color={COLORS.neonViolet} size="large" style={styles.loader} /> : null}
-        {isError ? <ErrorState message="Unable to load predictions" onRetry={refetch} /> : null}
+        {isError ? <ErrorState message={t('predictions.loadingError')} onRetry={refetch} /> : null}
 
         {!isLoading && !isError && !prediction ? (
           <View style={styles.card}>
-            <Text style={styles.emptyText}>No predictions available.</Text>
+            <Text style={styles.emptyText}>{t('predictions.empty')}</Text>
           </View>
         ) : null}
 
         {prediction ? (
           <View style={styles.card}>
-            <Text style={styles.sectionLabel}>Recommended winner</Text>
+            <Text style={styles.sectionLabel}>{t('predictions.recommendedWinner')}</Text>
             <Text style={styles.primaryValue}>
-              {prediction.winner?.name || prediction.winner?.comment || 'No pick'}
+              {prediction.winner?.name || prediction.winner?.comment || t('predictions.noPick')}
             </Text>
             {typeof prediction.win_or_draw === 'boolean' ? (
-              <Text style={styles.muted}>Win or draw: {prediction.win_or_draw ? 'Yes' : 'No'}</Text>
+              <Text style={styles.muted}>
+                {t('predictions.winOrDraw')}: {prediction.win_or_draw ? t('analysis.marketYes') : t('analysis.marketNo')}
+              </Text>
             ) : null}
 
             {prediction.advice ? (
               <View style={styles.block}>
-                <Text style={styles.sectionLabel}>Advice</Text>
+                <Text style={styles.sectionLabel}>{t('predictions.advice')}</Text>
                 <Text style={styles.text}>{prediction.advice}</Text>
               </View>
             ) : null}
 
             {prediction.under_over ? (
               <View style={styles.block}>
-                <Text style={styles.sectionLabel}>Under/Over</Text>
+                <Text style={styles.sectionLabel}>{t('predictions.underOver')}</Text>
                 <Text style={styles.text}>{prediction.under_over}</Text>
               </View>
             ) : null}
 
             {prediction.goals ? (
               <View style={styles.row}>
-                <Text style={styles.sectionLabel}>Goals</Text>
+                <Text style={styles.sectionLabel}>{t('predictions.goals')}</Text>
                 <Text style={styles.text}>
-                  Home {prediction.goals.home ?? '-'} / Away {prediction.goals.away ?? '-'}
+                  {t('analysis.marketHome')} {prediction.goals.home ?? '-'} / {t('analysis.marketAway')} {prediction.goals.away ?? '-'}
                 </Text>
               </View>
             ) : null}
 
             {prediction.percent ? (
               <View style={styles.block}>
-                <Text style={styles.sectionLabel}>Win probabilities</Text>
-                <Text style={styles.text}>Home: {prediction.percent.home ?? '-'}</Text>
-                <Text style={styles.text}>Draw: {prediction.percent.draw ?? '-'}</Text>
-                <Text style={styles.text}>Away: {prediction.percent.away ?? '-'}</Text>
+                <Text style={styles.sectionLabel}>{t('predictions.winProbabilities')}</Text>
+                <Text style={styles.text}>{t('analysis.marketHome')}: {prediction.percent.home ?? '-'}</Text>
+                <Text style={styles.text}>{t('analysis.marketDraw')}: {prediction.percent.draw ?? '-'}</Text>
+                <Text style={styles.text}>{t('analysis.marketAway')}: {prediction.percent.away ?? '-'}</Text>
               </View>
             ) : null}
           </View>
