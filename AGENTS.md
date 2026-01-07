@@ -1,92 +1,97 @@
 # AGENTS.md — NAKSIR.AI GO PREMIUM
 
-Logički “agenti” ispod opisuju stvarne komponente u ovom repou. Svaki agent je
-vezan za postojeće module (FastAPI rute, helper funkcije i frontend tokovi) koji
-zajedno isporučuju dnevne feedove i AI analize.
+This file defines the Agent Mesh and Microchip Map summary for the repo.
 
----
+## Microchip Map Summary
+| Cell ID | Scope | Purpose |
+| --- | --- | --- |
+| CELL_BACKEND_FETCH_CACHE | `backend/api_football.py`, `backend/cache.py`, `backend/config.py` | API-Football fetch + caching boundaries. |
+| CELL_BACKEND_MATCH_AGG | `backend/match_full.py` | Match summary + full context aggregation. |
+| CELL_BACKEND_ODDS | `backend/odds_normalizer.py`, `backend/odds_summary.py` | Odds normalization + probabilities. |
+| CELL_BACKEND_AI | `backend/ai_analysis.py`, `backend/services/ai_analysis_cache_service.py` | AI analysis orchestration + caching. |
+| CELL_BACKEND_API | `backend/main.py`, `backend/app.py`, `backend/routers/*`, `backend/monitoring.py`, `backend/observability.py`, `backend/dependencies.py` | HTTP routing + guardrails. |
+| CELL_BACKEND_DATA | `backend/db.py`, `backend/models/*`, `backend/services/*`, `alembic/*` | Persistence + billing data. |
+| CELL_FRONTEND_APP | `frontend/*` | Expo/React Native app + API consumption. |
+| CELL_SHARED_BILLING | `shared/billing_skus.ts` | Shared SKU + entitlement metadata. |
+| CELL_INFRA_GOVERNANCE | `docs/microchip/*`, `scripts/*`, `OWNERSHIP.yml`, `.github/workflows/*`, `Makefile` | Governance, CI, and contract checks. |
 
-## 1) API‑Football Fetcher & Cache Agent
+## Agent Mesh
 
-**Gde:** `backend/api_football.py`, `backend/cache.py`
+### AGENT_BACKEND_FETCH_CACHE
+- **Ownership:** `backend/api_football.py`, `backend/cache.py`, `backend/config.py`
+- **Responsibilities:** API-Football calls, caching, rate-limit handling.
+- **Guardrails:** Must preserve allow-list filtering and cache fallback behavior.
+- **Required checks:** contract check, unit tests touching fetch/cache.
 
-- Gradi URL‑ove, šalje HTTP pozive i koristi in‑memory keš sa TTL‑om po
-  endpointu da smanji latency i broj request‑ova.
-- Deduplicira paralelne pozive (`begin_inflight`/`wait_for_inflight`) i vraća
-  poslednji važeći payload kad API‑FOOTBALL vrati 429 ili invalid JSON.
-- Poštuje allow‑list liga i preskače završene statusne kodove iz
-  `backend/config.py` pre nego što išta ode u agregatore.
+### AGENT_BACKEND_MATCH_AGG
+- **Ownership:** `backend/match_full.py`
+- **Responsibilities:** summary card + full context aggregation.
+- **Guardrails:** Summary and full-context output keys must remain stable.
+- **Required checks:** contract check, unit tests for match contracts.
 
----
+### AGENT_BACKEND_ODDS
+- **Ownership:** `backend/odds_normalizer.py`, `backend/odds_summary.py`
+- **Responsibilities:** odds flattening + probabilities.
+- **Guardrails:** Maintain flat odds schema and probability invariants.
+- **Required checks:** contract check, odds-related unit tests.
 
-## 2) Match Card Aggregator Agent
+### AGENT_BACKEND_AI
+- **Ownership:** `backend/ai_analysis.py`, `backend/services/ai_analysis_cache_service.py`
+- **Responsibilities:** AI analysis orchestration and caching policy.
+- **Guardrails:** Preserve AI response structure and caching flags.
+- **Required checks:** contract check, AI unit tests.
 
-**Gde:** `backend/match_full.py` (`build_match_summary`), rute `GET /matches/today`
-& `GET /matches/{fixture_id}`
+### AGENT_BACKEND_API
+- **Ownership:** `backend/main.py`, `backend/app.py`, `backend/routers/*`, `backend/monitoring.py`, `backend/observability.py`, `backend/dependencies.py`
+- **Responsibilities:** routing, middleware, guardrails, observability.
+- **Guardrails:** Documented endpoints must remain available unless versioned.
+- **Required checks:** contract check, smoke tests.
 
-- Normalizuje raw fixture u “card” format (liga, timovi, kickoff, status,
-  skor/goal snapshot, venue, referee, oznake domaćin/gost) sa doslednim
-  timezone‑om.
-- U `/matches/today` dodaje lagani odds snapshot (`odds.flat`) ako je feed već u
-  kešu kako bi kartice ostale brze i jeftine po API pozive.
+### AGENT_BACKEND_DATA
+- **Ownership:** `backend/db.py`, `backend/models/*`, `backend/services/*`, `alembic/*`
+- **Responsibilities:** persistence, billing entitlements, service layer.
+- **Guardrails:** Schema migrations required for breaking DB changes.
+- **Required checks:** contract check, unit tests for services.
 
----
+### AGENT_FRONTEND_APP
+- **Ownership:** `frontend/*`
+- **Responsibilities:** UI flows, API consumption, navigation.
+- **Guardrails:** Must respect backend contracts defined in `frontend/src/contracts`.
+- **Required checks:** contract check, frontend type-check (when available).
 
-## 3) Full Match Context Agent
+### AGENT_SHARED_BILLING
+- **Ownership:** `shared/billing_skus.ts`, `shared/contracts/index.ts`
+- **Responsibilities:** Shared SKU list + entitlement metadata.
+- **Guardrails:** Keep shared SKUs in sync with backend billing plans.
+- **Required checks:** contract check.
 
-**Gde:** `backend/match_full.py` (`build_full_match`), ruta
-`GET /matches/{fixture_id}/full`
+### AGENT_INFRA_GOVERNANCE
+- **Ownership:** `docs/microchip/*`, `scripts/*`, `OWNERSHIP.yml`, `.github/workflows/*`, `Makefile`
+- **Responsibilities:** governance docs, CI gates, contract checks.
+- **Guardrails:** Contract check must always be runnable.
+- **Required checks:** contract check, smoke test.
 
-- Spaja više sekcija: summary, odds (sa `flat_probabilities`), standings,
-  team/fixture stats, head‑to‑head, events, lineups, players, predictions i
-  injuries.
-- Parametar `sections` dozvoljava da se eksplicitno navedu samo željeni blokovi
-  (korisno za UX koji učitava detalje na zahtev).
-- Safe wrapper (`_safe_call`) sprečava da izostanak pojedinog helpera sruši
-  čitav odgovor; nepostojeće sekcije se samo prate u logu.
+### AGENT_SYSTEM
+- **Ownership:** Global constraints, cross-cell policies.
+- **Responsibilities:** Approve cross-cell changes, enforce contract policies.
+- **Guardrails:** Protect system integrity and backward compatibility.
 
----
+### AGENT_RELEASE
+- **Ownership:** Release validation and integration.
+- **Responsibilities:** End-to-end validation, versioning, migration checks.
+- **Guardrails:** Ensure integration tests and smoke tests pass before release.
 
-## 4) Odds Normalizer & Probability Agent
+## Cross-cell Change Protocol
+- Any change touching more than one micro-cell must follow `docs/microchip/CHANGE_PROTOCOL.md`.
+- Submit `docs/microchip/changes/CHG-<id>.md` for review.
 
-**Gde:** `backend/odds_normalizer.py`, `backend/odds_summary.py`
+## Breaking Change Rules
+- Removing/renaming endpoints, changing required fields, or altering SKU semantics is breaking.
+- Breaking changes must be versioned and require AGENT_SYSTEM approval.
 
-- Čisti i transponuje odds feed u flat formate (`odds.flat`) i izračunate
-  verovatnoće (`flat_probabilities`) koji su čitljiviji za frontend i AI sloj.
-- Pakuje 1x2/DC/BTTS/goal linije u stabilan JSON bez oslanjanja na raspored
-  ključeva iz API‑FOOTBALL odgovora.
-
----
-
-## 5) AI Match Analyst Agent
-
-**Gde:** `backend/ai_analysis.py`, ruta `POST /matches/{fixture_id}/ai-analysis`
-
-- Uzima full kontekst meča i opciono korisničko pitanje, poziva GPT sloj i vraća
-  strukturisan JSON (sažetak, key factors, value bet signali, rizici,
-  disclaimer). Ako kontekst nedostaje, vraća fallback analizu umesto greške.
-- Ekstrahuje `odds.flat_probabilities` iz full odgovora tako da klijent dobije i
-  numeričke verovatnoće koje su bile input za AI.
-
----
-
-## 6) Frontend Orchestrator Agent
-
-**Gde:** `frontend/` (Expo), ulaz `App.tsx`
-
-- Učitava `/matches/today` za početni spisak, zatim za kliknuti meč poziva
-  `/matches/{id}/full` i puni tabove (stats, H2H, standings, injuries, odds).
-- CTA za AI analize šalje `POST /matches/{id}/ai-analysis` i prikazuje GPT
-  odgovor uz nastavak Q&A konverzacije.
-
----
-
-## 7) Guardrails & Monitoring Agent
-
-**Gde:** `backend/app.py`
-
-- Globalni exception handler vraća čist JSON umesto HTML traceback‑a i loguje
-  greške.
-- `/_debug/routes` i startup log listing olakšavaju QA/monitoring na Render‑u.
-- API pozivi se degradiraju graciozno: ako helperi ne postoje ili API‑FOOTBALL
-  vrati prazan rezultat, vraćamo parcijalne blokove umesto 500 greške.
+## Required CI Gates
+- Contract check: `python scripts/contract_check.py` (always).
+- Lint: `ruff check backend tests backend/tests scripts`.
+- Type-check (contracts + scripts): `mypy --config-file mypy.ini`.
+- Unit tests: `pytest`.
+- Smoke test: `python scripts/smoke_test.py`.

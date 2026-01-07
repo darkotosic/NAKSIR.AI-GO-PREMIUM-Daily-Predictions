@@ -26,4 +26,8 @@ jobs:
           ALLOWED_ORIGINS: http://localhost
           USE_FAKE_REDIS: "true"
         run: |
+          ruff check backend tests backend/tests scripts
+          mypy --config-file mypy.ini
+          python scripts/contract_check.py
+          python scripts/smoke_test.py
           pytest --maxfail=1 --disable-warnings
