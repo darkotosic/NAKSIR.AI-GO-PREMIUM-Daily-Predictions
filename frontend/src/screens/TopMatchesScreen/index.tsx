@@ -155,10 +155,6 @@ export default function TopMatchesScreen() {
             { key: 'home', label: 'HOME', value: flatOdds?.match_winner?.home },
             { key: 'draw', label: 'DRAW', value: flatOdds?.match_winner?.draw },
             { key: 'away', label: 'AWAY', value: flatOdds?.match_winner?.away },
-            { key: 'over25', label: 'OVER 2.5', value: flatOdds?.totals?.over_2_5 },
-            { key: 'under25', label: 'UNDER 2.5', value: flatOdds?.totals?.under_2_5 },
-            { key: 'bttsYes', label: 'BTTS YES', value: flatOdds?.btts?.yes },
-            { key: 'bttsNo', label: 'BTTS NO', value: flatOdds?.btts?.no },
           ].filter((chip) => chip.value !== null && chip.value !== undefined);
 
           return (
@@ -204,7 +200,7 @@ export default function TopMatchesScreen() {
                 </View>
               </View>
 
-              <View style={styles.valueRow}>
+              <View style={styles.metaRow}>
                 <View style={styles.valuePill}>
                   <Text style={styles.valueLabel}>Rank</Text>
                   <Text style={styles.valueText}>
@@ -217,13 +213,17 @@ export default function TopMatchesScreen() {
                     {homeForm} | {awayForm}
                   </Text>
                 </View>
-                {oddsChips.map((chip) => (
-                  <View key={chip.key} style={styles.oddsChip}>
-                    <Text style={styles.oddsLabel}>{chip.label}</Text>
-                    <Text style={styles.oddsValue}>{formatOdd(chip.value)}</Text>
-                  </View>
-                ))}
               </View>
+              {oddsChips.length ? (
+                <View style={styles.oddsRow}>
+                  {oddsChips.map((chip) => (
+                    <View key={chip.key} style={styles.oddsChip}>
+                      <Text style={styles.oddsLabel}>{chip.label}</Text>
+                      <Text style={styles.oddsValue}>{formatOdd(chip.value)}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
             </TouchableOpacity>
           );
         }}
@@ -324,12 +324,18 @@ const styles = StyleSheet.create({
     fontSize: 11,
     textTransform: 'uppercase',
   },
-  valueRow: {
+  metaRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
     alignItems: 'center',
     marginTop: 10,
+  },
+  oddsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
   },
   valuePill: {
     borderRadius: 10,
@@ -338,9 +344,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     backgroundColor: '#11182c',
-  },
-  valueWide: {
-    flexBasis: '100%',
   },
   valueLabel: {
     color: COLORS.muted,
