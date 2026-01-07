@@ -15,7 +15,7 @@ DEFAULT_WAIT_SECONDS = 20
 POLL_INTERVAL_SECONDS = 0.5
 
 
-READY_STATUSES = {"ready", "ok"}
+READY_STATUSES = {"ready", "ok", "completed", "success"}
 
 
 def list_cached_ready_for_fixture_ids(
