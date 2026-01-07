@@ -99,10 +99,15 @@ export const MatchCard: React.FC<Props> = ({ match, onPress, onToggleFavorite, i
               <Image source={{ uri: teams.home.logo }} style={styles.teamLogo} />
             ) : null}
             {showHomeMeta ? (
-              <View style={styles.formSummaryRow}>
-                <Text style={styles.formSummaryText}>{homeFormLabel}</Text>
-                <Text style={styles.formSummaryDivider}>•</Text>
-                <Text style={styles.rankSummaryText}>{homeRankLabel}</Text>
+              <View style={styles.metaRow}>
+                <View style={styles.metaChip}>
+                  <Text style={styles.metaLabel}>FORM</Text>
+                  <Text style={styles.metaValue}>{homeFormLabel}</Text>
+                </View>
+                <View style={styles.metaChip}>
+                  <Text style={styles.metaLabel}>RANK</Text>
+                  <Text style={styles.metaValue}>{homeRankLabel}</Text>
+                </View>
               </View>
             ) : null}
             <Text style={styles.teamName} numberOfLines={1}>
@@ -120,10 +125,15 @@ export const MatchCard: React.FC<Props> = ({ match, onPress, onToggleFavorite, i
               <Image source={{ uri: teams.away.logo }} style={styles.teamLogo} />
             ) : null}
             {showAwayMeta ? (
-              <View style={[styles.formSummaryRow, styles.formSummaryRowRight]}>
-                <Text style={styles.formSummaryText}>{awayFormLabel}</Text>
-                <Text style={styles.formSummaryDivider}>•</Text>
-                <Text style={styles.rankSummaryText}>{awayRankLabel}</Text>
+              <View style={[styles.metaRow, styles.metaRowRight]}>
+                <View style={styles.metaChip}>
+                  <Text style={styles.metaLabel}>FORM</Text>
+                  <Text style={styles.metaValue}>{awayFormLabel}</Text>
+                </View>
+                <View style={styles.metaChip}>
+                  <Text style={styles.metaLabel}>RANK</Text>
+                  <Text style={styles.metaValue}>{awayRankLabel}</Text>
+                </View>
               </View>
             ) : null}
             <Text style={[styles.teamName, { textAlign: 'right' }]} numberOfLines={1}>
@@ -235,34 +245,35 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 6,
   },
-  formSummaryRow: {
+  metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 6,
+    marginBottom: 8,
+    flexWrap: 'wrap',
   },
-  formSummaryRowRight: {
+  metaRowRight: {
     justifyContent: 'flex-end',
   },
-  formSummaryText: {
-    color: COLORS.text,
-    fontWeight: '800',
-    letterSpacing: 0.8,
+  metaChip: {
     backgroundColor: '#11182c',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: COLORS.borderSoft,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
-  formSummaryDivider: {
+  metaLabel: {
     color: COLORS.muted,
+    fontSize: 9,
     fontWeight: '700',
-  },
-  rankSummaryText: {
-    color: COLORS.neonOrange,
-    fontWeight: '800',
     letterSpacing: 0.4,
+  },
+  metaValue: {
+    color: COLORS.text,
+    fontSize: 11,
+    fontWeight: '800',
+    marginTop: 2,
   },
   vsPill: {
     backgroundColor: COLORS.neonPurple,
