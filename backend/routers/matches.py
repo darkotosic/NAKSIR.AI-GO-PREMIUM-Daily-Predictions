@@ -235,7 +235,11 @@ def get_match_full(
     fixture_id: int = Path(..., description="API-Football fixture ID"),
     sections: Optional[str] = Query(
         default=None,
-        description="Comma-separated list of sections to include (summary,odds,standings,stats,team_stats,h2h,events,lineups,players,predictions,injuries)",
+        description=(
+            "Comma-separated list of sections to include "
+            "(summary,odds,standings,stats,team_stats,team_profiles,team_seasons,"
+            "team_countries,h2h,events,lineups,players,predictions,injuries)"
+        ),
     ),
 ) -> Dict[str, Any]:
     """

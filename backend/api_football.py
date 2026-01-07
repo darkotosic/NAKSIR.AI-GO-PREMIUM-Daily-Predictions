@@ -78,6 +78,8 @@ def _get_ttl_for_endpoint(endpoint: str) -> int:
         return 10 * 60
     if endpoint == "fixtures/statistics":
         return 10 * 60
+    if endpoint in {"teams", "teams/seasons", "teams/countries"}:
+        return 24 * 60 * 60
     return 0
 
 
@@ -357,6 +359,66 @@ def get_team_stats(league_id: int, season: int, team_id: int) -> Optional[Dict[s
     return _extract_response_first(data)
 
 
+def get_teams(
+    *,
+    team_id: Optional[int] = None,
+    name: Optional[str] = None,
+    league_id: Optional[int] = None,
+    season: Optional[int] = None,
+    country: Optional[str] = None,
+    search: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """
+    /teams – lookup teams by filters (id, name, league, season, country, search).
+    """
+    params: Dict[str, Any] = {}
+    if team_id is not None:
+        params["id"] = team_id
+    if name:
+        params["name"] = name
+    if league_id is not None:
+        params["league"] = league_id
+    if season is not None:
+        params["season"] = season
+    if country:
+        params["country"] = country
+    if search:
+        params["search"] = search
+
+    data = _call_api("teams", params, safe=True)
+    return _extract_response_list(data)
+
+
+def get_team_by_id(team_id: int) -> Optional[Dict[str, Any]]:
+    """
+    /teams – single team lookup by ID.
+    """
+    data = _call_api("teams", {"id": team_id}, safe=True)
+    return _extract_response_first(data)
+
+
+def get_team_seasons(team_id: int, current_only: bool = True) -> List[Any]:
+    """
+    /teams/seasons – seasons list for a team (optionally current only).
+    """
+    params: Dict[str, Any] = {"team": team_id}
+    if current_only:
+        params["current"] = "true"
+    data = _call_api("teams/seasons", params, safe=True)
+    resp = data.get("response")
+    if isinstance(resp, list):
+        return resp
+    return []
+
+
+def get_team_countries() -> List[Dict[str, Any]]:
+    """
+    /teams/countries – list of available team countries.
+    """
+    data = _call_api("teams/countries", {}, safe=True)
+    return _extract_response_list(data)
+
+
 def get_standings(league_id: int, season: int) -> List[Dict[str, Any]]:
     """
     /standings – tabela lige (raw JSON).
@@ -511,6 +573,10 @@ __all__ = [
     # context helpers
     "get_fixture_stats",
     "get_team_stats",
+    "get_teams",
+    "get_team_by_id",
+    "get_team_seasons",
+    "get_team_countries",
     "get_standings",
     "get_h2h",
     "get_events_for_fixture",
