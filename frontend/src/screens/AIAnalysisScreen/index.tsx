@@ -26,6 +26,8 @@ const COLORS = {
   borderSoft: '#1f1f3a',
 };
 
+const LIVE_STATUSES = new Set(['1H', '2H', 'ET', 'P', 'INT', 'LIVE']);
+
 const AIAnalysisScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'AIAnalysis'>>();
@@ -42,6 +44,7 @@ const AIAnalysisScreen: React.FC = () => {
   const pollInFlightRef = useRef(false);
   const requestIdRef = useRef(0);
   const isGeneratingRef = useRef(false);
+  const isLiveMatch = LIVE_STATUSES.has(summary?.status ?? '');
 
   const depthWords = useMemo(() => 'NAKSIR GO IN DEPTH OF DATA'.split(' '), []);
   const depthWordAnim = useMemo(() => depthWords.map(() => new Animated.Value(0)), [depthWords]);
@@ -184,13 +187,18 @@ const AIAnalysisScreen: React.FC = () => {
     }, 2500);
   }, [fixtureId, stopPolling]);
 
-  const startGeneration = useCallback(async () => {
+  const startGeneration = useCallback(async (options?: { live?: boolean }) => {
     if (!fixtureId || isGeneratingRef.current) return;
+    const isLive = options?.live ?? isLiveMatch;
     const requestId = requestIdRef.current;
     setStatus('generating');
     setError(null);
     try {
-      const res = await requestAiAnalysis({ fixtureId, useTrialReward: false });
+      const res = await requestAiAnalysis({
+        fixtureId,
+        useTrialReward: false,
+        live: isLive,
+      });
       if (requestId !== requestIdRef.current) {
         return;
       }
@@ -208,7 +216,9 @@ const AIAnalysisScreen: React.FC = () => {
 
       if (res.status === 202) {
         setStatus('generating');
-        pollForAnalysis(requestId);
+        if (!isLive) {
+          pollForAnalysis(requestId);
+        }
         return;
       }
 
@@ -222,7 +232,7 @@ const AIAnalysisScreen: React.FC = () => {
       setStatus('error');
       setError(normalized);
     }
-  }, [fixtureId, pollForAnalysis, stopPolling]);
+  }, [fixtureId, isLiveMatch, pollForAnalysis, stopPolling]);
 
   const readCached = useCallback(async () => {
     if (!fixtureId) return;
@@ -272,10 +282,14 @@ const AIAnalysisScreen: React.FC = () => {
     setError(null);
     setStatus('idle');
     if (fixtureId) {
-      readCached();
+      if (isLiveMatch) {
+        startGeneration({ live: true });
+      } else {
+        readCached();
+      }
     }
     return () => stopPolling();
-  }, [fixtureId, readCached, stopPolling]);
+  }, [fixtureId, isLiveMatch, readCached, startGeneration, stopPolling]);
 
   const analysisPayload = analysisPayloadState;
   const analysis = (analysisPayload as any)?.analysis || analysisPayload;

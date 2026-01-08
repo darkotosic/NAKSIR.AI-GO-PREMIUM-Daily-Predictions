@@ -136,6 +136,7 @@ def get_match_ai_analysis(
 )
 def post_match_ai_analysis(
     fixture_id: int = Path(..., description="API-Football fixture ID"),
+    mode: Optional[str] = Query(None, description="Optional mode override (e.g. live)"),
     payload: AIAnalysisRequest = Body(
         default_factory=AIAnalysisRequest,
         description="Opcioni user prompt kojim se usmerava AI analiza.",
@@ -170,42 +171,16 @@ def post_match_ai_analysis(
         mark_reward=False,
     )
 
+    is_live = (mode or "").lower() == "live"
     cache_key = make_cache_key(
         fixture_id=fixture_id,
         prompt_version="v1",
         locale="en",
     )
-    cached = get_cached_ok(session, cache_key)
-    if cached:
-        cached_payload = cached.analysis_json or {}
-        logger.info("AI cache HIT fixture_id=%s cache_key=%s", fixture_id, cache_key)
-        return JSONResponse(
-            status_code=200,
-            content={
-                "fixture_id": fixture_id,
-                "generated_at": datetime.now().isoformat(),
-                "timezone": TIMEZONE,
-                "question": user_question,
-                "analysis": cached_payload.get("analysis", cached_payload),
-                "odds_probabilities": cached_payload.get("odds_probabilities"),
-                "cached": True,
-                "cache_key": cache_key,
-            },
-            headers=_cache_headers(cache_key, "HIT"),
-        )
-
-    acquired = try_mark_generating(
-        session,
-        fixture_id=fixture_id,
-        cache_key=cache_key,
-        prompt_version="v1",
-        locale="en",
-        model="default",
-    )
-    if not acquired:
-        row = get_cached_row(session, cache_key)
-        if row and row.status in READY_STATUSES and row.analysis_json:
-            cached_payload = row.analysis_json or {}
+    if not is_live:
+        cached = get_cached_ok(session, cache_key)
+        if cached:
+            cached_payload = cached.analysis_json or {}
             logger.info("AI cache HIT fixture_id=%s cache_key=%s", fixture_id, cache_key)
             return JSONResponse(
                 status_code=200,
@@ -221,51 +196,87 @@ def post_match_ai_analysis(
                 },
                 headers=_cache_headers(cache_key, "HIT"),
             )
-        if row and row.status == "failed":
-            logger.info("AI cache FAILED fixture_id=%s cache_key=%s", fixture_id, cache_key)
-            return JSONResponse(
-                status_code=503,
-                content={
-                    "status": "failed",
-                    "message": row.error or "AI analysis temporarily unavailable.",
-                },
-                headers=_cache_headers(cache_key, "FAIL"),
-            )
 
-        ready = wait_for_ready(cache_key)
-        if ready and ready.status in READY_STATUSES and ready.analysis_json:
-            cached_payload = ready.analysis_json or {}
-            logger.info("AI cache WAIT->HIT fixture_id=%s cache_key=%s", fixture_id, cache_key)
+        acquired = try_mark_generating(
+            session,
+            fixture_id=fixture_id,
+            cache_key=cache_key,
+            prompt_version="v1",
+            locale="en",
+            model="default",
+        )
+        if not acquired:
+            row = get_cached_row(session, cache_key)
+            if row and row.status in READY_STATUSES and row.analysis_json:
+                cached_payload = row.analysis_json or {}
+                logger.info("AI cache HIT fixture_id=%s cache_key=%s", fixture_id, cache_key)
+                return JSONResponse(
+                    status_code=200,
+                    content={
+                        "fixture_id": fixture_id,
+                        "generated_at": datetime.now().isoformat(),
+                        "timezone": TIMEZONE,
+                        "question": user_question,
+                        "analysis": cached_payload.get("analysis", cached_payload),
+                        "odds_probabilities": cached_payload.get("odds_probabilities"),
+                        "cached": True,
+                        "cache_key": cache_key,
+                    },
+                    headers=_cache_headers(cache_key, "HIT"),
+                )
+            if row and row.status == "failed":
+                logger.info("AI cache FAILED fixture_id=%s cache_key=%s", fixture_id, cache_key)
+                return JSONResponse(
+                    status_code=503,
+                    content={
+                        "status": "failed",
+                        "message": row.error or "AI analysis temporarily unavailable.",
+                    },
+                    headers=_cache_headers(cache_key, "FAIL"),
+                )
+
+            ready = wait_for_ready(cache_key)
+            if ready and ready.status in READY_STATUSES and ready.analysis_json:
+                cached_payload = ready.analysis_json or {}
+                logger.info(
+                    "AI cache WAIT->HIT fixture_id=%s cache_key=%s",
+                    fixture_id,
+                    cache_key,
+                )
+                return JSONResponse(
+                    status_code=200,
+                    content={
+                        "fixture_id": fixture_id,
+                        "generated_at": datetime.now().isoformat(),
+                        "timezone": TIMEZONE,
+                        "question": user_question,
+                        "analysis": cached_payload.get("analysis", cached_payload),
+                        "odds_probabilities": cached_payload.get("odds_probabilities"),
+                        "cached": True,
+                        "cache_key": cache_key,
+                    },
+                    headers=_cache_headers(cache_key, "WAIT"),
+                )
+            if ready and ready.status == "failed":
+                logger.info(
+                    "AI cache WAIT->FAIL fixture_id=%s cache_key=%s",
+                    fixture_id,
+                    cache_key,
+                )
+                return JSONResponse(
+                    status_code=503,
+                    content={
+                        "status": "failed",
+                        "message": ready.error or "AI analysis temporarily unavailable.",
+                    },
+                    headers=_cache_headers(cache_key, "FAIL"),
+                )
+            logger.info("AI cache WAIT fixture_id=%s cache_key=%s", fixture_id, cache_key)
             return JSONResponse(
-                status_code=200,
-                content={
-                    "fixture_id": fixture_id,
-                    "generated_at": datetime.now().isoformat(),
-                    "timezone": TIMEZONE,
-                    "question": user_question,
-                    "analysis": cached_payload.get("analysis", cached_payload),
-                    "odds_probabilities": cached_payload.get("odds_probabilities"),
-                    "cached": True,
-                    "cache_key": cache_key,
-                },
+                status_code=202,
+                content={"status": "generating"},
                 headers=_cache_headers(cache_key, "WAIT"),
             )
-        if ready and ready.status == "failed":
-            logger.info("AI cache WAIT->FAIL fixture_id=%s cache_key=%s", fixture_id, cache_key)
-            return JSONResponse(
-                status_code=503,
-                content={
-                    "status": "failed",
-                    "message": ready.error or "AI analysis temporarily unavailable.",
-                },
-                headers=_cache_headers(cache_key, "FAIL"),
-            )
-        logger.info("AI cache WAIT fixture_id=%s cache_key=%s", fixture_id, cache_key)
-        return JSONResponse(
-            status_code=202,
-            content={"status": "generating"},
-            headers=_cache_headers(cache_key, "WAIT"),
-        )
 
     _enforce_ai_access(
         session,
@@ -322,16 +333,23 @@ def post_match_ai_analysis(
                     user_question=user_question,
                 )
 
-        save_ok(
-            session,
-            cache_key=cache_key,
-            fixture_id=fixture_id,
-            analysis_json={
-                "analysis": analysis,
-                "odds_probabilities": odds_probabilities,
-            },
+        if not is_live:
+            save_ok(
+                session,
+                cache_key=cache_key,
+                fixture_id=fixture_id,
+                analysis_json={
+                    "analysis": analysis,
+                    "odds_probabilities": odds_probabilities,
+                },
+            )
+        cache_status = "LIVE" if is_live else "MISS"
+        logger.info(
+            "AI cache %s fixture_id=%s cache_key=%s",
+            "LIVE" if is_live else "MISS",
+            fixture_id,
+            cache_key,
         )
-        logger.info("AI cache MISS fixture_id=%s cache_key=%s", fixture_id, cache_key)
         return JSONResponse(
             status_code=200,
             content={
@@ -344,10 +362,11 @@ def post_match_ai_analysis(
                 "cached": False,
                 "cache_key": cache_key,
             },
-            headers=_cache_headers(cache_key, "MISS"),
+            headers=_cache_headers(cache_key, cache_status),
         )
     except Exception as exc:  # noqa: BLE001
-        save_failed(session, cache_key=cache_key, fixture_id=fixture_id, error=str(exc))
+        if not is_live:
+            save_failed(session, cache_key=cache_key, fixture_id=fixture_id, error=str(exc))
         logger.exception("AI analysis failed fixture_id=%s cache_key=%s", fixture_id, cache_key)
         return JSONResponse(
             status_code=500,

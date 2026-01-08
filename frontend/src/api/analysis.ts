@@ -5,6 +5,7 @@ export interface AiAnalysisParams {
   fixtureId: number | string;
   userQuestion?: string;
   useTrialReward?: boolean;
+  live?: boolean;
 }
 
 export interface AiAnalysisResponse<T = MatchAnalysis> {
@@ -46,6 +47,7 @@ export async function postAiAnalysis({
   fixtureId,
   userQuestion,
   useTrialReward = false,
+  live = false,
 }: AiAnalysisParams): Promise<MatchAnalysis> {
   try {
     const res = await apiClient.post(
@@ -56,6 +58,7 @@ export async function postAiAnalysis({
       },
       {
         timeout: 60000,
+        params: live ? { mode: 'live' } : undefined,
       },
     );
     return res.data;
@@ -68,6 +71,7 @@ export async function requestAiAnalysis({
   fixtureId,
   userQuestion,
   useTrialReward = false,
+  live = false,
 }: AiAnalysisParams): Promise<AiAnalysisResponse> {
   try {
     const res = await apiClient.post(
@@ -78,6 +82,7 @@ export async function requestAiAnalysis({
       },
       {
         timeout: 60000,
+        params: live ? { mode: 'live' } : undefined,
       },
     );
     return {
