@@ -23,16 +23,7 @@ export default function MainTopTabs() {
           backgroundColor: COLORS.card,
           // Keep it simple; the custom tabBar handles safe-area & layout
         },
-        tabBarIndicatorStyle: { backgroundColor: COLORS.neonViolet, height: 2 },
-        tabBarLabelStyle: { color: COLORS.text, fontWeight: '800', fontSize: 10 },
-        tabBarItemStyle: {
-          borderWidth: 1,
-          borderColor: '#fa00c4ff',
-          borderRadius: 12,
-          marginHorizontal: 8,
-          marginVertical: 6,
-          height: 20,
-        },
+        tabBarIndicatorStyle: { height: 0 }, // disable default indicator
         tabBarActiveTintColor: COLORS.text,
         tabBarInactiveTintColor: COLORS.text,
       }}
