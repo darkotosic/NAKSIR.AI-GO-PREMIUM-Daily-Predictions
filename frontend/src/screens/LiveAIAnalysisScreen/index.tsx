@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -31,18 +32,25 @@ const LiveAIAnalysisScreen: React.FC = () => {
   const route = useRoute<RouteProp<RootStackParamList, 'LiveAIAnalysis'>>();
   const fixtureId = route.params?.fixtureId;
   const summary = route.params?.summary;
+  const originTab = route.params?.originTab ?? 'TodayMatches';
+  const fromMatchDetails = route.params?.fromMatchDetails ?? false;
   const [analysisPayload, setAnalysisPayload] = useState<LiveMatchAnalysis | null>(null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [error, setError] = useState<AiAnalysisError | null>(null);
   const [cacheStatus, setCacheStatus] = useState<string | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const requestIdRef = useRef(0);
   const isGeneratingRef = useRef(false);
+  const isGenerating = status === 'loading';
 
   const teamNames = useMemo(() => {
     const home = summary?.teams?.home?.name || 'Home';
     const away = summary?.teams?.away?.name || 'Away';
     return { home, away };
   }, [summary?.teams?.home?.name, summary?.teams?.away?.name]);
+
+  const statusShort = summary?.status?.toUpperCase() ?? '';
+  const isFinishedMatch = new Set(['FT', 'AET', 'PEN']).has(statusShort);
 
   const scoreLabel = useMemo(() => {
     const homeGoals = summary?.goals?.home ?? '-';
@@ -57,15 +65,33 @@ const LiveAIAnalysisScreen: React.FC = () => {
       })
     : '--:--';
 
+  const statusLabelMap: Record<string, string> = {
+    '1H': 'First Half',
+    '2H': 'Second Half',
+    HT: 'Half Time',
+    ET: 'Extra Time',
+    P: 'Penalties',
+    INT: 'Break',
+  };
+  const liveStatusLabel = statusLabelMap[statusShort] ?? summary?.status_long ?? 'Live';
+  const heroStatusLabel = isFinishedMatch ? 'Finished' : liveStatusLabel;
+
+  const liveWords = useMemo(() => 'NAKSIR AI LIVE STATS ANALYZER'.split(' '), []);
+  const liveWordAnim = useMemo(() => liveWords.map(() => new Animated.Value(0)), [liveWords]);
+
   const formatPct = (value?: number | null) =>
     value === null || value === undefined ? '-' : `${value}%`;
 
   const goBackToMatch = () => {
-    if (fixtureId) {
-      navigation.navigate('MatchDetails', { fixtureId, summary });
-    } else {
+    if (!fixtureId) {
       navigation.navigate('MainTabs');
+      return;
     }
+    if (fromMatchDetails && navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    navigation.replace('MatchDetails', { fixtureId, summary, originTab });
   };
 
   const startLiveAnalysis = useCallback(async () => {
@@ -114,6 +140,56 @@ const LiveAIAnalysisScreen: React.FC = () => {
     }
   }, [fixtureId, startLiveAnalysis]);
 
+  useEffect(() => {
+    let timer: NodeJS.Timeout | undefined;
+    if (isGenerating) {
+      setElapsedSeconds(0);
+      timer = setInterval(() => {
+        setElapsedSeconds((prev) => prev + 1);
+      }, 1000);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [isGenerating]);
+
+  useEffect(() => {
+    if (!isGenerating) {
+      liveWordAnim.forEach((anim) => anim.setValue(0));
+      return;
+    }
+
+    const loops = liveWordAnim.map((anim, idx) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(anim, {
+            toValue: 1,
+            duration: 900,
+            delay: idx * 140,
+            useNativeDriver: true,
+          }),
+          Animated.timing(anim, {
+            toValue: 0,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+        ]),
+      ),
+    );
+
+    loops.forEach((loop) => loop.start());
+
+    return () => loops.forEach((loop) => loop.stop && loop.stop());
+  }, [isGenerating, liveWordAnim]);
+
+  const formatTimer = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+      .toString()
+      .padStart(2, '0');
+    const secs = (seconds % 60).toString().padStart(2, '0');
+    return `${mins}:${secs}`;
+  };
+
   const analysis = (analysisPayload as any)?.analysis ?? analysisPayload;
   const goalsRemaining = (analysis as any)?.goals_remaining ?? {};
   const matchWinner = (analysis as any)?.match_winner ?? {};
@@ -130,19 +206,35 @@ const LiveAIAnalysisScreen: React.FC = () => {
           <Text style={styles.backLabel}>Back to match</Text>
         </TouchableOpacity>
 
-        <View style={styles.heroCard}>
-          <Text style={styles.heroTitle}>Naksir Live AI Analysis</Text>
-          <Text style={styles.heroSubtitle}>{summary?.league?.name || 'Live Match'}</Text>
-          <View style={styles.heroScoreRow}>
-            <Text style={styles.heroTeam}>{teamNames.home}</Text>
-            <View style={styles.heroScorePill}>
-              <Text style={styles.heroScore}>{scoreLabel}</Text>
-              <Text style={styles.heroStatus}>{summary?.status_long || summary?.status || 'Live'}</Text>
+        {summary ? (
+          <View style={styles.detailHero}>
+            <View style={styles.heroTopRow}>
+              <View style={styles.heroLeagueBlock}>
+                <Text style={styles.heroLeagueText}>{summary?.league?.name || 'Live Match'}</Text>
+                <Text style={styles.heroMetaText}>
+                  {summary?.league?.country || 'Country'} • Kickoff {kickoffLabel}
+                </Text>
+              </View>
+              <View style={styles.heroStatusPill}>
+                <Text style={styles.heroStatusScore}>{scoreLabel}</Text>
+                <Text style={styles.heroStatusText}>{heroStatusLabel}</Text>
+              </View>
             </View>
-            <Text style={styles.heroTeam}>{teamNames.away}</Text>
+
+            <View style={styles.heroTeamsRow}>
+              <View style={styles.heroTeamCard}>
+                <Text style={styles.heroTeamName} numberOfLines={1}>
+                  {teamNames.home}
+                </Text>
+              </View>
+              <View style={styles.heroTeamCard}>
+                <Text style={[styles.heroTeamName, styles.heroTeamNameRight]} numberOfLines={1}>
+                  {teamNames.away}
+                </Text>
+              </View>
+            </View>
           </View>
-          <Text style={styles.heroMeta}>Kickoff {kickoffLabel}</Text>
-        </View>
+        ) : null}
 
         {cacheStatus && __DEV__ ? (
           <Text style={styles.cacheDebug}>Cache status: {cacheStatus}</Text>
@@ -150,8 +242,43 @@ const LiveAIAnalysisScreen: React.FC = () => {
 
         {status === 'loading' && (
           <View style={styles.loadingState}>
-            <ActivityIndicator color={COLORS.neonPurple} size="large" />
+            <View style={styles.liveWordRow}>
+              {liveWords.map((word, idx) => {
+                const animatedStyle = {
+                  opacity: liveWordAnim[idx].interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.35, 1],
+                  }),
+                  transform: [
+                    { perspective: 800 },
+                    {
+                      rotateY: liveWordAnim[idx].interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ['-15deg', '15deg'],
+                      }),
+                    },
+                    {
+                      translateY: liveWordAnim[idx].interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [6, -6],
+                      }),
+                    },
+                  ],
+                };
+
+                return (
+                  <Animated.Text key={`${word}-${idx}`} style={[styles.liveWord, animatedStyle]}>
+                    {word}
+                  </Animated.Text>
+                );
+              })}
+            </View>
+            <ActivityIndicator color={COLORS.neonPurple} size="large" style={styles.loader} />
             <Text style={styles.loadingText}>Analyzing live events, momentum, and stats...</Text>
+            <View style={styles.timerPill}>
+              <Text style={styles.timerLabel}>Time elapsed</Text>
+              <Text style={styles.timerValue}>{formatTimer(elapsedSeconds)}</Text>
+            </View>
           </View>
         )}
 
@@ -241,63 +368,77 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontWeight: '700',
   },
-  heroCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 18,
+  detailHero: {
+    backgroundColor: '#0c0f25',
+    borderRadius: 22,
     padding: 16,
-    borderWidth: 1,
+    borderWidth: 1.6,
     borderColor: COLORS.neonViolet,
-    shadowColor: COLORS.neonViolet,
-    shadowOpacity: 0.7,
-    shadowRadius: 18,
     marginBottom: 16,
+    shadowColor: COLORS.neonPurple,
+    shadowOpacity: 0.65,
+    shadowRadius: 20,
   },
-  heroTitle: {
-    color: COLORS.text,
-    fontWeight: '900',
-    fontSize: 18,
-  },
-  heroSubtitle: {
-    color: COLORS.neonBlue,
-    marginTop: 4,
-    fontWeight: '700',
-  },
-  heroScoreRow: {
+  heroTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 16,
+    gap: 12,
+    marginBottom: 12,
   },
-  heroTeam: {
-    color: COLORS.text,
-    fontWeight: '700',
+  heroLeagueBlock: {
     flex: 1,
-    textAlign: 'center',
   },
-  heroScorePill: {
+  heroLeagueText: {
+    color: COLORS.text,
+    fontWeight: '800',
+    fontSize: 16,
+  },
+  heroMetaText: {
+    color: COLORS.muted,
+    marginTop: 4,
+    fontSize: 12,
+  },
+  heroStatusPill: {
     backgroundColor: '#0c1028',
-    borderRadius: 999,
-    paddingHorizontal: 16,
+    borderRadius: 16,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: COLORS.neonPurple,
+    minWidth: 90,
   },
-  heroScore: {
+  heroStatusScore: {
     color: COLORS.neonPurple,
     fontWeight: '900',
-    fontSize: 18,
+    fontSize: 16,
   },
-  heroStatus: {
+  heroStatusText: {
     color: COLORS.muted,
-    fontWeight: '600',
-    marginTop: 2,
+    marginTop: 4,
     fontSize: 12,
-  },
-  heroMeta: {
-    color: COLORS.muted,
-    marginTop: 12,
     textAlign: 'center',
+  },
+  heroTeamsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  heroTeamCard: {
+    flex: 1,
+    backgroundColor: '#0f162b',
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: COLORS.borderSoft,
+  },
+  heroTeamName: {
+    color: COLORS.text,
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  heroTeamNameRight: {
+    textAlign: 'right',
   },
   card: {
     backgroundColor: COLORS.card,
@@ -329,10 +470,53 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
+  liveWordRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+    rowGap: 8,
+    marginBottom: 16,
+  },
+  liveWord: {
+    color: COLORS.neonBlue,
+    fontWeight: '900',
+    fontSize: 13,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    textShadowColor: 'rgba(56,189,248,0.75)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 12,
+  },
+  loader: {
+    marginBottom: 12,
+  },
   loadingText: {
     color: COLORS.muted,
     marginTop: 12,
     textAlign: 'center',
+  },
+  timerPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#0c1028',
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: COLORS.neonPurple,
+  },
+  timerLabel: {
+    color: COLORS.muted,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  timerValue: {
+    color: COLORS.neonPurple,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
   },
   cacheDebug: {
     color: COLORS.muted,

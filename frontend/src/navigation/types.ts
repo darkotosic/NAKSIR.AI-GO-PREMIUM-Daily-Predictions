@@ -11,9 +11,25 @@ export type RootStackParamList = {
 
   // Hidden / drill-down screens:
   Subscriptions: undefined;
-  MatchDetails: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
-  AIAnalysis: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
-  LiveAIAnalysis: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
+  MatchDetails:
+    | { fixtureId?: number | string; summary?: MatchSummary; originTab?: keyof MainTopTabsParamList }
+    | undefined;
+  AIAnalysis:
+    | {
+        fixtureId?: number | string;
+        summary?: MatchSummary;
+        originTab?: keyof MainTopTabsParamList;
+        fromMatchDetails?: boolean;
+      }
+    | undefined;
+  LiveAIAnalysis:
+    | {
+        fixtureId?: number | string;
+        summary?: MatchSummary;
+        originTab?: keyof MainTopTabsParamList;
+        fromMatchDetails?: boolean;
+      }
+    | undefined;
   H2H: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
   Odds:
     | { fixtureId?: number | string; summary?: MatchSummary; selectedMarket?: string }

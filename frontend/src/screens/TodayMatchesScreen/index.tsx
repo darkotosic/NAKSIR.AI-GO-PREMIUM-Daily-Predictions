@@ -131,6 +131,7 @@ const TodayMatchesScreen: React.FC = () => {
           navigation.navigate('MatchDetails', {
             fixtureId,
             summary: item.summary,
+            originTab: 'TodayMatches',
           })
         }
       />
