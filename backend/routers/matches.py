@@ -31,14 +31,14 @@ def get_today_matches(
 
     Interno:
     - `get_fixtures_next_days()` radi poziv ka API-Football i filtriranje
-      (allowlist liga + izbacivanje završenih / otkazanih statusa).
+      (allowlist liga + izbacivanje otkazanih statusa, ali uključuje završene).
     - `build_match_summary()` pretvara raw fixture u lagani JSON
       spreman za karticu na frontu (liga, timovi, kickoff, status, skor, flagovi...).
     - Lagani odds snapshot se doda samo ako već postoji u cache-u (bez novih API poziva),
       ali samo kada je include_enrich=true.
     """
 
-    fixtures = api_football.get_fixtures_next_days(2)
+    fixtures = api_football.get_fixtures_next_days(2, include_finished=True)
     cards: List[Dict[str, Any]] = []
     standings_cache: Dict[tuple[int, int], List[Dict[str, Any]]] = {}
 

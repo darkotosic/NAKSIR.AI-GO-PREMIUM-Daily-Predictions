@@ -19,12 +19,18 @@ export interface VenueInfo {
 export interface MatchSummary {
   fixture_id?: number;
   kickoff?: string;
+  status?: string;
+  status_long?: string;
   venue?: VenueInfo;
   referee?: string;
   league?: LeagueSummary;
   teams?: {
     home?: TeamSummary;
     away?: TeamSummary;
+  };
+  goals?: {
+    home?: number;
+    away?: number;
   };
 }
 

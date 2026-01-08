@@ -248,11 +248,12 @@ def _today_str() -> str:
     return datetime.now(tz).strftime("%Y-%m-%d")
 
 
-def get_fixtures_by_date(date_str: str) -> List[Dict[str, Any]]:
+def get_fixtures_by_date(date_str: str, *, include_finished: bool = False) -> List[Dict[str, Any]]:
     """
     Dohvati sve fixture-e za zadati datum i filtriraj po:
     - ALLOW_LIST (dozvoljene lige)
     - SKIP_STATUS (statusi koje ignorišemo – FT, PST, CANC...)
+    - include_finished=True zadržava završene statuse (FT/AET/PEN)
     """
     data = _call_api(
         "fixtures",
@@ -262,6 +263,8 @@ def get_fixtures_by_date(date_str: str) -> List[Dict[str, Any]]:
     fixtures = _extract_response_list(data)
 
     filtered: List[Dict[str, Any]] = []
+    finished_status = {"FT", "AET", "PEN"}
+
     for fx in fixtures:
         league = fx.get("league") or {}
         fixture_info = fx.get("fixture") or {}
@@ -272,7 +275,7 @@ def get_fixtures_by_date(date_str: str) -> List[Dict[str, Any]]:
 
         if league_id not in ALLOW_LIST:
             continue
-        if status_short in SKIP_STATUS:
+        if status_short in SKIP_STATUS and not (include_finished and status_short in finished_status):
             continue
 
         filtered.append(fx)
@@ -283,12 +286,17 @@ def get_fixtures_by_date(date_str: str) -> List[Dict[str, Any]]:
     return filtered
 
 
-def get_fixtures_today() -> List[Dict[str, Any]]:
+def get_fixtures_today(*, include_finished: bool = False) -> List[Dict[str, Any]]:
     """Public helper: svi *dozvoljeni* fixture-i za današnji dan."""
-    return get_fixtures_by_date(_today_str())
+    return get_fixtures_by_date(_today_str(), include_finished=include_finished)
 
 
-def get_fixtures_next_days(days: int = 2, timezone: str | None = None) -> List[Dict[str, Any]]:
+def get_fixtures_next_days(
+    days: int = 2,
+    timezone: str | None = None,
+    *,
+    include_finished: bool = False,
+) -> List[Dict[str, Any]]:
     """
     Vrati fixture-e za danas + naredne (days-1) dane.
 
@@ -303,7 +311,7 @@ def get_fixtures_next_days(days: int = 2, timezone: str | None = None) -> List[D
     try:
         for offset in range(max(1, days)):
             day = today + timedelta(days=offset)
-            fixtures = get_fixtures_by_date(day.isoformat())
+            fixtures = get_fixtures_by_date(day.isoformat(), include_finished=include_finished)
             for fx in fixtures:
                 fixture_id = (fx.get("fixture") or {}).get("id")
                 if fixture_id is not None:
