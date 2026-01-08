@@ -8,6 +8,7 @@ import NaksirAIScreen from '@screens/NaksirAIScreen';
 
 import { MainTopTabsParamList } from '@navigation/types';
 import { COLORS } from '@navigation/theme';
+import NeonTopTabBar from '@navigation/components/NeonTopTabBar';
 
 const Tab = createMaterialTopTabNavigator<MainTopTabsParamList>();
 
@@ -16,11 +17,11 @@ export default function MainTopTabs() {
   return (
     <Tab.Navigator
       initialRouteName="TodayMatches"
+      tabBar={(props) => <NeonTopTabBar {...props} topInset={insets.top} />}
       screenOptions={{
         tabBarStyle: {
           backgroundColor: COLORS.card,
-          paddingTop: insets.top + 10,
-          height: 78 + insets.top,
+          // Keep it simple; the custom tabBar handles safe-area & layout
         },
         tabBarIndicatorStyle: { backgroundColor: COLORS.neonViolet, height: 2 },
         tabBarLabelStyle: { color: COLORS.text, fontWeight: '800', fontSize: 10 },
@@ -30,7 +31,7 @@ export default function MainTopTabs() {
           borderRadius: 12,
           marginHorizontal: 8,
           marginVertical: 6,
-          height: 40,
+          height: 20,
         },
         tabBarActiveTintColor: COLORS.text,
         tabBarInactiveTintColor: COLORS.text,
