@@ -7,6 +7,7 @@ import { COLORS } from '@navigation/theme';
 
 import MatchDetailsScreen from '@screens/MatchDetailsScreen';
 import AIAnalysisScreen from '@screens/AIAnalysisScreen';
+import LiveAIAnalysisScreen from '@screens/LiveAIAnalysisScreen';
 import H2HScreen from '@screens/H2HScreen';
 import OddsScreen from '@screens/OddsScreen';
 import StatsScreen from '@screens/StatsScreen';
@@ -39,6 +40,7 @@ export default function RootNavigator() {
       <Stack.Screen name="Subscriptions" component={SubscriptionsScreen} options={{ title: 'Subscriptions' }} />
       <Stack.Screen name="MatchDetails" component={MatchDetailsScreen} options={{ title: 'Match Details' }} />
       <Stack.Screen name="AIAnalysis" component={AIAnalysisScreen} options={{ title: 'Naksir In-depth Analysis' }} />
+      <Stack.Screen name="LiveAIAnalysis" component={LiveAIAnalysisScreen} options={{ title: 'Naksir Live Analysis' }} />
 
       <Stack.Screen name="H2H" component={H2HScreen} options={{ title: 'Head to Head' }} />
       <Stack.Screen name="Odds" component={OddsScreen} options={{ title: 'Odds Snapshot' }} />

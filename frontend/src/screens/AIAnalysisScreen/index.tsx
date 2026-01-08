@@ -234,46 +234,6 @@ const AIAnalysisScreen: React.FC = () => {
     }
   }, [fixtureId, isLiveMatch, pollForAnalysis, stopPolling]);
 
-  const readCached = useCallback(async () => {
-    if (!fixtureId) return;
-    const requestId = requestIdRef.current;
-    setStatus('loading');
-    setError(null);
-    try {
-      const res = await getAiAnalysis(fixtureId);
-      if (requestId !== requestIdRef.current) {
-        return;
-      }
-      const cacheHeader = res.headers?.['x-cache'];
-      if (cacheHeader) {
-        setCacheStatus(cacheHeader.toUpperCase());
-      }
-
-      if (res.status === 200) {
-        setAnalysisPayload(res.data);
-        setStatus('ready');
-        return;
-      }
-
-      if (res.status === 202) {
-        setStatus('generating');
-        pollForAnalysis(requestId);
-      }
-    } catch (err) {
-      if (requestId !== requestIdRef.current) {
-        return;
-      }
-      const normalized = err as AiAnalysisError;
-      if (normalized.status === 404) {
-        setCacheStatus('MISS');
-        startGeneration();
-        return;
-      }
-      setStatus('error');
-      setError(normalized);
-    }
-  }, [fixtureId, pollForAnalysis, startGeneration]);
-
   useEffect(() => {
     stopPolling();
     requestIdRef.current += 1;
@@ -282,14 +242,10 @@ const AIAnalysisScreen: React.FC = () => {
     setError(null);
     setStatus('idle');
     if (fixtureId) {
-      if (isLiveMatch) {
-        startGeneration({ live: true });
-      } else {
-        readCached();
-      }
+      startGeneration({ live: isLiveMatch });
     }
     return () => stopPolling();
-  }, [fixtureId, isLiveMatch, readCached, startGeneration, stopPolling]);
+  }, [fixtureId, isLiveMatch, startGeneration, stopPolling]);
 
   const analysisPayload = analysisPayloadState;
   const analysis = (analysisPayload as any)?.analysis || analysisPayload;

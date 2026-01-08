@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from backend import api_football
-from backend.ai_analysis import build_fallback_analysis, run_ai_analysis
+from backend.ai_analysis import build_fallback_analysis, run_ai_analysis, run_live_ai_analysis
 from backend.config import TIMEZONE
 from backend.db import get_db
 from backend.dependencies import require_api_key
@@ -172,9 +172,10 @@ def post_match_ai_analysis(
     )
 
     is_live = (mode or "").lower() == "live"
+    prompt_version = "live-v1" if is_live else "v1"
     cache_key = make_cache_key(
         fixture_id=fixture_id,
-        prompt_version="v1",
+        prompt_version=prompt_version,
         locale="en",
     )
     if not is_live:
@@ -201,7 +202,7 @@ def post_match_ai_analysis(
             session,
             fixture_id=fixture_id,
             cache_key=cache_key,
-            prompt_version="v1",
+            prompt_version=prompt_version,
             locale="en",
             model="default",
         )
@@ -328,9 +329,10 @@ def post_match_ai_analysis(
                 if isinstance(odds_section, dict):
                     odds_probabilities = odds_section.get("flat_probabilities")
 
-                analysis = run_ai_analysis(
-                    full_match=full_context,
-                    user_question=user_question,
+                analysis = (
+                    run_live_ai_analysis(full_match=full_context, user_question=user_question)
+                    if is_live
+                    else run_ai_analysis(full_match=full_context, user_question=user_question)
                 )
 
         if not is_live:

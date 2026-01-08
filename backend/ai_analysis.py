@@ -57,6 +57,25 @@ Output: Return ONE JSON object with EXACTLY these keys:
 Percentages are 0–100 floats (e.g. 68 = 68%). Do not return any other keys.
 """
 
+LIVE_SYSTEM_PROMPT = """You are a live football match analyst.
+
+Strictly follow these rules:
+- Use only the data provided in MATCH_JSON (events, live stats, team profiles, standings, h2h, team form, players stats, team stats, injuries).
+- If data is missing or weak, explicitly mention limitations and reduce confidence.
+- Provide balanced, realistic probabilities. Avoid 0% or 100%.
+- Keep output short, live-focused, and actionable.
+
+Output: Return ONE JSON object with EXACTLY these keys:
+- summary: short live summary (2–4 sentences).
+- goals_remaining: { "at_least_1_more_pct": float|null, "at_least_2_more_pct": float|null }
+- match_winner: { "home_pct": float|null, "draw_pct": float|null, "away_pct": float|null }
+- yellow_cards_summary: short summary based on history + live match data.
+- corners_summary: short summary based on history + live match data.
+- disclaimer: string that clearly states this is NOT financial advice.
+
+Percentages are 0–100 floats (e.g. 68 = 68%). Do not return any other keys.
+"""
+
 
 def _fallback_response(reason: str) -> Dict[str, Any]:
     """Minimal valid schema kada je AI isključen ili odgovori loše."""
@@ -101,6 +120,24 @@ def _fallback_response(reason: str) -> Dict[str, Any]:
             "over_5_5_pct": None,
         },
         "risk_flags": [reason],
+        "disclaimer": "Ovo nije finansijski savet, već AI analiza zasnovana na dostupnoj statistici.",
+    }
+
+
+def _fallback_live_response(reason: str) -> Dict[str, Any]:
+    return {
+        "summary": f"AI live analysis unavailable: {reason}",
+        "goals_remaining": {
+            "at_least_1_more_pct": None,
+            "at_least_2_more_pct": None,
+        },
+        "match_winner": {
+            "home_pct": None,
+            "draw_pct": None,
+            "away_pct": None,
+        },
+        "yellow_cards_summary": reason,
+        "corners_summary": reason,
         "disclaimer": "Ovo nije finansijski savet, već AI analiza zasnovana na dostupnoj statistici.",
     }
 
@@ -222,6 +259,79 @@ def run_ai_analysis(
             "over_5_5_pct": None,
         },
         "risk_flags": parsed.get("risk_flags", []) or [],
+        "disclaimer": parsed.get(
+            "disclaimer",
+            "Ovo nije finansijski savet, već AI analiza zasnovana na dostupnoj statistici.",
+        ),
+    }
+
+
+def run_live_ai_analysis(
+    full_match: Dict[str, Any],
+    user_question: Optional[str] = None,
+) -> Dict[str, Any]:
+    if client is None:
+        return _fallback_live_response("no OPENAI_API_KEY configured")
+
+    match_json_str = json.dumps(full_match, ensure_ascii=False)
+
+    messages: List[Dict[str, str]] = [
+        {"role": "system", "content": LIVE_SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": (
+                "Analyze this live football match using the MATCH_JSON below. "
+                "Return ONLY a JSON object that follows the specified schema and percentages.\n\n"
+                f"MATCH_JSON:\n{match_json_str}"
+            ),
+        },
+    ]
+
+    if user_question:
+        messages.append(
+            {
+                "role": "user",
+                "content": (
+                    "Additional user focus for this live analysis: "
+                    f"{user_question.strip()}"
+                ),
+            }
+        )
+
+    try:
+        completion = client.chat.completions.create(
+            model="gpt-4.1-mini",
+            messages=messages,
+            response_format={"type": "json_object"},
+        )
+    except Exception as e:
+        return _fallback_live_response(f"OpenAI error: {e}")
+
+    try:
+        raw_content = completion.choices[0].message.content
+        if isinstance(raw_content, list):
+            text = "".join(part.get("text", "") for part in raw_content if isinstance(part, dict))
+        else:
+            text = str(raw_content)
+    except Exception:
+        return _fallback_live_response("cannot read AI message content")
+
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        return _fallback_live_response("AI output is not valid JSON")
+
+    return {
+        "summary": parsed.get("summary", ""),
+        "goals_remaining": parsed.get("goals_remaining", {})
+        or {
+            "at_least_1_more_pct": None,
+            "at_least_2_more_pct": None,
+        },
+        "match_winner": parsed.get("match_winner", {})
+        or {"home_pct": None, "draw_pct": None, "away_pct": None},
+        "yellow_cards_summary": parsed.get("yellow_cards_summary", ""),
+        "corners_summary": parsed.get("corners_summary", ""),
         "disclaimer": parsed.get(
             "disclaimer",
             "Ovo nije finansijski savet, već AI analiza zasnovana na dostupnoj statistici.",
