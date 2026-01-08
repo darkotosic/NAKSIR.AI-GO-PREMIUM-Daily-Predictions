@@ -25,7 +25,7 @@ type Section = { title: string; data: CachedAiMatchItem[] };
 const FLAG_OVERRIDES: Record<string, string> = {
   world: '🌍',
   europe: '🇪🇺',
-  england: '🏴',
+  england: '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
   scotland: '🏴',
   wales: '🏴',
   'united states': '🇺🇸',
