@@ -20,13 +20,13 @@ export default function MainTopTabs() {
         tabBarStyle: {
           backgroundColor: COLORS.card,
           paddingTop: insets.top + 10,
-          height: 58 + insets.top,
+          height: 78 + insets.top,
         },
         tabBarIndicatorStyle: { backgroundColor: COLORS.neonViolet, height: 2 },
         tabBarLabelStyle: { color: COLORS.text, fontWeight: '800', fontSize: 10 },
         tabBarItemStyle: {
           borderWidth: 1,
-          borderColor: '#ff4fd8',
+          borderColor: '#fa00c4ff',
           borderRadius: 12,
           marginHorizontal: 8,
           marginVertical: 6,
