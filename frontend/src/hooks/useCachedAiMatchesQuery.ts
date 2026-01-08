@@ -5,5 +5,7 @@ export const useCachedAiMatchesQuery = () =>
   useQuery({
     queryKey: ['cachedAiMatches'],
     queryFn: fetchCachedAiMatches,
+    refetchInterval: 15 * 1000,
+    refetchOnWindowFocus: true,
     staleTime: 60 * 1000,
   });
