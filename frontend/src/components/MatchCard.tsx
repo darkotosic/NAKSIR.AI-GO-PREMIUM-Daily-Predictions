@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Animated, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { MatchListItem, StandingsRow } from '@/types/match';
 
@@ -25,6 +25,9 @@ export const MatchCard: React.FC<Props> = ({ match, onPress, onToggleFavorite, i
   const summary = match.summary;
   const league = summary?.league;
   const teams = summary?.teams;
+  const status = summary?.status?.toUpperCase() ?? 'NS';
+  const isLive = new Set(['1H', '2H', 'ET', 'P', 'INT', 'LIVE']).has(status);
+  const isFinished = new Set(['FT', 'AET', 'PEN']).has(status);
   const kickoffDate = summary?.kickoff ? new Date(summary.kickoff) : undefined;
   const relativeKickoffLabel = (() => {
     if (!kickoffDate) return 'Kickoff TBD';
@@ -40,6 +43,9 @@ export const MatchCard: React.FC<Props> = ({ match, onPress, onToggleFavorite, i
   const timeKickoffLabel = kickoffDate
     ? kickoffDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : 'Kickoff TBD';
+  const homeGoals = summary?.goals?.home;
+  const awayGoals = summary?.goals?.away;
+  const finalScoreLabel = `${homeGoals ?? '-'}-${awayGoals ?? '-'}`;
 
   const standingsLeague = match?.standings?.[0]?.league;
   const standingGroups = standingsLeague?.standings || [];
@@ -58,6 +64,23 @@ export const MatchCard: React.FC<Props> = ({ match, onPress, onToggleFavorite, i
   const showAwayMeta = awayStanding || awayForm;
 
   const scale = useRef(new Animated.Value(1)).current;
+  const livePulse = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!isLive) {
+      livePulse.stopAnimation();
+      livePulse.setValue(0);
+      return;
+    }
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(livePulse, { toValue: 1, duration: 600, useNativeDriver: true }),
+        Animated.timing(livePulse, { toValue: 0, duration: 600, useNativeDriver: true }),
+      ]),
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [isLive, livePulse]);
 
   const animateTo = (value: number) => {
     Animated.spring(scale, {
@@ -88,9 +111,18 @@ export const MatchCard: React.FC<Props> = ({ match, onPress, onToggleFavorite, i
             </View>
           </View>
 
-          <View style={styles.kickoffBadge}>
-            <Text style={styles.kickoffBadgeText}>{timeKickoffLabel}</Text>
-          </View>
+          {isLive ? (
+            <View style={[styles.kickoffBadge, styles.liveBadge]}>
+              <Animated.View style={[styles.liveDot, { opacity: livePulse }]} />
+              <Text style={styles.liveBadgeText}>LIVE</Text>
+            </View>
+          ) : (
+            <View style={[styles.kickoffBadge, isFinished && styles.finalBadge]}>
+              <Text style={styles.kickoffBadgeText}>
+                {isFinished ? finalScoreLabel : timeKickoffLabel}
+              </Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.teamsRow}>
@@ -202,11 +234,32 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.neonPurple,
     backgroundColor: '#11182c',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   kickoffBadgeText: {
     color: COLORS.text,
     fontWeight: '800',
     letterSpacing: 0.5,
+  },
+  finalBadge: {
+    borderColor: COLORS.neonOrange,
+  },
+  liveBadge: {
+    borderColor: '#ef4444',
+    backgroundColor: '#2a0a0a',
+  },
+  liveBadgeText: {
+    color: '#fecaca',
+    fontWeight: '900',
+    letterSpacing: 0.6,
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: '#ef4444',
   },
   teamsRow: {
     flexDirection: 'row',

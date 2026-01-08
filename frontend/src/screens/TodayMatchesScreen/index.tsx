@@ -21,26 +21,26 @@ const COLORS = {
   borderSoft: '#1f1f3a',
 };
 
-const SortBar = ({
-  sortOption,
-  onSortChange,
+const FilterBar = ({
+  filterOption,
+  onFilterChange,
 }: {
-  sortOption: 'time' | 'team';
-  onSortChange: (value: 'time' | 'team') => void;
+  filterOption: 'all' | 'live';
+  onFilterChange: (value: 'all' | 'live') => void;
 }) => (
   <View style={styles.sortRow}>
-    <Text style={styles.filterLabel}>Sort by</Text>
+    <Text style={styles.filterLabel}>Show</Text>
     <View style={styles.sortButtons}>
       {[
-        { key: 'time', label: 'Kickoff time' },
-        { key: 'team', label: 'Team name' },
+        { key: 'all', label: 'All matches' },
+        { key: 'live', label: 'Live only' },
       ].map((option) => {
-        const isActive = sortOption === option.key;
+        const isActive = filterOption === option.key;
         return (
           <TouchableOpacity
             key={option.key}
             style={[styles.sortChip, isActive && styles.sortChipActive]}
-            onPress={() => onSortChange(option.key as 'time' | 'team')}
+            onPress={() => onFilterChange(option.key as 'all' | 'live')}
             activeOpacity={0.85}
           >
             <Text style={[styles.sortChipText, isActive && styles.sortChipTextActive]}>
@@ -85,7 +85,7 @@ const TodayMatchesScreen: React.FC = () => {
     isRefetching,
   } = useTodayMatchesQuery();
   const { toggleFavorite, isFavorite } = useFavorites();
-  const [sortOption, setSortOption] = React.useState<'time' | 'team'>('time');
+  const [filterOption, setFilterOption] = React.useState<'all' | 'live'>('all');
 
   const onRefresh = useCallback(() => {
     trackEvent('RefreshMatches');
@@ -97,25 +97,21 @@ const TodayMatchesScreen: React.FC = () => {
     [data],
   );
 
-  const sortedMatches = useMemo(() => {
-    const list = [...allMatches];
-    return list.sort((a, b) => {
-      if (sortOption === 'team') {
-        const nameA = (a?.summary?.teams?.home?.name || '').toLowerCase();
-        const nameB = (b?.summary?.teams?.home?.name || '').toLowerCase();
-        return nameA.localeCompare(nameB);
-      }
-
-      const dateA = a?.summary?.kickoff ? new Date(a.summary.kickoff).getTime() : Infinity;
-      const dateB = b?.summary?.kickoff ? new Date(b.summary.kickoff).getTime() : Infinity;
-      return dateA - dateB;
+  const filteredMatches = useMemo(() => {
+    if (filterOption === 'all') {
+      return allMatches;
+    }
+    const liveStatuses = new Set(['1H', '2H', 'ET', 'P', 'INT', 'LIVE']);
+    return allMatches.filter((match) => {
+      const status = match?.summary?.status?.toUpperCase();
+      return status ? liveStatuses.has(status) : false;
     });
-  }, [allMatches, sortOption]);
+  }, [allMatches, filterOption]);
 
   const renderHeader = () => (
     <View>
       <TelegramBanner />
-      <SortBar sortOption={sortOption} onSortChange={setSortOption} />
+      <FilterBar filterOption={filterOption} onFilterChange={setFilterOption} />
       <View style={styles.refreshRow}>
         <TouchableOpacity style={styles.refreshButton} onPress={onRefresh} activeOpacity={0.85}>
           <Text style={styles.refreshText}>↻ Refresh</Text>
@@ -175,7 +171,7 @@ const TodayMatchesScreen: React.FC = () => {
   return (
     <FlatList
       contentContainerStyle={styles.container}
-      data={sortedMatches}
+      data={filteredMatches}
       renderItem={renderItem}
       keyExtractor={(item) => `${item.fixture_id || item.summary?.fixture_id || Math.random()}`}
       ListHeaderComponent={renderHeader}
