@@ -48,7 +48,9 @@ export const MatchCard: React.FC<Props> = ({ match, onPress, onToggleFavorite, i
   const finalScoreLabel = `${homeGoals ?? '-'}-${awayGoals ?? '-'}`;
 
   const standingsLeague = match?.standings?.[0]?.league;
-  const standingGroups = standingsLeague?.standings || [];
+  const standingGroups = Array.isArray(standingsLeague?.standings)
+    ? standingsLeague.standings
+    : [];
   const tableRows = standingGroups.reduce<StandingsRow[]>((acc, group = []) => acc.concat(group), []);
   const homeStanding = match?.standings_snapshot?.home || tableRows.find((row) => row.team?.id === teams?.home?.id);
   const awayStanding = match?.standings_snapshot?.away || tableRows.find((row) => row.team?.id === teams?.away?.id);

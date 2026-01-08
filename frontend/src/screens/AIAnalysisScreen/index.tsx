@@ -26,13 +26,15 @@ const COLORS = {
   borderSoft: '#1f1f3a',
 };
 
-const LIVE_STATUSES = new Set(['1H', '2H', 'ET', 'P', 'INT', 'LIVE']);
+const LIVE_STATUSES = new Set(['1H', '2H', 'HT', 'ET', 'P', 'INT', 'LIVE']);
 
 const AIAnalysisScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'AIAnalysis'>>();
   const fixtureId = route.params?.fixtureId;
   const summary = route.params?.summary;
+  const originTab = route.params?.originTab ?? 'TodayMatches';
+  const fromMatchDetails = route.params?.fromMatchDetails ?? false;
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [analysisPayloadState, setAnalysisPayload] = useState<MatchAnalysis | null>(null);
   const [status, setStatus] = useState<
@@ -44,7 +46,23 @@ const AIAnalysisScreen: React.FC = () => {
   const pollInFlightRef = useRef(false);
   const requestIdRef = useRef(0);
   const isGeneratingRef = useRef(false);
-  const isLiveMatch = LIVE_STATUSES.has(summary?.status ?? '');
+  const statusShort = summary?.status?.toUpperCase() ?? '';
+  const isLiveMatch = LIVE_STATUSES.has(statusShort);
+  const isFinishedMatch = new Set(['FT', 'AET', 'PEN']).has(statusShort);
+  const kickoffLabel = summary?.kickoff
+    ? new Date(summary.kickoff).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : 'Kickoff TBD';
+  const statusLabelMap: Record<string, string> = {
+    '1H': 'First Half',
+    '2H': 'Second Half',
+    HT: 'Half Time',
+    ET: 'Extra Time',
+    P: 'Penalties',
+    INT: 'Break',
+  };
+  const liveStatusLabel = statusLabelMap[statusShort] ?? summary?.status_long ?? 'Live';
+  const heroStatusLabel = isFinishedMatch ? 'Finished' : isLiveMatch ? liveStatusLabel : kickoffLabel;
+  const scoreLabel = `${summary?.goals?.home ?? '-'} - ${summary?.goals?.away ?? '-'}`;
 
   const depthWords = useMemo(() => 'NAKSIR GO IN DEPTH OF DATA'.split(' '), []);
   const depthWordAnim = useMemo(() => depthWords.map(() => new Animated.Value(0)), [depthWords]);
@@ -274,11 +292,15 @@ const AIAnalysisScreen: React.FC = () => {
     value === null || value === undefined ? '-' : `${value}%`;
 
   const goBackToMatch = () => {
-    if (fixtureId) {
-      navigation.navigate('MatchDetails', { fixtureId, summary });
-    } else {
+    if (!fixtureId) {
       navigation.navigate('MainTabs');
+      return;
     }
+    if (fromMatchDetails && navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    navigation.replace('MatchDetails', { fixtureId, summary, originTab });
   };
 
   return (
@@ -289,6 +311,39 @@ const AIAnalysisScreen: React.FC = () => {
           <Text style={styles.backIcon}>←</Text>
           <Text style={styles.backLabel}>Back to match</Text>
         </TouchableOpacity>
+
+        {summary ? (
+          <View style={styles.detailHero}>
+            <View style={styles.heroTopRow}>
+              <View style={styles.heroLeagueBlock}>
+                <Text style={styles.heroLeagueText}>{summary?.league?.name || 'League'}</Text>
+                <Text style={styles.heroMetaText}>
+                  {summary?.league?.country || 'Country'}
+                </Text>
+              </View>
+              <View style={styles.heroStatusPill}>
+                <Text style={styles.heroStatusScore}>
+                  {isLiveMatch || isFinishedMatch ? scoreLabel : 'VS'}
+                </Text>
+                <Text style={styles.heroStatusText}>{heroStatusLabel}</Text>
+              </View>
+            </View>
+
+            <View style={styles.heroTeamsRow}>
+              <View style={styles.heroTeamCard}>
+                <Text style={styles.heroTeamName} numberOfLines={1}>
+                  {summary?.teams?.home?.name || 'Home'}
+                </Text>
+              </View>
+
+              <View style={styles.heroTeamCard}>
+                <Text style={[styles.heroTeamName, styles.heroTeamNameRight]} numberOfLines={1}>
+                  {summary?.teams?.away?.name || 'Away'}
+                </Text>
+              </View>
+            </View>
+          </View>
+        ) : null}
 
         {__DEV__ && cacheStatus ? (
           <Text style={styles.cacheDebug}>Cache status: {cacheStatus}</Text>
@@ -643,6 +698,79 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     fontSize: 12,
     fontWeight: '600',
+  },
+  detailHero: {
+    backgroundColor: '#0c0f25',
+    borderRadius: 22,
+    padding: 16,
+    borderWidth: 1.6,
+    borderColor: COLORS.neonPurple,
+    marginBottom: 16,
+    shadowColor: COLORS.neonPurple,
+    shadowOpacity: 0.6,
+    shadowRadius: 20,
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  heroLeagueBlock: {
+    flex: 1,
+  },
+  heroLeagueText: {
+    color: COLORS.text,
+    fontWeight: '800',
+    fontSize: 16,
+  },
+  heroMetaText: {
+    color: COLORS.muted,
+    fontSize: 12,
+    marginTop: 4,
+  },
+  heroStatusPill: {
+    backgroundColor: '#0c1028',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: COLORS.neonPurple,
+    alignItems: 'center',
+    minWidth: 88,
+  },
+  heroStatusScore: {
+    color: COLORS.text,
+    fontWeight: '900',
+    fontSize: 16,
+  },
+  heroStatusText: {
+    color: COLORS.muted,
+    fontSize: 12,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  heroTeamsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  heroTeamCard: {
+    flex: 1,
+    backgroundColor: '#0f162b',
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.borderSoft,
+  },
+  heroTeamName: {
+    color: COLORS.text,
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  heroTeamNameRight: {
+    textAlign: 'right',
   },
 });
 

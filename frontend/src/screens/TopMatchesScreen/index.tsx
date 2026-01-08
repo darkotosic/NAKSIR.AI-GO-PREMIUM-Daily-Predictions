@@ -148,7 +148,9 @@ export default function TopMatchesScreen() {
           const kickoffLabel = formatKickoff(summary?.kickoff);
           const relativeKickoffLabel = getRelativeKickoffLabel(summary?.kickoff);
           const standingsLeague = item?.standings?.[0]?.league;
-          const standingGroups = standingsLeague?.standings || [];
+          const standingGroups = Array.isArray(standingsLeague?.standings)
+            ? standingsLeague.standings
+            : [];
           const tableRows = standingGroups.reduce<StandingsRow[]>(
             (acc, group = []) => acc.concat(group),
             [],
@@ -188,6 +190,7 @@ export default function TopMatchesScreen() {
                 navigation.navigate('MatchDetails', {
                   fixtureId: item.fixture_id,
                   summary: item.summary,
+                  originTab: 'TopMatches',
                 })
               }
             >

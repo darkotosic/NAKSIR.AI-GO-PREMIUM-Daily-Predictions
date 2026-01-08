@@ -64,7 +64,7 @@ export default function NaksirAIScreen() {
   const totalAnalyses = query.data?.total ?? 0;
 
   const sections: Section[] = useMemo(() => {
-    const items = query.data?.items ?? [];
+    const items = Array.isArray(query.data?.items) ? query.data?.items : [];
     const map = new Map<string, CachedAiMatchItem[]>();
 
     for (const it of items) {
@@ -167,7 +167,12 @@ export default function NaksirAIScreen() {
 
               <TouchableOpacity
                 onPress={() =>
-                  navigation.navigate('AIAnalysis', { fixtureId: item.fixture_id, summary: item.summary })
+                  navigation.navigate('AIAnalysis', {
+                    fixtureId: item.fixture_id,
+                    summary: item.summary,
+                    originTab: 'NaksirAI',
+                    fromMatchDetails: false,
+                  })
                 }
                 style={{
                   paddingHorizontal: 8,

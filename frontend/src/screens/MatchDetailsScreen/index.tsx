@@ -29,7 +29,7 @@ const COLORS = {
   borderSoft: '#1f1f3a',
 };
 
-const LIVE_STATUSES = new Set(['1H', '2H', 'ET', 'P', 'INT', 'LIVE']);
+const LIVE_STATUSES = new Set(['1H', '2H', 'HT', 'ET', 'P', 'INT', 'LIVE']);
 
 const MatchDetailsScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -39,7 +39,10 @@ const MatchDetailsScreen: React.FC = () => {
   const { data, isLoading, isError, refetch } = useMatchDetailsQuery(fixtureId);
 
   const summary = data?.summary ?? fallbackSummary;
-  const isLiveMatch = LIVE_STATUSES.has(summary?.status ?? '');
+  const originTab = route.params?.originTab ?? 'TodayMatches';
+  const statusShort = summary?.status?.toUpperCase() ?? '';
+  const isLiveMatch = LIVE_STATUSES.has(statusShort);
+  const isFinishedMatch = new Set(['FT', 'AET', 'PEN']).has(statusShort);
   const league = summary?.league;
   const teams = summary?.teams;
   const kickoffDate = summary?.kickoff ? new Date(summary.kickoff) : undefined;
@@ -67,7 +70,9 @@ const MatchDetailsScreen: React.FC = () => {
   }
 
   const leagueStandingsLeague = data?.standings?.[0]?.league;
-  const standingGroups = leagueStandingsLeague?.standings || [];
+  const standingGroups = Array.isArray(leagueStandingsLeague?.standings)
+    ? leagueStandingsLeague.standings
+    : [];
   const tableRows = standingGroups.reduce((acc, group) => acc.concat(group), [] as any[]);
   const homeStanding = tableRows.find((row) => row.team?.id === teams?.home?.id);
   const awayStanding = tableRows.find((row) => row.team?.id === teams?.away?.id);
@@ -125,7 +130,28 @@ const MatchDetailsScreen: React.FC = () => {
     navigation.navigate(isLiveMatch ? 'LiveAIAnalysis' : 'AIAnalysis', {
       fixtureId,
       summary,
+      originTab,
+      fromMatchDetails: true,
     });
+
+  const statusLabelMap: Record<string, string> = {
+    '1H': 'First Half',
+    '2H': 'Second Half',
+    HT: 'Half Time',
+    ET: 'Extra Time',
+    P: 'Penalties',
+    INT: 'Break',
+  };
+  const liveStatusLabel = statusLabelMap[statusShort] ?? summary?.status_long ?? 'Live';
+  const scoreLabel = `${summary?.goals?.home ?? '-'} - ${summary?.goals?.away ?? '-'}`;
+  const heroStatusLabel = isFinishedMatch ? 'Finished' : isLiveMatch ? liveStatusLabel : kickoffTimeLabel;
+  const handleBackPress = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    navigation.navigate('MainTabs', { screen: originTab });
+  };
 
   const deepDiveSections = [
     { key: 'stats', label: 'Match stats', visible: hasStats, onPress: openStats },
@@ -146,7 +172,7 @@ const MatchDetailsScreen: React.FC = () => {
             <View style={styles.heroTopRow}>
               <TouchableOpacity
                 style={styles.backButton}
-                onPress={() => navigation.navigate('MainTabs', { screen: 'TodayMatches' })}
+                onPress={handleBackPress}
                 activeOpacity={0.9}
               >
                 <Text style={styles.backIcon}>←</Text>
@@ -180,8 +206,8 @@ const MatchDetailsScreen: React.FC = () => {
               </View>
 
               <View style={styles.heroVsPill}>
-                <Text style={styles.heroVsText}>VS</Text>
-                <Text style={styles.heroKickoff}>{kickoffTimeLabel}</Text>
+                <Text style={styles.heroVsText}>{isLiveMatch || isFinishedMatch ? scoreLabel : 'VS'}</Text>
+                <Text style={styles.heroKickoff}>{heroStatusLabel}</Text>
               </View>
 
               <View style={[styles.heroTeamCard, { alignItems: 'flex-end' }]}>
