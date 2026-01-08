@@ -30,7 +30,7 @@ export default function MainTopTabs() {
           borderRadius: 12,
           marginHorizontal: 8,
           marginVertical: 6,
-          height: 20,
+          height: 40,
         },
         tabBarActiveTintColor: COLORS.text,
         tabBarInactiveTintColor: COLORS.text,
