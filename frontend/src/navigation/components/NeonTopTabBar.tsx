@@ -18,7 +18,7 @@ type Props = MaterialTopTabBarProps & {
 type LayoutMap = Record<string, { x: number; width: number }>;
 
 function NeonTopTabBar(props: Props) {
-  const { state, descriptors, navigation, topInset = 0 } = props;
+  const { state, descriptors, navigation, topInset = 0, jumpTo } = props;
 
   const indicatorX = useRef(new Animated.Value(0)).current;
   const indicatorW = useRef(new Animated.Value(0)).current;
@@ -93,19 +93,19 @@ function NeonTopTabBar(props: Props) {
         {routes.map((route, idx) => {
           const focused = state.index === idx;
           const onPress = () => {
-            const event = navigation.emit({
+            const event = navigation.emit?.({
               type: 'tabPress',
               target: route.key,
               canPreventDefault: true,
             });
 
-            if (!focused && !event.defaultPrevented) {
-              navigation.navigate(route.name);
+            if (!focused && !event?.defaultPrevented) {
+              jumpTo(route.key);
             }
           };
 
           const onLongPress = () => {
-            navigation.emit({
+            navigation.emit?.({
               type: 'tabLongPress',
               target: route.key,
             });
