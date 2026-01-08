@@ -29,6 +29,8 @@ const COLORS = {
   borderSoft: '#1f1f3a',
 };
 
+const LIVE_STATUSES = new Set(['1H', '2H', 'ET', 'P', 'INT', 'LIVE']);
+
 const MatchDetailsScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'MatchDetails'>>();
@@ -37,6 +39,7 @@ const MatchDetailsScreen: React.FC = () => {
   const { data, isLoading, isError, refetch } = useMatchDetailsQuery(fixtureId);
 
   const summary = data?.summary ?? fallbackSummary;
+  const isLiveMatch = LIVE_STATUSES.has(summary?.status ?? '');
   const league = summary?.league;
   const teams = summary?.teams;
   const kickoffDate = summary?.kickoff ? new Date(summary.kickoff) : undefined;
@@ -55,7 +58,12 @@ const MatchDetailsScreen: React.FC = () => {
   }, [fixtureId, summary?.league, summary?.league?.id, summary?.league?.name]);
 
   if (!fixtureId) {
-    return <ErrorState message="Fixture ID is missing." onRetry={() => navigation.navigate('MainTabs')} />;
+    return (
+      <ErrorState
+        message="Fixture ID is missing."
+        onRetry={() => navigation.navigate('MainTabs', { screen: 'TodayMatches' })}
+      />
+    );
   }
 
   const leagueStandingsLeague = data?.standings?.[0]?.league;
@@ -114,7 +122,7 @@ const MatchDetailsScreen: React.FC = () => {
   const openPredictions = () => navigation.navigate('Predictions', { fixtureId, summary });
   const openInjuries = () => navigation.navigate('Injuries', { fixtureId, summary });
   const openAnalysis = () =>
-    navigation.navigate('AIAnalysis', {
+    navigation.navigate(isLiveMatch ? 'LiveAIAnalysis' : 'AIAnalysis', {
       fixtureId,
       summary,
     });
@@ -138,11 +146,11 @@ const MatchDetailsScreen: React.FC = () => {
             <View style={styles.heroTopRow}>
               <TouchableOpacity
                 style={styles.backButton}
-                onPress={() => navigation.goBack()}
+                onPress={() => navigation.navigate('MainTabs', { screen: 'TodayMatches' })}
                 activeOpacity={0.9}
               >
                 <Text style={styles.backIcon}>←</Text>
-                <Text style={styles.backLabel}>Back</Text>
+                <Text style={styles.backLabel}>Home</Text>
               </TouchableOpacity>
 
               <View style={styles.heroLeagueBlock}>

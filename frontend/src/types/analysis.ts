@@ -21,3 +21,19 @@ export interface MatchAnalysis {
   cards_probabilities?: Record<string, number>;
   odds_probabilities?: Record<string, any>;
 }
+
+export interface LiveMatchAnalysis {
+  summary?: string;
+  goals_remaining?: {
+    at_least_1_more_pct?: number | null;
+    at_least_2_more_pct?: number | null;
+  };
+  match_winner?: {
+    home_pct?: number | null;
+    draw_pct?: number | null;
+    away_pct?: number | null;
+  };
+  yellow_cards_summary?: string;
+  corners_summary?: string;
+  disclaimer?: string;
+}

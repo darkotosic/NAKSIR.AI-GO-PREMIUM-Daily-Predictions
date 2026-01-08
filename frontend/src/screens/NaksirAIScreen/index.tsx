@@ -61,6 +61,7 @@ function formatKickoff(kickoff?: string) {
 export default function NaksirAIScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const query = useCachedAiMatchesQuery();
+  const totalAnalyses = query.data?.total ?? 0;
 
   const sections: Section[] = useMemo(() => {
     const items = query.data?.items ?? [];
@@ -92,9 +93,11 @@ export default function NaksirAIScreen() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background, padding: 16 }}>
         <TelegramBanner />
-        <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: '900' }}>Naksir AI</Text>
+        <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: '900' }}>
+          Naksir AI {totalAnalyses}
+        </Text>
         <Text style={{ color: COLORS.muted, marginTop: 8 }}>
-          No cached AI analyses yet for the next 2 days.
+          No AI analyses yet for the next 2 days.
         </Text>
       </SafeAreaView>
     );
@@ -108,7 +111,9 @@ export default function NaksirAIScreen() {
         ListHeaderComponent={() => (
           <View style={{ paddingHorizontal: 14, paddingTop: 10, paddingBottom: 6 }}>
             <TelegramBanner />
-            <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: '900' }}>Naksir AI</Text>
+            <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: '900' }}>
+              Naksir AI {totalAnalyses}
+            </Text>
             <Text style={{ color: COLORS.muted, marginTop: 2 }}>
               Full In-Depth match analysis (tap Preview)
             </Text>

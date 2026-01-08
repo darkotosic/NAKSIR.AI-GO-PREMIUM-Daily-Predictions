@@ -12,6 +12,7 @@ import type { MatchSummary } from '@/types/match';
 import TodayMatchesScreen from '@screens/TodayMatchesScreen';
 import MatchDetailsScreen from '@screens/MatchDetailsScreen';
 import AIAnalysisScreen from '@screens/AIAnalysisScreen';
+import LiveAIAnalysisScreen from '@screens/LiveAIAnalysisScreen';
 import H2HScreen from '@screens/H2HScreen';
 import OddsScreen from '@screens/OddsScreen';
 import StatsScreen from '@screens/StatsScreen';
@@ -58,6 +59,7 @@ type DrawerParamList = {
   Subscriptions: undefined;
   MatchDetails: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
   AIAnalysis: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
+  LiveAIAnalysis: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
   H2H: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
   Odds:
     | { fixtureId?: number | string; summary?: MatchSummary; selectedMarket?: string }
@@ -145,6 +147,11 @@ const DrawerNavigator = () => (
         name="AIAnalysis"
         component={AIAnalysisScreen}
         options={{ title: 'Naksir In-depth Analysis', drawerItemStyle: { display: 'none' } }}
+      />
+      <Drawer.Screen
+        name="LiveAIAnalysis"
+        component={LiveAIAnalysisScreen}
+        options={{ title: 'Naksir Live Analysis', drawerItemStyle: { display: 'none' } }}
       />
       <Drawer.Screen
         name="H2H"
