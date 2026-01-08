@@ -71,6 +71,18 @@ const formatKickoff = (kickoff?: string) => {
   return `${hh}:${mm}`;
 };
 
+const getRelativeKickoffLabel = (kickoff?: string) => {
+  if (!kickoff) return 'Kickoff TBD';
+  const kickoffDate = new Date(kickoff);
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const startOfDayAfter = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2);
+  if (kickoffDate >= startOfToday && kickoffDate < startOfTomorrow) return 'Today';
+  if (kickoffDate >= startOfTomorrow && kickoffDate < startOfDayAfter) return 'Tomorrow';
+  return kickoffDate.toLocaleDateString([], { month: 'short', day: '2-digit' });
+};
+
 const formatOdd = (value?: number | string) => {
   if (typeof value === 'number') return value.toFixed(2);
   if (typeof value === 'string') return value;
@@ -134,6 +146,7 @@ export default function TopMatchesScreen() {
           const league = summary?.league;
           const teams = summary?.teams;
           const kickoffLabel = formatKickoff(summary?.kickoff);
+          const relativeKickoffLabel = getRelativeKickoffLabel(summary?.kickoff);
           const standingsLeague = item?.standings?.[0]?.league;
           const standingGroups = standingsLeague?.standings || [];
           const tableRows = standingGroups.reduce<StandingsRow[]>(
@@ -155,6 +168,16 @@ export default function TopMatchesScreen() {
             { key: 'home', label: 'HOME', value: flatOdds?.match_winner?.home },
             { key: 'draw', label: 'DRAW', value: flatOdds?.match_winner?.draw },
             { key: 'away', label: 'AWAY', value: flatOdds?.match_winner?.away },
+            { key: 'double-1x', label: '1X', value: flatOdds?.double_chance?.['1X'] },
+            { key: 'double-x2', label: 'X2', value: flatOdds?.double_chance?.['X2'] },
+            { key: 'double-12', label: '12', value: flatOdds?.double_chance?.['12'] },
+            { key: 'btts-yes', label: 'BTTS Y', value: flatOdds?.btts?.yes },
+            { key: 'btts-no', label: 'BTTS N', value: flatOdds?.btts?.no },
+            { key: 'over-2-5', label: 'O2.5', value: flatOdds?.totals?.over_2_5 },
+            { key: 'under-3-5', label: 'U3.5', value: flatOdds?.totals?.under_3_5 },
+            { key: 'ht-over-0-5', label: 'HT O0.5', value: flatOdds?.ht_over_0_5 },
+            { key: 'home-goals-o05', label: 'H O0.5', value: flatOdds?.home_goals_over_0_5 },
+            { key: 'away-goals-o05', label: 'A O0.5', value: flatOdds?.away_goals_over_0_5 },
           ].filter((chip) => chip.value !== null && chip.value !== undefined);
 
           return (
@@ -170,7 +193,10 @@ export default function TopMatchesScreen() {
             >
               <View style={styles.cardHeader}>
                 <View style={styles.kickoffWrap}>
-                  <Text style={styles.kickoffText}>{kickoffLabel}</Text>
+                  <View style={styles.kickoffRow}>
+                    <Text style={styles.kickoffText}>{kickoffLabel}</Text>
+                    <Text style={styles.relativeKickoffText}>{relativeKickoffLabel}</Text>
+                  </View>
                   <Text style={styles.leagueText} numberOfLines={1}>
                     {league?.name ?? 'League'}
                   </Text>
@@ -266,10 +292,20 @@ const styles = StyleSheet.create({
   kickoffWrap: {
     flex: 1,
   },
+  kickoffRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   kickoffText: {
     color: COLORS.text,
     fontWeight: '800',
     fontSize: 12,
+  },
+  relativeKickoffText: {
+    color: COLORS.muted,
+    fontSize: 10,
+    fontWeight: '700',
   },
   leagueText: {
     color: COLORS.muted,
@@ -334,7 +370,7 @@ const styles = StyleSheet.create({
   oddsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 4,
     marginTop: 8,
   },
   valuePill: {
@@ -360,19 +396,19 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: COLORS.borderSoft,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
     backgroundColor: '#0f162b',
   },
   oddsLabel: {
     color: COLORS.muted,
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: '700',
   },
   oddsValue: {
     color: COLORS.text,
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '800',
-    marginTop: 2,
+    marginTop: 1,
   },
 });
