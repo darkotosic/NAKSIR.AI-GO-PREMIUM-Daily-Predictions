@@ -24,9 +24,11 @@ const COLORS = {
 const FilterBar = ({
   filterOption,
   onFilterChange,
+  onInDepthPress,
 }: {
-  filterOption: 'all' | 'live';
-  onFilterChange: (value: 'all' | 'live') => void;
+  filterOption: 'all' | 'live' | 'top';
+  onFilterChange: (value: 'all' | 'live' | 'top') => void;
+  onInDepthPress: () => void;
 }) => (
   <View style={styles.sortRow}>
     <Text style={styles.filterLabel}>Show</Text>
@@ -34,13 +36,14 @@ const FilterBar = ({
       {[
         { key: 'all', label: 'All matches' },
         { key: 'live', label: 'Live only' },
+        { key: 'top', label: 'Top matches' },
       ].map((option) => {
         const isActive = filterOption === option.key;
         return (
           <TouchableOpacity
             key={option.key}
             style={[styles.sortChip, isActive && styles.sortChipActive]}
-            onPress={() => onFilterChange(option.key as 'all' | 'live')}
+            onPress={() => onFilterChange(option.key as 'all' | 'live' | 'top')}
             activeOpacity={0.85}
           >
             <Text style={[styles.sortChipText, isActive && styles.sortChipTextActive]}>
@@ -49,6 +52,13 @@ const FilterBar = ({
           </TouchableOpacity>
         );
       })}
+      <TouchableOpacity
+        style={[styles.sortChip, styles.sortChipHighlight]}
+        onPress={onInDepthPress}
+        activeOpacity={0.85}
+      >
+        <Text style={[styles.sortChipText, styles.sortChipTextActive]}>In-Depth Analysis</Text>
+      </TouchableOpacity>
     </View>
   </View>
 );
@@ -85,7 +95,7 @@ const TodayMatchesScreen: React.FC = () => {
     isRefetching,
   } = useTodayMatchesQuery();
   const { toggleFavorite, isFavorite } = useFavorites();
-  const [filterOption, setFilterOption] = React.useState<'all' | 'live'>('all');
+  const [filterOption, setFilterOption] = React.useState<'all' | 'live' | 'top'>('all');
 
   const onRefresh = useCallback(() => {
     trackEvent('RefreshMatches');
@@ -102,7 +112,27 @@ const TodayMatchesScreen: React.FC = () => {
       return allMatches;
     }
     const liveStatuses = new Set(['1H', '2H', 'ET', 'P', 'INT', 'LIVE']);
+    const topLeagueRules = [
+      { name: 'premier league', country: 'england' },
+      { name: 'la liga', country: 'spain' },
+      { name: 'serie a', country: 'italy' },
+      { name: 'bundesliga', country: 'germany' },
+      { name: 'ligue 1', country: 'france' },
+    ];
+    const isTopCompetition = (leagueName?: string, leagueCountry?: string) => {
+      const normalizedName = leagueName?.trim().toLowerCase() ?? '';
+      const normalizedCountry = leagueCountry?.trim().toLowerCase() ?? '';
+      if (normalizedName.includes('uefa')) return true;
+      return topLeagueRules.some(
+        (rule) =>
+          normalizedName.includes(rule.name) &&
+          (!rule.country || normalizedCountry === rule.country),
+      );
+    };
     return allMatches.filter((match) => {
+      if (filterOption === 'top') {
+        return isTopCompetition(match?.summary?.league?.name, match?.summary?.league?.country);
+      }
       const status = match?.summary?.status?.toUpperCase();
       return status ? liveStatuses.has(status) : false;
     });
@@ -111,7 +141,11 @@ const TodayMatchesScreen: React.FC = () => {
   const renderHeader = () => (
     <View>
       <TelegramBanner />
-      <FilterBar filterOption={filterOption} onFilterChange={setFilterOption} />
+      <FilterBar
+        filterOption={filterOption}
+        onFilterChange={setFilterOption}
+        onInDepthPress={() => navigation.navigate('InDepthAnalysis')}
+      />
       <View style={styles.refreshRow}>
         <TouchableOpacity style={styles.refreshButton} onPress={onRefresh} activeOpacity={0.85}>
           <Text style={styles.refreshText}>↻ Refresh</Text>
@@ -221,6 +255,7 @@ const styles = StyleSheet.create({
   sortButtons: {
     flexDirection: 'row',
     gap: 8,
+    flexWrap: 'wrap',
   },
   sortChip: {
     paddingHorizontal: 12,
@@ -232,6 +267,10 @@ const styles = StyleSheet.create({
   },
   sortChipActive: {
     borderColor: COLORS.neonPurple,
+    backgroundColor: '#1b2132',
+  },
+  sortChipHighlight: {
+    borderColor: COLORS.neonViolet,
     backgroundColor: '#1b2132',
   },
   sortChipText: {

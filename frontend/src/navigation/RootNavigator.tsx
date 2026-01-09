@@ -1,10 +1,10 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import MainTopTabs from '@navigation/MainTopTabs';
 import { RootStackParamList } from '@navigation/types';
 import { COLORS } from '@navigation/theme';
 
+import TodayMatchesScreen from '@screens/TodayMatchesScreen';
 import MatchDetailsScreen from '@screens/MatchDetailsScreen';
 import AIAnalysisScreen from '@screens/AIAnalysisScreen';
 import LiveAIAnalysisScreen from '@screens/LiveAIAnalysisScreen';
@@ -18,6 +18,7 @@ import PlayersScreen from '@screens/PlayersScreen';
 import PredictionsScreen from '@screens/PredictionsScreen';
 import InjuriesScreen from '@screens/InjuriesScreen';
 import SubscriptionsScreen from '@screens/SubscriptionsScreen';
+import InDepthAnalysisScreen from '@screens/InDepthAnalysisScreen';
 
 import RateAppButton from '@components/RateAppButton';
 
@@ -26,7 +27,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 export default function RootNavigator() {
   return (
     <Stack.Navigator
-      initialRouteName="MainTabs"
+      initialRouteName="TodayMatches"
       screenOptions={{
         headerStyle: { backgroundColor: COLORS.card },
         headerTintColor: COLORS.text,
@@ -35,7 +36,12 @@ export default function RootNavigator() {
         contentStyle: { backgroundColor: COLORS.background },
       }}
     >
-      <Stack.Screen name="MainTabs" component={MainTopTabs} options={{ headerShown: false }} />
+      <Stack.Screen name="TodayMatches" component={TodayMatchesScreen} options={{ title: 'Matches' }} />
+      <Stack.Screen
+        name="InDepthAnalysis"
+        component={InDepthAnalysisScreen}
+        options={{ title: 'In-Depth Analysis' }}
+      />
 
       <Stack.Screen name="Subscriptions" component={SubscriptionsScreen} options={{ title: 'Subscriptions' }} />
       <Stack.Screen name="MatchDetails" component={MatchDetailsScreen} options={{ title: 'Match Details' }} />

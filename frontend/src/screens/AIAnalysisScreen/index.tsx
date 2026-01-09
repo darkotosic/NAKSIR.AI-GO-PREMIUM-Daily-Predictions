@@ -292,7 +292,7 @@ const AIAnalysisScreen: React.FC = () => {
 
   const goBackToMatch = () => {
     if (!fixtureId) {
-      navigation.navigate('MainTabs');
+      navigation.navigate('TodayMatches');
       return;
     }
     if (fromMatchDetails && navigation.canGoBack()) {

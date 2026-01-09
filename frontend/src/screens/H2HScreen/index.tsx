@@ -81,7 +81,7 @@ const H2HScreen: React.FC = () => {
   const goBackToMatch = () => navigation.navigate('MatchDetails', { fixtureId, summary });
 
   if (!fixtureId) {
-    return <ErrorState message="Fixture ID is missing." onRetry={() => navigation.navigate('MainTabs')} />;
+    return <ErrorState message="Fixture ID is missing." onRetry={() => navigation.navigate('TodayMatches')} />;
   }
 
   return (
