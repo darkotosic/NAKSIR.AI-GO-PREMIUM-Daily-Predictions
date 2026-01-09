@@ -17,7 +17,11 @@ const AppOpenAdManager: React.FC = () => {
   const lastBackgroundAt = useRef<number | null>(null);
   const lastShownAt = useRef<number>(0);
 
-  const { isLoaded, isLoading, isShowing, load, show } = useAppOpenAd({ isTestMode: __DEV__ });
+  const { isLoaded, isLoading, isShowing, load, show, isSupported } = useAppOpenAd({
+    isTestMode: __DEV__,
+  });
+
+  if (!isSupported) return null;
 
   // Always keep an ad preloaded.
   useEffect(() => {

@@ -15,10 +15,19 @@ export const useAppOpenAd = ({
   requestOptions,
   isTestMode = __DEV__,
 }: UseAppOpenAdOptions = {}) => {
+  const isSupported = Boolean(
+    AppOpenAd && typeof AppOpenAd.createForAdRequest === 'function' && AdEventType,
+  );
   const resolvedAdUnitId = adUnitId ?? getAdUnitId('appOpen', isTestMode);
   const ad = useMemo(
-    () => AppOpenAd.createForAdRequest(resolvedAdUnitId, buildRequestOptions(requestOptions)),
-    [resolvedAdUnitId, requestOptions],
+    () =>
+      isSupported
+        ? AppOpenAd.createForAdRequest(
+            resolvedAdUnitId,
+            buildRequestOptions(requestOptions),
+          )
+        : null,
+    [isSupported, resolvedAdUnitId, requestOptions],
   );
 
   const [isLoaded, setIsLoaded] = useState(false);
@@ -26,6 +35,7 @@ export const useAppOpenAd = ({
   const [isShowing, setIsShowing] = useState(false);
 
   useEffect(() => {
+    if (!ad || !AdEventType) return;
     const loadedListener = ad.addAdEventListener(AdEventType.LOADED, () => {
       setIsLoaded(true);
       setIsLoading(false);
@@ -53,12 +63,13 @@ export const useAppOpenAd = ({
   }, [ad]);
 
   const load = useCallback(() => {
+    if (!ad?.load) return;
     setIsLoading(true);
     ad.load();
   }, [ad]);
 
   const show = useCallback(() => {
-    if (isLoaded) {
+    if (isLoaded && ad?.show) {
       ad.show();
     }
   }, [ad, isLoaded]);
@@ -70,6 +81,7 @@ export const useAppOpenAd = ({
     isShowing,
     load,
     show,
+    isSupported,
     adUnitId: resolvedAdUnitId,
   };
 };
