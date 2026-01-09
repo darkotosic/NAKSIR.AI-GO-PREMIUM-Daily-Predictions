@@ -20,7 +20,6 @@ import InjuriesScreen from '@screens/InjuriesScreen';
 import SubscriptionsScreen from '@screens/SubscriptionsScreen';
 import InDepthAnalysisScreen from '@screens/InDepthAnalysisScreen';
 
-import RateAppButton from '@components/RateAppButton';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -29,10 +28,7 @@ export default function RootNavigator() {
     <Stack.Navigator
       initialRouteName="TodayMatches"
       screenOptions={{
-        headerStyle: { backgroundColor: COLORS.card },
-        headerTintColor: COLORS.text,
-        headerTitleStyle: { fontWeight: '900' },
-        headerRight: () => <RateAppButton style={{ marginRight: 12 }} />,
+        headerShown: false,
         contentStyle: { backgroundColor: COLORS.background },
       }}
     >
