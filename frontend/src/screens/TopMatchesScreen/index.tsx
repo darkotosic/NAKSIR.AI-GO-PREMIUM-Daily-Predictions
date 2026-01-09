@@ -90,6 +90,12 @@ const formatOdd = (value?: number | string) => {
   return '--';
 };
 
+const getKickoffSortValue = (kickoff?: string | number | null) => {
+  if (!kickoff) return '';
+  const date = new Date(kickoff);
+  return Number.isNaN(date.getTime()) ? String(kickoff) : date.toISOString();
+};
+
 export default function TopMatchesScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const query = useTopMatchesQuery();
@@ -115,7 +121,11 @@ export default function TopMatchesScreen() {
     return Array.from(map.entries())
       .map(([title, data]) => ({
         title,
-        data: data.sort((a, b) => (a.summary?.kickoff ?? '').localeCompare(b.summary?.kickoff ?? '')),
+        data: data.sort((a, b) =>
+          getKickoffSortValue(a.summary?.kickoff).localeCompare(
+            getKickoffSortValue(b.summary?.kickoff),
+          ),
+        ),
       }))
       .sort((a, b) => a.title.localeCompare(b.title));
   }, [items]);
