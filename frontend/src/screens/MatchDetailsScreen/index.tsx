@@ -64,7 +64,7 @@ const MatchDetailsScreen: React.FC = () => {
     return (
       <ErrorState
         message="Fixture ID is missing."
-        onRetry={() => navigation.navigate('MainTabs', { screen: 'TodayMatches' })}
+        onRetry={() => navigation.navigate('TodayMatches')}
       />
     );
   }
@@ -150,7 +150,7 @@ const MatchDetailsScreen: React.FC = () => {
       navigation.goBack();
       return;
     }
-    navigation.navigate('MainTabs', { screen: originTab });
+    navigation.navigate(originTab);
   };
 
   const deepDiveSections = [

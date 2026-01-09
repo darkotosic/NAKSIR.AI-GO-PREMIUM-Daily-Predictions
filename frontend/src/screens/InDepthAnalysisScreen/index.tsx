@@ -26,7 +26,7 @@ type Section = { title: string; data: CachedAiMatchItem[] };
 const FLAG_OVERRIDES: Record<string, string> = {
   world: '🌍',
   europe: '🇪🇺',
-  england: '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
+  england: '🏴',
   scotland: '🏴',
   wales: '🏴',
   'united states': '🇺🇸',
@@ -65,7 +65,7 @@ const getKickoffSortValue = (kickoff?: string | number | null) => {
   return Number.isNaN(date.getTime()) ? String(kickoff) : date.toISOString();
 };
 
-export default function NaksirAIScreen() {
+export default function InDepthAnalysisScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const query = useCachedAiMatchesQuery();
   const totalAnalyses = query.data?.total ?? 0;
@@ -97,7 +97,7 @@ export default function NaksirAIScreen() {
       .sort((a, b) => a.title.localeCompare(b.title));
   }, [query.data]);
 
-  if (query.isLoading) return <LoadingState message="Loading Naksir AI list..." />;
+  if (query.isLoading) return <LoadingState message="Loading in-depth analysis..." />;
   if (query.isError) return <ErrorState message="Failed to load cached AI matches" />;
 
   if (!sections.length) {
@@ -105,7 +105,7 @@ export default function NaksirAIScreen() {
       <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background, padding: 16 }}>
         <TelegramBanner />
         <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: '900' }}>
-          Naksir AI {totalAnalyses}
+          In-Depth Analysis {totalAnalyses}
         </Text>
         <Text style={{ color: COLORS.muted, marginTop: 8 }}>
           No AI analyses yet for the next 2 days.
@@ -123,10 +123,10 @@ export default function NaksirAIScreen() {
           <View style={{ paddingHorizontal: 14, paddingTop: 10, paddingBottom: 6 }}>
             <TelegramBanner />
             <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: '900' }}>
-              Naksir AI {totalAnalyses}
+              In-Depth Analysis {totalAnalyses}
             </Text>
             <Text style={{ color: COLORS.muted, marginTop: 2 }}>
-              Full In-Depth match analysis (tap Preview)
+              Full in-depth match analysis (tap Preview)
             </Text>
           </View>
         )}
@@ -181,7 +181,7 @@ export default function NaksirAIScreen() {
                   navigation.navigate('AIAnalysis', {
                     fixtureId: item.fixture_id,
                     summary: item.summary,
-                    originTab: 'NaksirAI',
+                    originTab: 'InDepthAnalysis',
                     fromMatchDetails: false,
                   })
                 }

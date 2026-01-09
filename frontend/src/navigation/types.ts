@@ -1,24 +1,21 @@
 import { MatchSummary } from '@/types/match';
 
-export type MainTopTabsParamList = {
-  TodayMatches: undefined;
-  TopMatches: undefined;
-  NaksirAI: undefined;
-};
+export type MatchOrigin = 'TodayMatches' | 'InDepthAnalysis';
 
 export type RootStackParamList = {
-  MainTabs: { screen?: keyof MainTopTabsParamList } | undefined;
+  TodayMatches: undefined;
+  InDepthAnalysis: undefined;
 
   // Hidden / drill-down screens:
   Subscriptions: undefined;
   MatchDetails:
-    | { fixtureId?: number | string; summary?: MatchSummary; originTab?: keyof MainTopTabsParamList }
+    | { fixtureId?: number | string; summary?: MatchSummary; originTab?: MatchOrigin }
     | undefined;
   AIAnalysis:
     | {
         fixtureId?: number | string;
         summary?: MatchSummary;
-        originTab?: keyof MainTopTabsParamList;
+        originTab?: MatchOrigin;
         fromMatchDetails?: boolean;
       }
     | undefined;
@@ -26,7 +23,7 @@ export type RootStackParamList = {
     | {
         fixtureId?: number | string;
         summary?: MatchSummary;
-        originTab?: keyof MainTopTabsParamList;
+        originTab?: MatchOrigin;
         fromMatchDetails?: boolean;
       }
     | undefined;
