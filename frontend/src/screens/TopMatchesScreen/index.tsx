@@ -19,6 +19,7 @@ import TelegramBanner from '@components/TelegramBanner';
 import { useTopMatchesQuery } from '@hooks/useTopMatchesQuery';
 import type { MatchListItem, StandingsRow } from '@/types/match';
 import type { RootStackParamList } from '@navigation/types';
+import { padTwoDigits } from '@lib/time';
 
 const COLORS = {
   background: '#040312',
@@ -66,8 +67,8 @@ const getFlagEmoji = (country?: string, leagueName?: string) => {
 const formatKickoff = (kickoff?: string) => {
   if (!kickoff) return '--:--';
   const d = new Date(kickoff);
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
+  const hh = padTwoDigits(d.getHours());
+  const mm = padTwoDigits(d.getMinutes());
   return `${hh}:${mm}`;
 };
 

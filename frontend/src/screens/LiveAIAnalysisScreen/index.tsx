@@ -15,6 +15,7 @@ import { AiAnalysisError, requestAiAnalysis } from '@api/analysis';
 import type { LiveMatchAnalysis } from '@/types/analysis';
 import { RootStackParamList } from '@navigation/types';
 import TelegramBanner from '@components/TelegramBanner';
+import { padTwoDigits } from '@lib/time';
 
 const COLORS = {
   background: '#040312',
@@ -183,10 +184,8 @@ const LiveAIAnalysisScreen: React.FC = () => {
   }, [isGenerating, liveWordAnim]);
 
   const formatTimer = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-      .toString()
-      .padStart(2, '0');
-    const secs = (seconds % 60).toString().padStart(2, '0');
+    const mins = padTwoDigits(Math.floor(seconds / 60));
+    const secs = padTwoDigits(seconds % 60);
     return `${mins}:${secs}`;
   };
 

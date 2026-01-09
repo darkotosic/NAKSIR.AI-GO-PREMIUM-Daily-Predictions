@@ -16,6 +16,7 @@ import type { MatchAnalysis } from '@/types/analysis';
 import { RootStackParamList } from '@navigation/types';
 import { trackEvent } from '@lib/tracking';
 import TelegramBanner from '@components/TelegramBanner';
+import { padTwoDigits } from '@lib/time';
 
 const COLORS = {
   background: '#040312',
@@ -74,10 +75,8 @@ const AIAnalysisScreen: React.FC = () => {
   }, [isGenerating]);
 
   const formatTimer = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-      .toString()
-      .padStart(2, '0');
-    const secs = (seconds % 60).toString().padStart(2, '0');
+    const mins = padTwoDigits(Math.floor(seconds / 60));
+    const secs = padTwoDigits(seconds % 60);
     return `${mins}:${secs}`;
   };
 
