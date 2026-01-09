@@ -10,6 +10,7 @@ import TelegramBanner from '@components/TelegramBanner';
 import { useCachedAiMatchesQuery } from '@hooks/useCachedAiMatchesQuery';
 import type { CachedAiMatchItem } from '@api/cachedAi';
 import type { RootStackParamList } from '@navigation/types';
+import { padTwoDigits } from '@lib/time';
 
 const COLORS = {
   background: '#040312',
@@ -53,8 +54,8 @@ const getFlagEmoji = (country?: string) => {
 function formatKickoff(kickoff?: string) {
   if (!kickoff) return '--:--';
   const d = new Date(kickoff);
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
+  const hh = padTwoDigits(d.getHours());
+  const mm = padTwoDigits(d.getMinutes());
   return `${hh}:${mm}`;
 }
 
