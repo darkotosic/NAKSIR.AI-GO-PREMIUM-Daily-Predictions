@@ -17,6 +17,7 @@ export type RootStackParamList = {
         summary?: MatchSummary;
         originTab?: MatchOrigin;
         fromMatchDetails?: boolean;
+        fromPreview?: boolean;
       }
     | undefined;
   LiveAIAnalysis:
