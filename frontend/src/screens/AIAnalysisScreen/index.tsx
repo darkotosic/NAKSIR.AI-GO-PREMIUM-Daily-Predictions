@@ -37,6 +37,7 @@ const AIAnalysisScreen: React.FC = () => {
   const summary = route.params?.summary;
   const originTab = route.params?.originTab ?? 'TodayMatches';
   const fromMatchDetails = route.params?.fromMatchDetails ?? false;
+  const fromPreview = route.params?.fromPreview ?? false;
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [analysisPayloadState, setAnalysisPayload] = useState<MatchAnalysis | null>(null);
   const [status, setStatus] = useState<
@@ -292,6 +293,14 @@ const AIAnalysisScreen: React.FC = () => {
     value === null || value === undefined ? '-' : `${value}%`;
 
   const goBackToMatch = () => {
+    if (fromPreview) {
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+        return;
+      }
+      navigation.navigate('InDepthAnalysis');
+      return;
+    }
     if (!fixtureId) {
       navigation.navigate('TodayMatches');
       return;

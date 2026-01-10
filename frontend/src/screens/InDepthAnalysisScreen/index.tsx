@@ -206,6 +206,7 @@ export default function InDepthAnalysisScreen() {
                     summary: item.summary,
                     originTab: 'InDepthAnalysis',
                     fromMatchDetails: false,
+                    fromPreview: true,
                   })
                 }
                 style={{
