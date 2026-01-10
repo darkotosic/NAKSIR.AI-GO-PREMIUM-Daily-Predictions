@@ -60,8 +60,8 @@ type DrawerParamList = {
   InDepthAnalysis: undefined;
   Subscriptions: undefined;
   MatchDetails: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
-  AIAnalysis: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
-  LiveAIAnalysis: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
+  AIAnalysis: { fixtureId?: number | string; summary?: MatchSummary; adWatched?: boolean } | undefined;
+  LiveAIAnalysis: { fixtureId?: number | string; summary?: MatchSummary; adWatched?: boolean } | undefined;
   H2H: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
   Odds:
     | { fixtureId?: number | string; summary?: MatchSummary; selectedMarket?: string }

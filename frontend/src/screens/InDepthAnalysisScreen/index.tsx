@@ -12,6 +12,7 @@ import { useCachedAiMatchesQuery } from '@hooks/useCachedAiMatchesQuery';
 import type { CachedAiMatchItem } from '@api/cachedAi';
 import type { RootStackParamList } from '@navigation/types';
 import { padTwoDigits } from '@lib/time';
+import { useInterstitialAdGate } from '@ads/useInterstitialAdGate';
 
 const COLORS = {
   background: '#040312',
@@ -72,6 +73,7 @@ export default function InDepthAnalysisScreen() {
   const query = useCachedAiMatchesQuery();
   const totalAnalyses = query.data?.total ?? 0;
   const headerPaddingTop = Math.max(insets.top, 12);
+  const { showAd } = useInterstitialAdGate();
 
   const sections: Section[] = useMemo(() => {
     const items = Array.isArray(query.data?.items) ? query.data?.items : [];
@@ -200,14 +202,16 @@ export default function InDepthAnalysisScreen() {
               </View>
 
               <TouchableOpacity
-                onPress={() =>
+                onPress={async () => {
+                  await showAd();
                   navigation.navigate('AIAnalysis', {
                     fixtureId: item.fixture_id,
                     summary: item.summary,
                     originTab: 'InDepthAnalysis',
                     fromMatchDetails: false,
-                  })
-                }
+                    adWatched: true,
+                  });
+                }}
                 style={{
                   paddingHorizontal: 8,
                   paddingVertical: 6,
