@@ -1,5 +1,6 @@
 export type AdUnitKey =
   | 'banner'
+  | 'interstitial'
   | 'rewarded'
   | 'rewardedInterstitial'
   | 'appOpen'

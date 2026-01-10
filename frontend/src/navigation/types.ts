@@ -17,6 +17,7 @@ export type RootStackParamList = {
         summary?: MatchSummary;
         originTab?: MatchOrigin;
         fromMatchDetails?: boolean;
+        adWatched?: boolean;
       }
     | undefined;
   LiveAIAnalysis:
@@ -25,6 +26,7 @@ export type RootStackParamList = {
         summary?: MatchSummary;
         originTab?: MatchOrigin;
         fromMatchDetails?: boolean;
+        adWatched?: boolean;
       }
     | undefined;
   H2H: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
