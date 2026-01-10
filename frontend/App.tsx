@@ -5,7 +5,7 @@ import { SafeAreaView, Text, TouchableOpacity, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NavigationContainer } from '@react-navigation/native';
-import RootNavigator from '@navigation/RootNavigator';
+import DrawerNavigator from '@navigation/DrawerNavigator';
 import { navigationTheme } from '@navigation/theme';
 import { initAnalytics } from '@lib/tracking';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -117,7 +117,7 @@ const AppRoot: React.FC = () => {
         <NavigationContainer theme={navigationTheme}>
           <StatusBar style="light" />
           {adsReady ? <AppOpenAdManager /> : null}
-          <RootNavigator />
+          <DrawerNavigator />
         </NavigationContainer>
 
         {/* Bottom sticky banner (single placement, no popups) */}
