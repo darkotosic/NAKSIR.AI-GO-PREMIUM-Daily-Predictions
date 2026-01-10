@@ -23,7 +23,7 @@ const COLORS = {
   borderSoft: '#1f1f3a',
 };
 
-type Section = { title: string; data: CachedAiMatchItem[] };
+type Section = { title: string; data: CachedAiMatchItem[]; showAdAfter?: boolean };
 
 const FLAG_OVERRIDES: Record<string, string> = {
   world: '🌍',
@@ -89,7 +89,7 @@ export default function InDepthAnalysisScreen() {
       map.set(title, arr);
     }
 
-    return Array.from(map.entries())
+    const sortedSections = Array.from(map.entries())
       .map(([title, data]) => ({
         title,
         data: data.sort((a, b) =>
@@ -99,6 +99,11 @@ export default function InDepthAnalysisScreen() {
         ),
       }))
       .sort((a, b) => a.title.localeCompare(b.title));
+
+    return sortedSections.map((section, index) => ({
+      ...section,
+      showAdAfter: (index + 1) % 3 === 0,
+    }));
   }, [query.data]);
 
   if (query.isLoading) return <LoadingState message="Loading in-depth analysis..." />;
@@ -159,11 +164,13 @@ export default function InDepthAnalysisScreen() {
             <Text style={{ color: COLORS.muted, fontWeight: '900' }}>{section.title}</Text>
           </View>
         )}
-        SectionSeparatorComponent={() => (
-          <View style={styles.sectionAd}>
-            <NativeAdvanceAdCard />
-          </View>
-        )}
+        renderSectionFooter={({ section }) =>
+          section.showAdAfter ? (
+            <View style={styles.sectionAd}>
+              <NativeAdvanceAdCard />
+            </View>
+          ) : null
+        }
         renderItem={({ item }) => {
           const home = item.summary?.teams?.home?.name ?? 'Home';
           const away = item.summary?.teams?.away?.name ?? 'Away';
