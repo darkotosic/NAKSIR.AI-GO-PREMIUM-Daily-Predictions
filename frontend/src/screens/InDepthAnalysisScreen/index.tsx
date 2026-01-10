@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LoadingState } from '@components/LoadingState';
 import { ErrorState } from '@components/ErrorState';
 import TelegramBanner from '@components/TelegramBanner';
+import { NativeAdvanceAdCard } from '@ads/NativeAdvanceAdCard';
 
 import { useCachedAiMatchesQuery } from '@hooks/useCachedAiMatchesQuery';
 import type { CachedAiMatchItem } from '@api/cachedAi';
@@ -158,6 +159,11 @@ export default function InDepthAnalysisScreen() {
             <Text style={{ color: COLORS.muted, fontWeight: '900' }}>{section.title}</Text>
           </View>
         )}
+        SectionSeparatorComponent={() => (
+          <View style={styles.sectionAd}>
+            <NativeAdvanceAdCard />
+          </View>
+        )}
         renderItem={({ item }) => {
           const home = item.summary?.teams?.home?.name ?? 'Home';
           const away = item.summary?.teams?.away?.name ?? 'Away';
@@ -246,5 +252,9 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontWeight: '700',
     fontSize: 12,
+  },
+  sectionAd: {
+    marginHorizontal: 12,
+    marginVertical: 8,
   },
 });

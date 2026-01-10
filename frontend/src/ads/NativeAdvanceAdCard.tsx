@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import NativeAdView, {
   CallToActionView,
   HeadlineView,
@@ -28,6 +28,9 @@ export const NativeAdvanceAdCard: React.FC<NativeAdvanceAdCardProps> = ({
   return (
     <NativeAdView style={styles.container} adUnitID={resolvedAdUnitId} videoOptions={{ muted: true }}>
       <View style={styles.innerCard}>
+        <View style={styles.adBadge}>
+          <Text style={styles.adBadgeText}>Ad</Text>
+        </View>
         <MediaView style={styles.media} />
         <View style={styles.row}>
           <IconView style={styles.icon} />
@@ -51,6 +54,19 @@ const styles = StyleSheet.create({
   innerCard: {
     padding: 12,
     gap: 12,
+  },
+  adBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#e2e8f0',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  adBadgeText: {
+    color: '#0f172a',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   row: {
     flexDirection: 'row',
