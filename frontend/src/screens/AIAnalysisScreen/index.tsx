@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Animated,
+  Image,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -66,6 +67,9 @@ const AIAnalysisScreen: React.FC = () => {
   const liveStatusLabel = statusLabelMap[statusShort] ?? summary?.status_long ?? 'Live';
   const heroStatusLabel = isFinishedMatch ? 'Finished' : isLiveMatch ? liveStatusLabel : kickoffLabel;
   const scoreLabel = `${summary?.goals?.home ?? '-'} - ${summary?.goals?.away ?? '-'}`;
+  const leagueLogo = summary?.league?.logo;
+  const homeLogo = summary?.teams?.home?.logo;
+  const awayLogo = summary?.teams?.away?.logo;
 
   const depthWords = useMemo(() => 'NAKSIR GO IN DEPTH OF DATA'.split(' '), []);
   const depthWordAnim = useMemo(() => depthWords.map(() => new Animated.Value(0)), [depthWords]);
@@ -325,10 +329,17 @@ const AIAnalysisScreen: React.FC = () => {
           <View style={styles.detailHero}>
             <View style={styles.heroTopRow}>
               <View style={styles.heroLeagueBlock}>
-                <Text style={styles.heroLeagueText}>{summary?.league?.name || 'League'}</Text>
-                <Text style={styles.heroMetaText}>
-                  {summary?.league?.country || 'Country'}
-                </Text>
+                <View style={styles.heroLeagueRow}>
+                  {leagueLogo ? (
+                    <Image source={{ uri: leagueLogo }} style={styles.heroLeagueLogo} />
+                  ) : null}
+                  <View style={styles.heroLeagueTextBlock}>
+                    <Text style={styles.heroLeagueText}>{summary?.league?.name || 'League'}</Text>
+                    <Text style={styles.heroMetaText}>
+                      {summary?.league?.country || 'Country'}
+                    </Text>
+                  </View>
+                </View>
               </View>
               <View style={styles.heroStatusPill}>
                 <Text style={styles.heroStatusScore}>
@@ -340,15 +351,21 @@ const AIAnalysisScreen: React.FC = () => {
 
             <View style={styles.heroTeamsRow}>
               <View style={styles.heroTeamCard}>
-                <Text style={styles.heroTeamName} numberOfLines={1}>
-                  {summary?.teams?.home?.name || 'Home'}
-                </Text>
+                <View style={styles.heroTeamRow}>
+                  {homeLogo ? <Image source={{ uri: homeLogo }} style={styles.heroTeamLogo} /> : null}
+                  <Text style={styles.heroTeamName} numberOfLines={1}>
+                    {summary?.teams?.home?.name || 'Home'}
+                  </Text>
+                </View>
               </View>
 
               <View style={styles.heroTeamCard}>
-                <Text style={[styles.heroTeamName, styles.heroTeamNameRight]} numberOfLines={1}>
-                  {summary?.teams?.away?.name || 'Away'}
-                </Text>
+                <View style={[styles.heroTeamRow, styles.heroTeamRowRight]}>
+                  {awayLogo ? <Image source={{ uri: awayLogo }} style={styles.heroTeamLogo} /> : null}
+                  <Text style={[styles.heroTeamName, styles.heroTeamNameRight]} numberOfLines={1}>
+                    {summary?.teams?.away?.name || 'Away'}
+                  </Text>
+                </View>
               </View>
             </View>
           </View>
@@ -729,6 +746,20 @@ const styles = StyleSheet.create({
   heroLeagueBlock: {
     flex: 1,
   },
+  heroLeagueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  heroLeagueLogo: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#0b1220',
+  },
+  heroLeagueTextBlock: {
+    flex: 1,
+  },
   heroLeagueText: {
     color: COLORS.text,
     fontWeight: '800',
@@ -772,6 +803,21 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: COLORS.borderSoft,
+  },
+  heroTeamRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  heroTeamRowRight: {
+    justifyContent: 'flex-end',
+    flexDirection: 'row-reverse',
+  },
+  heroTeamLogo: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#0b1220',
   },
   heroTeamName: {
     color: COLORS.text,
