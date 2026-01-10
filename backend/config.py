@@ -169,6 +169,9 @@ TOP_LEAGUE_IDS: List[int] = [
     848,  # UEFA Europa Conference League
 ]
 
+# Live AI is allowed only for Top 5 + UEFA competitions
+LIVE_AI_ALLOWED_LEAGUE_IDS = TOP_LEAGUE_IDS
+
 # Statusi koje SKLANJAM iz feeda
 SKIP_STATUS = {"FT", "AET", "PEN", "PST", "CANC", "ABD", "WO"}
 
