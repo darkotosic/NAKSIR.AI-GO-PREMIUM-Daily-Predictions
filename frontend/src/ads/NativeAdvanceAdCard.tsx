@@ -1,13 +1,13 @@
 // @ts-nocheck
-import React, { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import NativeAdView, {
-  CallToActionView,
-  HeadlineView,
-  IconView,
-  MediaView,
-  TaglineView,
-} from 'react-native-google-mobile-ads/native-ads';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Image, StyleSheet, Text, View } from 'react-native';
+import {
+  NativeAd,
+  NativeAdView,
+  NativeAsset,
+  NativeAssetType,
+  NativeMediaView,
+} from 'react-native-google-mobile-ads';
 
 import { getAdUnitId } from './admob';
 
@@ -20,26 +20,74 @@ export const NativeAdvanceAdCard: React.FC<NativeAdvanceAdCardProps> = ({
   adUnitId,
   isTestMode = __DEV__,
 }) => {
+  const [nativeAd, setNativeAd] = useState<NativeAd | null>(null);
   const resolvedAdUnitId = useMemo(
     () => adUnitId ?? getAdUnitId('nativeAdvanced', isTestMode),
     [adUnitId, isTestMode],
   );
 
+  useEffect(() => {
+    let isActive = true;
+    let adInstance: NativeAd | null = null;
+
+    setNativeAd(null);
+
+    NativeAd.createForAdRequest(resolvedAdUnitId)
+      .then((ad) => {
+        adInstance = ad;
+        if (isActive) {
+          setNativeAd(ad);
+        } else {
+          ad.destroy();
+        }
+      })
+      .catch((error) => {
+        if (__DEV__) {
+          console.warn('Failed to load native ad', error);
+        }
+      });
+
+    return () => {
+      isActive = false;
+      adInstance?.destroy();
+    };
+  }, [resolvedAdUnitId]);
+
+  if (!nativeAd) {
+    return null;
+  }
+
   return (
-    <NativeAdView style={styles.container} adUnitID={resolvedAdUnitId} videoOptions={{ muted: true }}>
+    <NativeAdView style={styles.container} nativeAd={nativeAd}>
       <View style={styles.innerCard}>
         <View style={styles.adBadge}>
           <Text style={styles.adBadgeText}>Ad</Text>
         </View>
-        <MediaView style={styles.media} />
+        <NativeMediaView style={styles.media} />
         <View style={styles.row}>
-          <IconView style={styles.icon} />
+          {nativeAd.icon?.url ? (
+            <NativeAsset assetType={NativeAssetType.ICON}>
+              <Image source={{ uri: nativeAd.icon.url }} style={styles.icon} />
+            </NativeAsset>
+          ) : null}
           <View style={styles.textBlock}>
-            <HeadlineView style={styles.headline} />
-            <TaglineView style={styles.tagline} numberOfLines={2} />
+            <NativeAsset assetType={NativeAssetType.HEADLINE}>
+              <Text style={styles.headline}>{nativeAd.headline}</Text>
+            </NativeAsset>
+            {nativeAd.body ? (
+              <NativeAsset assetType={NativeAssetType.BODY}>
+                <Text style={styles.tagline} numberOfLines={2}>
+                  {nativeAd.body}
+                </Text>
+              </NativeAsset>
+            ) : null}
           </View>
         </View>
-        <CallToActionView style={styles.cta} textStyle={styles.ctaText} />
+        <NativeAsset assetType={NativeAssetType.CALL_TO_ACTION}>
+          <View style={styles.cta}>
+            <Text style={styles.ctaText}>{nativeAd.callToAction}</Text>
+          </View>
+        </NativeAsset>
       </View>
     </NativeAdView>
   );
