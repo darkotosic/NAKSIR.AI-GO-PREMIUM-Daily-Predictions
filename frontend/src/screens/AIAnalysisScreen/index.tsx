@@ -18,7 +18,6 @@ import { trackEvent } from '@lib/tracking';
 import TelegramBanner from '@components/TelegramBanner';
 import { LoadingState } from '@components/LoadingState';
 import { padTwoDigits } from '@lib/time';
-import { useInterstitialAdGate } from '@ads/useInterstitialAdGate';
 
 const COLORS = {
   background: '#040312',
@@ -38,7 +37,6 @@ const AIAnalysisScreen: React.FC = () => {
   const summary = route.params?.summary;
   const originTab = route.params?.originTab ?? 'TodayMatches';
   const fromMatchDetails = route.params?.fromMatchDetails ?? false;
-  const adWatched = route.params?.adWatched ?? false;
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [analysisPayloadState, setAnalysisPayload] = useState<MatchAnalysis | null>(null);
   const [status, setStatus] = useState<
@@ -50,9 +48,6 @@ const AIAnalysisScreen: React.FC = () => {
   const pollInFlightRef = useRef(false);
   const requestIdRef = useRef(0);
   const isGeneratingRef = useRef(false);
-  const adGateRequestedRef = useRef(false);
-  const [adGateOpen, setAdGateOpen] = useState(adWatched);
-  const { showAd } = useInterstitialAdGate();
   const statusShort = summary?.status?.toUpperCase() ?? '';
   const isLiveMatch = LIVE_STATUSES.has(statusShort);
   const isFinishedMatch = new Set(['FT', 'AET', 'PEN']).has(statusShort);
@@ -79,12 +74,6 @@ const AIAnalysisScreen: React.FC = () => {
   useEffect(() => {
     isGeneratingRef.current = isGenerating;
   }, [isGenerating]);
-
-  useEffect(() => {
-    if (adWatched || adGateRequestedRef.current) return;
-    adGateRequestedRef.current = true;
-    showAd().then(() => setAdGateOpen(true));
-  }, [adWatched, showAd]);
 
   const formatTimer = (seconds: number) => {
     const mins = padTwoDigits(Math.floor(seconds / 60));
@@ -313,14 +302,6 @@ const AIAnalysisScreen: React.FC = () => {
     }
     navigation.replace('MatchDetails', { fixtureId, summary, originTab });
   };
-
-  if (!adGateOpen) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <LoadingState message="Loading ad..." />
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView style={styles.safeArea}>

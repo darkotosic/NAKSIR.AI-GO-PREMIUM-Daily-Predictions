@@ -17,7 +17,6 @@ import { RootStackParamList } from '@navigation/types';
 import TelegramBanner from '@components/TelegramBanner';
 import { LoadingState } from '@components/LoadingState';
 import { padTwoDigits } from '@lib/time';
-import { useInterstitialAdGate } from '@ads/useInterstitialAdGate';
 
 const COLORS = {
   background: '#040312',
@@ -37,7 +36,6 @@ const LiveAIAnalysisScreen: React.FC = () => {
   const summary = route.params?.summary;
   const originTab = route.params?.originTab ?? 'TodayMatches';
   const fromMatchDetails = route.params?.fromMatchDetails ?? false;
-  const adWatched = route.params?.adWatched ?? false;
   const [analysisPayload, setAnalysisPayload] = useState<LiveMatchAnalysis | null>(null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [error, setError] = useState<AiAnalysisError | null>(null);
@@ -46,9 +44,6 @@ const LiveAIAnalysisScreen: React.FC = () => {
   const requestIdRef = useRef(0);
   const isGeneratingRef = useRef(false);
   const isGenerating = status === 'loading';
-  const adGateRequestedRef = useRef(false);
-  const [adGateOpen, setAdGateOpen] = useState(adWatched);
-  const { showAd } = useInterstitialAdGate();
 
   const teamNames = useMemo(() => {
     const home = summary?.teams?.home?.name || 'Home';
@@ -148,12 +143,6 @@ const LiveAIAnalysisScreen: React.FC = () => {
   }, [fixtureId, startLiveAnalysis]);
 
   useEffect(() => {
-    if (adWatched || adGateRequestedRef.current) return;
-    adGateRequestedRef.current = true;
-    showAd().then(() => setAdGateOpen(true));
-  }, [adWatched, showAd]);
-
-  useEffect(() => {
     let timer: NodeJS.Timeout | undefined;
     if (isGenerating) {
       setElapsedSeconds(0);
@@ -207,14 +196,6 @@ const LiveAIAnalysisScreen: React.FC = () => {
   const summaryText = analysis?.summary || 'Live AI summary is not yet available.';
   const yellowCardsSummary = analysis?.yellow_cards_summary || 'No yellow card insights yet.';
   const cornersSummary = analysis?.corners_summary || 'No corners insights yet.';
-
-  if (!adGateOpen) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <LoadingState message="Loading ad..." />
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
