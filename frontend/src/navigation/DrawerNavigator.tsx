@@ -23,6 +23,7 @@ import PlayersScreen from '@screens/PlayersScreen';
 import PredictionsScreen from '@screens/PredictionsScreen';
 import InjuriesScreen from '@screens/InjuriesScreen';
 import SubscriptionsScreen from '@screens/SubscriptionsScreen';
+import InDepthAnalysisScreen from '@screens/InDepthAnalysisScreen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import RateAppButton from '@components/RateAppButton';
 import { openRateApp } from '@lib/rateApp';
@@ -56,6 +57,7 @@ const legalLinks = [
 
 type DrawerParamList = {
   TodayMatches: undefined;
+  InDepthAnalysis: undefined;
   Subscriptions: undefined;
   MatchDetails: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
   AIAnalysis: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
@@ -132,6 +134,11 @@ const DrawerNavigator = () => (
         name="TodayMatches"
         component={TodayMatchesScreen}
         options={{ title: "Today's Matches" }}
+      />
+      <Drawer.Screen
+        name="InDepthAnalysis"
+        component={InDepthAnalysisScreen}
+        options={{ title: 'In-Depth Analysis', drawerItemStyle: { display: 'none' } }}
       />
       <Drawer.Screen
         name="Subscriptions"

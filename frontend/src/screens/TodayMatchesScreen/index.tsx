@@ -1,7 +1,8 @@
 import React, { useCallback, useMemo } from 'react';
-import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MatchCard } from '@components/MatchCard';
 import { ErrorState } from '@components/ErrorState';
 import TelegramBanner from '@components/TelegramBanner';
@@ -52,16 +53,61 @@ const FilterBar = ({
           </TouchableOpacity>
         );
       })}
-      <TouchableOpacity
-        style={[styles.sortChip, styles.sortChipHighlight]}
-        onPress={onInDepthPress}
-        activeOpacity={0.85}
-      >
-        <Text style={[styles.sortChipText, styles.sortChipTextActive]}>In-Depth Analysis</Text>
-      </TouchableOpacity>
+      <InDepthPulseButton onPress={onInDepthPress} />
     </View>
   </View>
 );
+
+const InDepthPulseButton = ({ onPress }: { onPress: () => void }) => {
+  const glow = React.useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glow, {
+          toValue: 1,
+          duration: 1200,
+          useNativeDriver: false,
+        }),
+        Animated.timing(glow, {
+          toValue: 0,
+          duration: 1200,
+          useNativeDriver: false,
+        }),
+      ]),
+    );
+
+    loop.start();
+    return () => loop.stop();
+  }, [glow]);
+
+  const glowOpacity = glow.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.35, 0.85],
+  });
+
+  const shadowRadius = glow.interpolate({
+    inputRange: [0, 1],
+    outputRange: [12, 20],
+  });
+
+  return (
+    <Animated.View
+      style={[
+        styles.inDepthGlowWrap,
+        {
+          shadowOpacity: glowOpacity,
+          shadowRadius,
+        },
+      ]}
+    >
+      <Animated.View pointerEvents="none" style={[styles.inDepthGlowHalo, { opacity: glowOpacity }]} />
+      <TouchableOpacity style={styles.inDepthButton} onPress={onPress} activeOpacity={0.9}>
+        <Text style={styles.inDepthButtonText}>In-Depth Analysis</Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
 
 const SkeletonCard = () => (
   <View style={styles.skeletonCard}>
@@ -83,6 +129,7 @@ const SkeletonCard = () => (
 
 const TodayMatchesScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const insets = useSafeAreaInsets();
   const {
     data,
     isLoading,
@@ -205,7 +252,7 @@ const TodayMatchesScreen: React.FC = () => {
 
   return (
     <FlatList
-      contentContainerStyle={styles.container}
+      contentContainerStyle={[styles.container, { paddingTop: insets.top + 8 }]}
       data={filteredMatches}
       renderItem={renderItem}
       keyExtractor={(item) => `${item.fixture_id || item.summary?.fixture_id || Math.random()}`}
@@ -296,6 +343,39 @@ const styles = StyleSheet.create({
     color: COLORS.neonPurple,
     fontSize: 12,
     fontWeight: '600',
+  },
+  inDepthGlowWrap: {
+    position: 'relative',
+    shadowColor: '#fc22df',
+    shadowOffset: { width: 0, height: 8 },
+  },
+  inDepthGlowHalo: {
+    position: 'absolute',
+    top: -4,
+    left: -4,
+    right: -4,
+    bottom: -4,
+    borderRadius: 12,
+    backgroundColor: '#fc22df99',
+    shadowColor: '#fc22df',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 18,
+    elevation: 10,
+  },
+  inDepthButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#fc22dfb0',
+    backgroundColor: '#120a2f',
+  },
+  inDepthButtonText: {
+    color: '#f5f3ff',
+    fontWeight: '800',
+    fontSize: 12,
+    letterSpacing: 0.4,
   },
   skeletonCard: {
     backgroundColor: '#0a0f1f',

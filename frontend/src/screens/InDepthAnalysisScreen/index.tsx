@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
-import { Image, SectionList, SafeAreaView, Text, TouchableOpacity, View } from 'react-native';
+import { Image, SectionList, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LoadingState } from '@components/LoadingState';
 import { ErrorState } from '@components/ErrorState';
@@ -67,8 +68,10 @@ const getKickoffSortValue = (kickoff?: string | number | null) => {
 
 export default function InDepthAnalysisScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const insets = useSafeAreaInsets();
   const query = useCachedAiMatchesQuery();
   const totalAnalyses = query.data?.total ?? 0;
+  const headerPaddingTop = Math.max(insets.top, 12);
 
   const sections: Section[] = useMemo(() => {
     const items = Array.isArray(query.data?.items) ? query.data?.items : [];
@@ -102,11 +105,22 @@ export default function InDepthAnalysisScreen() {
 
   if (!sections.length) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background, padding: 16 }}>
+      <SafeAreaView
+        style={{ flex: 1, backgroundColor: COLORS.background, padding: 16, paddingTop: headerPaddingTop }}
+      >
         <TelegramBanner />
-        <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: '900' }}>
-          In-Depth Analysis {totalAnalyses}
-        </Text>
+        <View style={styles.headerRow}>
+          <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: '900' }}>
+            In-Depth Analysis {totalAnalyses}
+          </Text>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('TodayMatches')}
+            style={styles.homeButton}
+            activeOpacity={0.9}
+          >
+            <Text style={styles.homeButtonText}>Home</Text>
+          </TouchableOpacity>
+        </View>
         <Text style={{ color: COLORS.muted, marginTop: 8 }}>
           No AI analyses yet for the next 2 days.
         </Text>
@@ -120,11 +134,20 @@ export default function InDepthAnalysisScreen() {
         sections={sections}
         keyExtractor={(item, idx) => String(item.fixture_id ?? idx)}
         ListHeaderComponent={() => (
-          <View style={{ paddingHorizontal: 14, paddingTop: 10, paddingBottom: 6 }}>
+          <View style={{ paddingHorizontal: 14, paddingTop: headerPaddingTop, paddingBottom: 6 }}>
             <TelegramBanner />
-            <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: '900' }}>
-              In-Depth Analysis {totalAnalyses}
-            </Text>
+            <View style={styles.headerRow}>
+              <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: '900' }}>
+                In-Depth Analysis {totalAnalyses}
+              </Text>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('TodayMatches')}
+                style={styles.homeButton}
+                activeOpacity={0.9}
+              >
+                <Text style={styles.homeButtonText}>Home</Text>
+              </TouchableOpacity>
+            </View>
             <Text style={{ color: COLORS.muted, marginTop: 2 }}>
               Full in-depth match analysis (tap Preview)
             </Text>
@@ -202,3 +225,25 @@ export default function InDepthAnalysisScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  homeButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.neonViolet,
+    backgroundColor: '#0b1220',
+  },
+  homeButtonText: {
+    color: COLORS.text,
+    fontWeight: '700',
+    fontSize: 12,
+  },
+});
