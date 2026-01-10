@@ -16,7 +16,6 @@ import { trackEvent } from '@lib/tracking';
 import { ErrorState } from '@components/ErrorState';
 import NeonAnalysisButton from '@components/NeonAnalysisButton';
 import TelegramBanner from '@components/TelegramBanner';
-import { useInterstitialAdGate } from '@ads/useInterstitialAdGate';
 
 const COLORS = {
   background: '#040312',
@@ -38,7 +37,6 @@ const MatchDetailsScreen: React.FC = () => {
   const fixtureId = route.params?.fixtureId;
   const fallbackSummary = route.params?.summary;
   const { data, isLoading, isError, refetch } = useMatchDetailsQuery(fixtureId);
-  const { showAd } = useInterstitialAdGate();
 
   const summary = data?.summary ?? fallbackSummary;
   const originTab = route.params?.originTab ?? 'TodayMatches';
@@ -128,14 +126,12 @@ const MatchDetailsScreen: React.FC = () => {
   const openPlayers = () => navigation.navigate('Players', { fixtureId, summary });
   const openPredictions = () => navigation.navigate('Predictions', { fixtureId, summary });
   const openInjuries = () => navigation.navigate('Injuries', { fixtureId, summary });
-  const openAnalysis = async () => {
-    await showAd();
+  const openAnalysis = () => {
     navigation.navigate(isLiveMatch ? 'LiveAIAnalysis' : 'AIAnalysis', {
       fixtureId,
       summary,
       originTab,
       fromMatchDetails: true,
-      adWatched: true,
     });
   };
 
