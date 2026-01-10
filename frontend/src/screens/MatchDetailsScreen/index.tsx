@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { CommonActions, RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useMatchDetailsQuery } from '@hooks/useMatchDetailsQuery';
 import { RootStackParamList } from '@navigation/types';
 import { trackEvent } from '@lib/tracking';
@@ -146,11 +146,12 @@ const MatchDetailsScreen: React.FC = () => {
   const scoreLabel = `${summary?.goals?.home ?? '-'} - ${summary?.goals?.away ?? '-'}`;
   const heroStatusLabel = isFinishedMatch ? 'Finished' : isLiveMatch ? liveStatusLabel : kickoffTimeLabel;
   const handleBackPress = () => {
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-      return;
-    }
-    navigation.navigate(originTab);
+    navigation.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [{ name: originTab }],
+      }),
+    );
   };
 
   const deepDiveSections = [
