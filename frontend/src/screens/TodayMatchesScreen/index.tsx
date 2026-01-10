@@ -10,6 +10,7 @@ import { useTodayMatchesQuery } from '@hooks/useTodayMatchesQuery';
 import { useFavorites } from '@hooks/useFavorites';
 import { RootStackParamList } from '@navigation/types';
 import { trackEvent } from '@lib/tracking';
+import { NativeAdvanceAdCard } from '@ads/NativeAdvanceAdCard';
 
 const COLORS = {
   background: '#040312',
@@ -127,6 +128,12 @@ const SkeletonCard = () => (
   </View>
 );
 
+type TodayMatchesRow =
+  | { type: 'match'; key: string; item: any }
+  | { type: 'ad'; key: string };
+
+const AD_INSERTION_INTERVAL = 5;
+
 const TodayMatchesScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const insets = useSafeAreaInsets();
@@ -185,6 +192,32 @@ const TodayMatchesScreen: React.FC = () => {
     });
   }, [allMatches, filterOption]);
 
+  const listRows: TodayMatchesRow[] = useMemo(() => {
+    if (!filteredMatches.length) {
+      return [];
+    }
+
+    const rows: TodayMatchesRow[] = [];
+    let adCount = 0;
+
+    filteredMatches.forEach((match, index) => {
+      const fixtureKey = match.fixture_id || match.summary?.fixture_id || `match-${index}`;
+      rows.push({ type: 'match', key: String(fixtureKey), item: match });
+
+      const shouldInsertAd = (index + 1) % AD_INSERTION_INTERVAL === 0;
+      if (shouldInsertAd) {
+        adCount += 1;
+        rows.push({ type: 'ad', key: `ad-${filterOption}-${adCount}` });
+      }
+    });
+
+    if (filterOption === 'live' && adCount === 0) {
+      rows.splice(Math.min(1, rows.length), 0, { type: 'ad', key: `ad-${filterOption}-primary` });
+    }
+
+    return rows;
+  }, [filteredMatches, filterOption]);
+
   const renderHeader = () => (
     <View>
       <TelegramBanner />
@@ -201,17 +234,25 @@ const TodayMatchesScreen: React.FC = () => {
     </View>
   );
 
-  const renderItem = ({ item }: { item: any }) => {
-    const fixtureId = item.fixture_id || item.summary?.fixture_id;
+  const renderItem = ({ item }: { item: TodayMatchesRow }) => {
+    if (item.type === 'ad') {
+      return (
+        <View style={styles.adContainer}>
+          <NativeAdvanceAdCard />
+        </View>
+      );
+    }
+
+    const fixtureId = item.item.fixture_id || item.item.summary?.fixture_id;
     return (
       <MatchCard
-        match={item}
+        match={item.item}
         isFavorite={isFavorite(fixtureId)}
         onToggleFavorite={() => fixtureId && toggleFavorite(fixtureId)}
         onPress={() =>
           navigation.navigate('MatchDetails', {
             fixtureId,
-            summary: item.summary,
+            summary: item.item.summary,
             originTab: 'TodayMatches',
           })
         }
@@ -253,9 +294,9 @@ const TodayMatchesScreen: React.FC = () => {
   return (
     <FlatList
       contentContainerStyle={[styles.container, { paddingTop: insets.top + 8 }]}
-      data={filteredMatches}
+      data={listRows}
       renderItem={renderItem}
-      keyExtractor={(item) => `${item.fixture_id || item.summary?.fixture_id || Math.random()}`}
+      keyExtractor={(item) => item.key}
       ListHeaderComponent={renderHeader}
       ListFooterComponent={renderFooter}
       ListEmptyComponent={emptyComponent}
@@ -427,6 +468,9 @@ const styles = StyleSheet.create({
     marginHorizontal: 3,
     borderRadius: 999,
     backgroundColor: COLORS.borderSoft,
+  },
+  adContainer: {
+    marginBottom: 14,
   },
 });
 
