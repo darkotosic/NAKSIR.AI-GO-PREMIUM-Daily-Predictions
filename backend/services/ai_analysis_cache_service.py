@@ -13,6 +13,7 @@ from backend.models.ai_analysis_cache import AiAnalysisCache
 
 DEFAULT_WAIT_SECONDS = 20
 POLL_INTERVAL_SECONDS = 0.5
+DEFAULT_APP_ID = "naksir.go_premium"
 
 
 READY_STATUSES = {"ready", "ok", "completed", "success"}
@@ -21,6 +22,8 @@ READY_STATUSES = {"ready", "ok", "completed", "success"}
 def list_cached_ready_for_fixture_ids(
     session: Session,
     fixture_ids: list[int],
+    *,
+    app_id: str = DEFAULT_APP_ID,
 ) -> dict[int, AiAnalysisCache]:
     """
     Vraća mapu fixture_id -> AiAnalysisCache za sve koji su READY.
@@ -32,6 +35,7 @@ def list_cached_ready_for_fixture_ids(
         select(AiAnalysisCache).where(
             AiAnalysisCache.fixture_id.in_(fixture_ids),  # type: ignore[attr-defined]
             AiAnalysisCache.status.in_(list(READY_STATUSES)),  # type: ignore[attr-defined]
+            AiAnalysisCache.app_id == app_id,  # type: ignore[attr-defined]
         )
     ).scalars().all()
     return {int(r.fixture_id): r for r in rows if r and r.analysis_json}
@@ -46,18 +50,28 @@ def make_cache_key(
     return f"ai_analysis:{fixture_id}:{prompt_version}:{locale}"
 
 
-def get_cached_ok(session: Session, cache_key: str) -> AiAnalysisCache | None:
+def get_cached_ok(
+    session: Session, cache_key: str, *, app_id: str = DEFAULT_APP_ID
+) -> AiAnalysisCache | None:
     row = session.execute(
-        select(AiAnalysisCache).where(AiAnalysisCache.cache_key == cache_key)
+        select(AiAnalysisCache).where(
+            AiAnalysisCache.cache_key == cache_key,
+            AiAnalysisCache.app_id == app_id,
+        )
     ).scalars().first()
     if row and row.status in READY_STATUSES and row.analysis_json:
         return row
     return None
 
 
-def get_cached_row(session: Session, cache_key: str) -> AiAnalysisCache | None:
+def get_cached_row(
+    session: Session, cache_key: str, *, app_id: str = DEFAULT_APP_ID
+) -> AiAnalysisCache | None:
     return session.execute(
-        select(AiAnalysisCache).where(AiAnalysisCache.cache_key == cache_key)
+        select(AiAnalysisCache).where(
+            AiAnalysisCache.cache_key == cache_key,
+            AiAnalysisCache.app_id == app_id,
+        )
     ).scalars().first()
 
 
@@ -69,6 +83,7 @@ def try_mark_generating(
     prompt_version: str,
     locale: str,
     model: str,
+    app_id: str = DEFAULT_APP_ID,
     allow_retry: bool = True,
 ) -> bool:
     """
@@ -76,6 +91,7 @@ def try_mark_generating(
     Returns False if someone else already has it.
     """
     row = AiAnalysisCache(
+        app_id=app_id,
         fixture_id=fixture_id,
         cache_key=cache_key,
         status="generating",
@@ -94,7 +110,10 @@ def try_mark_generating(
         if not allow_retry:
             return False
         existing = session.execute(
-            select(AiAnalysisCache).where(AiAnalysisCache.cache_key == cache_key)
+            select(AiAnalysisCache).where(
+                AiAnalysisCache.cache_key == cache_key,
+                AiAnalysisCache.app_id == app_id,
+            )
         ).scalars().first()
         if existing and existing.status == "failed":
             existing.status = "generating"
@@ -106,7 +125,12 @@ def try_mark_generating(
         return False
 
 
-def wait_for_ready(cache_key: str, *, max_wait_seconds: int = DEFAULT_WAIT_SECONDS) -> AiAnalysisCache | None:
+def wait_for_ready(
+    cache_key: str,
+    *,
+    app_id: str = DEFAULT_APP_ID,
+    max_wait_seconds: int = DEFAULT_WAIT_SECONDS,
+) -> AiAnalysisCache | None:
     """
     Poll DB until row becomes ok (or failed) or timeout.
     """
@@ -114,7 +138,10 @@ def wait_for_ready(cache_key: str, *, max_wait_seconds: int = DEFAULT_WAIT_SECON
     while time.monotonic() < deadline:
         with SessionLocal() as session:
             row = session.execute(
-                select(AiAnalysisCache).where(AiAnalysisCache.cache_key == cache_key)
+                select(AiAnalysisCache).where(
+                    AiAnalysisCache.cache_key == cache_key,
+                    AiAnalysisCache.app_id == app_id,
+                )
             ).scalars().first()
             if not row:
                 return None
@@ -132,12 +159,16 @@ def save_ok(
     cache_key: str,
     fixture_id: int,
     analysis_json: dict[str, Any],
+    app_id: str = DEFAULT_APP_ID,
 ) -> None:
     row = session.execute(
-        select(AiAnalysisCache).where(AiAnalysisCache.cache_key == cache_key)
+        select(AiAnalysisCache).where(
+            AiAnalysisCache.cache_key == cache_key,
+            AiAnalysisCache.app_id == app_id,
+        )
     ).scalars().first()
     if not row:
-        row = AiAnalysisCache(cache_key=cache_key, fixture_id=fixture_id)
+        row = AiAnalysisCache(cache_key=cache_key, fixture_id=fixture_id, app_id=app_id)
         session.add(row)
     row.status = "ready"
     row.error = None
@@ -146,12 +177,22 @@ def save_ok(
     session.commit()
 
 
-def save_failed(session: Session, *, cache_key: str, fixture_id: int, error: str) -> None:
+def save_failed(
+    session: Session,
+    *,
+    cache_key: str,
+    fixture_id: int,
+    error: str,
+    app_id: str = DEFAULT_APP_ID,
+) -> None:
     row = session.execute(
-        select(AiAnalysisCache).where(AiAnalysisCache.cache_key == cache_key)
+        select(AiAnalysisCache).where(
+            AiAnalysisCache.cache_key == cache_key,
+            AiAnalysisCache.app_id == app_id,
+        )
     ).scalars().first()
     if not row:
-        row = AiAnalysisCache(cache_key=cache_key, fixture_id=fixture_id)
+        row = AiAnalysisCache(cache_key=cache_key, fixture_id=fixture_id, app_id=app_id)
         session.add(row)
     row.status = "failed"
     row.error = error[:5000]

@@ -46,3 +46,11 @@ def test_today_matches_smoke(monkeypatch, client):
     body = response.json()
     assert body["items"]
     assert body["items"][0]["summary"]["league"]["id"] == 39
+
+
+def test_today_matches_with_key_returns_200(monkeypatch, client):
+    monkeypatch.setattr(backend_app, "get_fixtures_next_days", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(api_football, "get_fixtures_next_days", lambda *_args, **_kwargs: [])
+
+    response = client.get("/matches/today", headers={"X-API-Key": "test-token"})
+    assert response.status_code == 200
