@@ -6,6 +6,8 @@ from typing import Optional
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import APIKeyHeader
 
+from backend.apps.models import AppContext
+from backend.apps.registry import get_app_config, resolve_app_id
 from backend.config import get_settings
 
 api_key_scheme = APIKeyHeader(name="X-API-Key", auto_error=False)
@@ -36,3 +38,20 @@ def require_api_key(
     if api_key not in allowed_tokens:
         raise HTTPException(status_code=403, detail="Invalid API key")
     return api_key
+
+
+def require_app_context(
+    request: Request,
+    api_key: str = Depends(require_api_key),
+) -> AppContext:
+    """Request-scoped AppContext.
+
+    Phase 1:
+    - app_id is optional via X-App-Id
+    - config is shared across apps (ALLOW_LIST/TOP_LEAGUE_IDS)
+    - existing clients can ignore X-App-Id entirely
+    """
+
+    app_id = resolve_app_id(request)
+    config = get_app_config(app_id)
+    return AppContext(app_id=app_id, api_key=api_key, config=config)
