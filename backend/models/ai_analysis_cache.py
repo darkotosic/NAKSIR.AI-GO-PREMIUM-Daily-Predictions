@@ -14,6 +14,13 @@ class AiAnalysisCache(Base):
     __tablename__ = "ai_analysis_cache"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    app_id: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        default="naksir.go_premium",
+        server_default="naksir.go_premium",
+        index=True,
+    )
     fixture_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
 
     cache_key: Mapped[str] = mapped_column(String(200), nullable=False)

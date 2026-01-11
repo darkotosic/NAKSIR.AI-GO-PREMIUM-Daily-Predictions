@@ -12,6 +12,13 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    app_id: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        default="naksir.go_premium",
+        server_default="naksir.go_premium",
+        index=True,
+    )
     device_id: Mapped[str | None] = mapped_column(String(128), unique=True, nullable=True, index=True)
     email: Mapped[str | None] = mapped_column(String(320), unique=True, nullable=True, index=True)
 
