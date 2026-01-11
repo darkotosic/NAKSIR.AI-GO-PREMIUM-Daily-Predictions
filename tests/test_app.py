@@ -5,7 +5,7 @@ from backend import app as backend_app
 
 
 def test_health_open(client):
-    response = client.get("/health")
+    response = client.get("/health", headers={"X-API-Key": "test-token"})
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
 

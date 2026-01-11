@@ -7,17 +7,19 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
+from backend.apps.models import AppContext
 from backend.config import TIMEZONE
 from backend.db import SessionLocal
-from backend.dependencies import require_api_key
+from backend.dependencies import require_api_key, require_app_context
 
 router = APIRouter(tags=["meta"])
 logger = logging.getLogger("naksir.go_premium.api")
 
 
 @router.get("/")
-def root() -> Dict[str, Any]:
+def root(ctx: AppContext = Depends(require_app_context)) -> Dict[str, Any]:
     """Kratak opis servisa + linkovi ka dokumentaciji."""
+    _ = ctx
     return {
         "service": "Naksir Go Premium API",
         "status": "online",
@@ -28,8 +30,9 @@ def root() -> Dict[str, Any]:
 
 
 @router.get("/health")
-def health() -> Dict[str, str]:
+def health(ctx: AppContext = Depends(require_app_context)) -> Dict[str, str]:
     """Health-check endpoint za Render / uptime monitor."""
+    _ = ctx
     try:
         with SessionLocal() as session:
             session.execute(text("SELECT 1"))
