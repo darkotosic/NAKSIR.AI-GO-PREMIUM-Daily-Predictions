@@ -41,4 +41,10 @@ class AiAnalysisCache(Base):
         DateTime(timezone=True), nullable=False, default=datetime.utcnow
     )
 
-    __table_args__ = (UniqueConstraint("cache_key", name="uq_ai_analysis_cache_cache_key"),)
+    __table_args__ = (
+        UniqueConstraint(
+            "app_id",
+            "cache_key",
+            name="uq_ai_analysis_cache_app_id_cache_key",
+        ),
+    )
