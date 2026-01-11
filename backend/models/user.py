@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Boolean, DateTime, Enum, Index, String
+from sqlalchemy import Boolean, DateTime, Enum, Index, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -19,8 +19,8 @@ class User(Base):
         server_default="naksir.go_premium",
         index=True,
     )
-    device_id: Mapped[str | None] = mapped_column(String(128), unique=True, nullable=True, index=True)
-    email: Mapped[str | None] = mapped_column(String(320), unique=True, nullable=True, index=True)
+    device_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    email: Mapped[str | None] = mapped_column(String(320), nullable=True, index=True)
 
     auth_provider: Mapped[AuthProvider] = mapped_column(
         Enum(AuthProvider, name="auth_provider_enum"),
@@ -38,6 +38,11 @@ class User(Base):
     entitlement = relationship("Entitlement", back_populates="user", uselist=False, cascade="all, delete-orphan")
     wallet = relationship("CoinsWallet", back_populates="user", uselist=False, cascade="all, delete-orphan")
     consent = relationship("AdsConsent", back_populates="user", uselist=False, cascade="all, delete-orphan")
+
+    __table_args__ = (
+        UniqueConstraint("app_id", "device_id", name="uq_users_app_id_device_id"),
+        UniqueConstraint("app_id", "email", name="uq_users_app_id_email"),
+    )
 
 
 Index("ix_users_auth_provider", User.auth_provider)
