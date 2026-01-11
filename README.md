@@ -50,6 +50,19 @@ analize, a frontend prikazuje listu mečeva, detalje i GPT‑generisane savete.
 - ALLOW_LIST i TOP_LEAGUE_IDS shared
 - Per-app override planiran u narednoj fazi
 
+### New routes standard (AppContext)
+All new backend routes should accept the request-scoped `AppContext` via the shared alias:
+
+```py
+from backend.deps import CtxDep
+
+@router.get("/something")
+def handler(ctx: CtxDep):
+    ...
+```
+
+This keeps the platform ready for future per-app behavior without refactors.
+
 ### Podešavanje i pokretanje lokalno
 
 ```bash
