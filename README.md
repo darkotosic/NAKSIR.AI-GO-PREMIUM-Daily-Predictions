@@ -42,6 +42,14 @@ analize, a frontend prikazuje listu mečeva, detalje i GPT‑generisane savete.
 - Startup log i opcioni `ALERT_WEBHOOK_URL` signaliziraju dostupnost servisa;
   HTTP middleware meri latenciju i beleži statusne kodove.
 
+### App context header standard
+
+- X-App-Id optional, default naksir.go_premium
+- X-API-Key obavezan za zaštićene rute
+- App context se rešava po requestu
+- ALLOW_LIST i TOP_LEAGUE_IDS shared
+- Per-app override planiran u narednoj fazi
+
 ### Podešavanje i pokretanje lokalno
 
 ```bash
