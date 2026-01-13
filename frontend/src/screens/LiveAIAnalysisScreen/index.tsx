@@ -232,8 +232,7 @@ const LiveAIAnalysisScreen: React.FC = () => {
         visible={showUnlockModal}
         onCancel={() => {
           setShowUnlockModal(false);
-          if (navigation.canGoBack()) navigation.goBack();
-          else navigation.navigate(originTab as any);
+          setUnlockGate('locked');
         }}
         onUnlocked={async () => {
           await setAnalysisUnlocked(fixtureId);
@@ -241,153 +240,202 @@ const LiveAIAnalysisScreen: React.FC = () => {
           setShowUnlockModal(false);
         }}
       />
-      <ScrollView contentContainerStyle={styles.container}>
-        <TelegramBanner />
-        <TouchableOpacity style={styles.backButton} onPress={goBackToMatch}>
-          <Text style={styles.backIcon}>←</Text>
-          <Text style={styles.backLabel}>Back to match</Text>
-        </TouchableOpacity>
+      {unlockGate === 'locked' && (
+        <View style={{ paddingHorizontal: 16, paddingTop: 14 }}>
+          <View
+            style={{
+              borderWidth: 1,
+              borderColor: '#1f1f3a',
+              borderRadius: 16,
+              padding: 14,
+              backgroundColor: '#0b0c1f',
+            }}
+          >
+            <Text style={{ color: '#f8fafc', fontWeight: '900', fontSize: 14 }}>
+              🔒 Analysis locked
+            </Text>
+            <Text style={{ color: '#a5b4fc', marginTop: 8, lineHeight: 18 }}>
+              Watch a video ad to unlock this match’s in-depth Naksir AI analysis.
+            </Text>
 
-        {summary ? (
-          <View style={styles.detailHero}>
-            <View style={styles.heroTopRow}>
-              <View style={styles.heroLeagueBlock}>
-                <View style={styles.heroLeagueRow}>
-                  {leagueLogo ? (
-                    <Image source={{ uri: leagueLogo }} style={styles.heroLeagueLogo} />
-                  ) : null}
-                  <View style={styles.heroLeagueTextBlock}>
-                    <Text style={styles.heroLeagueText}>{summary?.league?.name || 'Live Match'}</Text>
-                    <Text style={styles.heroMetaText}>
-                      {summary?.league?.country || 'Country'} • Kickoff {kickoffLabel}
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => setShowUnlockModal(true)}
+              style={{
+                marginTop: 12,
+                borderWidth: 1,
+                borderColor: '#8b5cf6',
+                borderRadius: 12,
+                paddingVertical: 12,
+                alignItems: 'center',
+                backgroundColor: '#0b1220',
+              }}
+            >
+              <Text style={{ color: '#f8fafc', fontWeight: '900', fontSize: 12, letterSpacing: 0.4 }}>
+                UNLOCK WITH VIDEO AD
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+      {unlockGate === 'unlocked' && (
+        <ScrollView contentContainerStyle={styles.container}>
+          <TelegramBanner />
+          <TouchableOpacity style={styles.backButton} onPress={goBackToMatch}>
+            <Text style={styles.backIcon}>←</Text>
+            <Text style={styles.backLabel}>Back to match</Text>
+          </TouchableOpacity>
+
+          {summary ? (
+            <View style={styles.detailHero}>
+              <View style={styles.heroTopRow}>
+                <View style={styles.heroLeagueBlock}>
+                  <View style={styles.heroLeagueRow}>
+                    {leagueLogo ? (
+                      <Image source={{ uri: leagueLogo }} style={styles.heroLeagueLogo} />
+                    ) : null}
+                    <View style={styles.heroLeagueTextBlock}>
+                      <Text style={styles.heroLeagueText}>
+                        {summary?.league?.name || 'Live Match'}
+                      </Text>
+                      <Text style={styles.heroMetaText}>
+                        {summary?.league?.country || 'Country'} • Kickoff {kickoffLabel}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+                <View style={styles.heroStatusPill}>
+                  <Text style={styles.heroStatusScore}>{scoreLabel}</Text>
+                  <Text style={styles.heroStatusText}>{heroStatusLabel}</Text>
+                </View>
+              </View>
+
+              <View style={styles.heroTeamsRow}>
+                <View style={styles.heroTeamCard}>
+                  <View style={styles.heroTeamRow}>
+                    {homeLogo ? (
+                      <Image source={{ uri: homeLogo }} style={styles.heroTeamLogo} />
+                    ) : null}
+                    <Text style={styles.heroTeamName} numberOfLines={1}>
+                      {teamNames.home}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.heroTeamCard}>
+                  <View style={[styles.heroTeamRow, styles.heroTeamRowRight]}>
+                    {awayLogo ? (
+                      <Image source={{ uri: awayLogo }} style={styles.heroTeamLogo} />
+                    ) : null}
+                    <Text style={[styles.heroTeamName, styles.heroTeamNameRight]} numberOfLines={1}>
+                      {teamNames.away}
                     </Text>
                   </View>
                 </View>
               </View>
-              <View style={styles.heroStatusPill}>
-                <Text style={styles.heroStatusScore}>{scoreLabel}</Text>
-                <Text style={styles.heroStatusText}>{heroStatusLabel}</Text>
+            </View>
+          ) : null}
+
+          {cacheStatus && __DEV__ ? (
+            <Text style={styles.cacheDebug}>Cache status: {cacheStatus}</Text>
+          ) : null}
+
+          {status === 'loading' && (
+            <View style={styles.loadingState}>
+              <View style={styles.liveWordRow}>
+                {liveWords.map((word, idx) => {
+                  const animatedStyle = {
+                    opacity: liveWordAnim[idx].interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.35, 1],
+                    }),
+                    transform: [
+                      { perspective: 800 },
+                      {
+                        rotateY: liveWordAnim[idx].interpolate({
+                          inputRange: [0, 1],
+                          outputRange: ['-15deg', '15deg'],
+                        }),
+                      },
+                      {
+                        translateY: liveWordAnim[idx].interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [6, -6],
+                        }),
+                      },
+                    ],
+                  };
+
+                  return (
+                    <Animated.Text key={`${word}-${idx}`} style={[styles.liveWord, animatedStyle]}>
+                      {word}
+                    </Animated.Text>
+                  );
+                })}
+              </View>
+              <ActivityIndicator color={COLORS.neonPurple} size="large" style={styles.loader} />
+              <Text style={styles.loadingText}>Analyzing live events, momentum, and stats...</Text>
+              <View style={styles.timerPill}>
+                <Text style={styles.timerLabel}>Time elapsed</Text>
+                <Text style={styles.timerValue}>{formatTimer(elapsedSeconds)}</Text>
               </View>
             </View>
+          )}
 
-            <View style={styles.heroTeamsRow}>
-              <View style={styles.heroTeamCard}>
-                <View style={styles.heroTeamRow}>
-                  {homeLogo ? <Image source={{ uri: homeLogo }} style={styles.heroTeamLogo} /> : null}
-                  <Text style={styles.heroTeamName} numberOfLines={1}>
-                    {teamNames.home}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.heroTeamCard}>
-                <View style={[styles.heroTeamRow, styles.heroTeamRowRight]}>
-                  {awayLogo ? <Image source={{ uri: awayLogo }} style={styles.heroTeamLogo} /> : null}
-                  <Text style={[styles.heroTeamName, styles.heroTeamNameRight]} numberOfLines={1}>
-                    {teamNames.away}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
-        ) : null}
+          {status === 'ready' && (
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Live summary</Text>
+              <Text style={styles.bodyText}>{summaryText}</Text>
 
-        {cacheStatus && __DEV__ ? (
-          <Text style={styles.cacheDebug}>Cache status: {cacheStatus}</Text>
-        ) : null}
-
-        {status === 'loading' && (
-          <View style={styles.loadingState}>
-            <View style={styles.liveWordRow}>
-              {liveWords.map((word, idx) => {
-                const animatedStyle = {
-                  opacity: liveWordAnim[idx].interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.35, 1],
-                  }),
-                  transform: [
-                    { perspective: 800 },
-                    {
-                      rotateY: liveWordAnim[idx].interpolate({
-                        inputRange: [0, 1],
-                        outputRange: ['-15deg', '15deg'],
-                      }),
-                    },
-                    {
-                      translateY: liveWordAnim[idx].interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [6, -6],
-                      }),
-                    },
-                  ],
-                };
-
-                return (
-                  <Animated.Text key={`${word}-${idx}`} style={[styles.liveWord, animatedStyle]}>
-                    {word}
-                  </Animated.Text>
-                );
-              })}
-            </View>
-            <ActivityIndicator color={COLORS.neonPurple} size="large" style={styles.loader} />
-            <Text style={styles.loadingText}>Analyzing live events, momentum, and stats...</Text>
-            <View style={styles.timerPill}>
-              <Text style={styles.timerLabel}>Time elapsed</Text>
-              <Text style={styles.timerValue}>{formatTimer(elapsedSeconds)}</Text>
-            </View>
-          </View>
-        )}
-
-        {status === 'ready' && (
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Live summary</Text>
-            <Text style={styles.bodyText}>{summaryText}</Text>
-
-            <View style={styles.sectionBlock}>
-              <Text style={styles.sectionTitle}>Goals outlook</Text>
-              <Text style={styles.bodyText}>
-                There will be at least 1 more goal: {formatPct(goalsRemaining.at_least_1_more_pct)}
-                {'\n'}There will be at least 2 more goals: {formatPct(goalsRemaining.at_least_2_more_pct)}
-              </Text>
-            </View>
-
-            <View style={styles.sectionBlock}>
-              <Text style={styles.sectionTitle}>Match winner</Text>
-              <Text style={styles.bodyText}>
-                Home: {formatPct(matchWinner.home_pct)} | Draw: {formatPct(matchWinner.draw_pct)} | Away:{' '}
-                {formatPct(matchWinner.away_pct)}
-              </Text>
-            </View>
-
-            <View style={styles.sectionBlock}>
-              <Text style={styles.sectionTitle}>Yellow cards</Text>
-              <Text style={styles.bodyText}>{yellowCardsSummary}</Text>
-            </View>
-
-            <View style={styles.sectionBlock}>
-              <Text style={styles.sectionTitle}>Corners</Text>
-              <Text style={styles.bodyText}>{cornersSummary}</Text>
-            </View>
-
-            {analysis?.disclaimer ? (
               <View style={styles.sectionBlock}>
-                <Text style={styles.sectionTitle}>Disclaimer</Text>
-                <Text style={styles.bodyText}>{analysis.disclaimer}</Text>
+                <Text style={styles.sectionTitle}>Goals outlook</Text>
+                <Text style={styles.bodyText}>
+                  There will be at least 1 more goal:{' '}
+                  {formatPct(goalsRemaining.at_least_1_more_pct)}
+                  {'\n'}There will be at least 2 more goals:{' '}
+                  {formatPct(goalsRemaining.at_least_2_more_pct)}
+                </Text>
               </View>
-            ) : null}
-          </View>
-        )}
 
-        {status === 'error' && (
-          <View style={styles.card}>
-            <Text style={styles.errorText}>
-              {error?.message || 'Live AI analysis is temporarily unavailable. Please try again.'}
-            </Text>
-            <TouchableOpacity style={styles.retryButton} onPress={startLiveAnalysis}>
-              <Text style={styles.retryButtonLabel}>Try again</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </ScrollView>
+              <View style={styles.sectionBlock}>
+                <Text style={styles.sectionTitle}>Match winner</Text>
+                <Text style={styles.bodyText}>
+                  Home: {formatPct(matchWinner.home_pct)} | Draw:{' '}
+                  {formatPct(matchWinner.draw_pct)} | Away: {formatPct(matchWinner.away_pct)}
+                </Text>
+              </View>
+
+              <View style={styles.sectionBlock}>
+                <Text style={styles.sectionTitle}>Yellow cards</Text>
+                <Text style={styles.bodyText}>{yellowCardsSummary}</Text>
+              </View>
+
+              <View style={styles.sectionBlock}>
+                <Text style={styles.sectionTitle}>Corners</Text>
+                <Text style={styles.bodyText}>{cornersSummary}</Text>
+              </View>
+
+              {analysis?.disclaimer ? (
+                <View style={styles.sectionBlock}>
+                  <Text style={styles.sectionTitle}>Disclaimer</Text>
+                  <Text style={styles.bodyText}>{analysis.disclaimer}</Text>
+                </View>
+              ) : null}
+            </View>
+          )}
+
+          {status === 'error' && (
+            <View style={styles.card}>
+              <Text style={styles.errorText}>
+                {error?.message || 'Live AI analysis is temporarily unavailable. Please try again.'}
+              </Text>
+              <TouchableOpacity style={styles.retryButton} onPress={startLiveAnalysis}>
+                <Text style={styles.retryButtonLabel}>Try again</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 };

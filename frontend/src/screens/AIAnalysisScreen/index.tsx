@@ -349,9 +349,7 @@ const AIAnalysisScreen: React.FC = () => {
         visible={showUnlockModal}
         onCancel={() => {
           setShowUnlockModal(false);
-          // CANCEL zatvara popup; praktično: vraćamo usera nazad jer nema analize
-          if (navigation.canGoBack()) navigation.goBack();
-          else navigation.navigate(originTab as any);
+          setUnlockGate('locked');
         }}
         onUnlocked={async () => {
           await setAnalysisUnlocked(fixtureId);
@@ -359,251 +357,301 @@ const AIAnalysisScreen: React.FC = () => {
           setShowUnlockModal(false);
         }}
       />
-      <ScrollView contentContainerStyle={styles.container}>
-        <TelegramBanner />
-        <TouchableOpacity style={styles.backButton} onPress={goBackToMatch}>
-          <Text style={styles.backIcon}>←</Text>
-          <Text style={styles.backLabel}>Back to match</Text>
-        </TouchableOpacity>
+      {unlockGate === 'locked' && (
+        <View style={{ paddingHorizontal: 16, paddingTop: 14 }}>
+          <View
+            style={{
+              borderWidth: 1,
+              borderColor: '#1f1f3a',
+              borderRadius: 16,
+              padding: 14,
+              backgroundColor: '#0b0c1f',
+            }}
+          >
+            <Text style={{ color: '#f8fafc', fontWeight: '900', fontSize: 14 }}>
+              🔒 Analysis locked
+            </Text>
+            <Text style={{ color: '#a5b4fc', marginTop: 8, lineHeight: 18 }}>
+              Watch a video ad to unlock this match’s in-depth Naksir AI analysis.
+            </Text>
 
-        {summary ? (
-          <View style={styles.detailHero}>
-            <View style={styles.heroTopRow}>
-              <View style={styles.heroLeagueBlock}>
-                <View style={styles.heroLeagueRow}>
-                  {leagueLogo ? (
-                    <Image source={{ uri: leagueLogo }} style={styles.heroLeagueLogo} />
-                  ) : null}
-                  <View style={styles.heroLeagueTextBlock}>
-                    <Text style={styles.heroLeagueText}>{summary?.league?.name || 'League'}</Text>
-                    <Text style={styles.heroMetaText}>
-                      {summary?.league?.country || 'Country'}
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => setShowUnlockModal(true)}
+              style={{
+                marginTop: 12,
+                borderWidth: 1,
+                borderColor: '#8b5cf6',
+                borderRadius: 12,
+                paddingVertical: 12,
+                alignItems: 'center',
+                backgroundColor: '#0b1220',
+              }}
+            >
+              <Text style={{ color: '#f8fafc', fontWeight: '900', fontSize: 12, letterSpacing: 0.4 }}>
+                UNLOCK WITH VIDEO AD
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+      {unlockGate === 'unlocked' && (
+        <ScrollView contentContainerStyle={styles.container}>
+          <TelegramBanner />
+          <TouchableOpacity style={styles.backButton} onPress={goBackToMatch}>
+            <Text style={styles.backIcon}>←</Text>
+            <Text style={styles.backLabel}>Back to match</Text>
+          </TouchableOpacity>
+
+          {summary ? (
+            <View style={styles.detailHero}>
+              <View style={styles.heroTopRow}>
+                <View style={styles.heroLeagueBlock}>
+                  <View style={styles.heroLeagueRow}>
+                    {leagueLogo ? (
+                      <Image source={{ uri: leagueLogo }} style={styles.heroLeagueLogo} />
+                    ) : null}
+                    <View style={styles.heroLeagueTextBlock}>
+                      <Text style={styles.heroLeagueText}>{summary?.league?.name || 'League'}</Text>
+                      <Text style={styles.heroMetaText}>
+                        {summary?.league?.country || 'Country'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+                <View style={styles.heroStatusPill}>
+                  <Text style={styles.heroStatusScore}>
+                    {isLiveMatch || isFinishedMatch ? scoreLabel : 'VS'}
+                  </Text>
+                  <Text style={styles.heroStatusText}>{heroStatusLabel}</Text>
+                </View>
+              </View>
+
+              <View style={styles.heroTeamsRow}>
+                <View style={styles.heroTeamCard}>
+                  <View style={styles.heroTeamRow}>
+                    {homeLogo ? (
+                      <Image source={{ uri: homeLogo }} style={styles.heroTeamLogo} />
+                    ) : null}
+                    <Text style={styles.heroTeamName} numberOfLines={1}>
+                      {summary?.teams?.home?.name || 'Home'}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.heroTeamCard}>
+                  <View style={[styles.heroTeamRow, styles.heroTeamRowRight]}>
+                    {awayLogo ? (
+                      <Image source={{ uri: awayLogo }} style={styles.heroTeamLogo} />
+                    ) : null}
+                    <Text style={[styles.heroTeamName, styles.heroTeamNameRight]} numberOfLines={1}>
+                      {summary?.teams?.away?.name || 'Away'}
                     </Text>
                   </View>
                 </View>
               </View>
-              <View style={styles.heroStatusPill}>
-                <Text style={styles.heroStatusScore}>
-                  {isLiveMatch || isFinishedMatch ? scoreLabel : 'VS'}
-                </Text>
-                <Text style={styles.heroStatusText}>{heroStatusLabel}</Text>
-              </View>
             </View>
+          ) : null}
 
-            <View style={styles.heroTeamsRow}>
-              <View style={styles.heroTeamCard}>
-                <View style={styles.heroTeamRow}>
-                  {homeLogo ? <Image source={{ uri: homeLogo }} style={styles.heroTeamLogo} /> : null}
-                  <Text style={styles.heroTeamName} numberOfLines={1}>
-                    {summary?.teams?.home?.name || 'Home'}
-                  </Text>
-                </View>
-              </View>
+          {__DEV__ && cacheStatus ? (
+            <Text style={styles.cacheDebug}>Cache status: {cacheStatus}</Text>
+          ) : null}
 
-              <View style={styles.heroTeamCard}>
-                <View style={[styles.heroTeamRow, styles.heroTeamRowRight]}>
-                  {awayLogo ? <Image source={{ uri: awayLogo }} style={styles.heroTeamLogo} /> : null}
-                  <Text style={[styles.heroTeamName, styles.heroTeamNameRight]} numberOfLines={1}>
-                    {summary?.teams?.away?.name || 'Away'}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
-        ) : null}
-
-        {__DEV__ && cacheStatus ? (
-          <Text style={styles.cacheDebug}>Cache status: {cacheStatus}</Text>
-        ) : null}
-
-        {isGenerating && (
-          <View style={styles.loadingState}>
-            <View style={styles.depthWordRow}>
-              {depthWords.map((word, idx) => {
-                const animatedStyle = {
-                  opacity: depthWordAnim[idx].interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.35, 1],
-                  }),
-                  transform: [
-                    {
-                      translateY: depthWordAnim[idx].interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [10, -6],
-                      }),
-                    },
-                    {
-                      scale: depthWordAnim[idx].interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0.94, 1.08],
-                      }),
-                    },
-                  ],
-                };
-
-                return (
-                  <Animated.Text key={`${word}-${idx}`} style={[styles.depthWord, animatedStyle]}>
-                    {word}
-                  </Animated.Text>
-                );
-              })}
-            </View>
-            <ActivityIndicator color={COLORS.neonPurple} size="large" style={styles.loader} />
-            <Text style={styles.loadingText}>
-              Analyzing odds, recent team form, goals trends, h2h, standings...
-            </Text>
-            <View style={styles.loadingBarTrack}>
-              <Animated.View
-                style={[
-                  styles.loadingBarFill,
-                  {
-                    width: loadingBar.interpolate({
+          {isGenerating && (
+            <View style={styles.loadingState}>
+              <View style={styles.depthWordRow}>
+                {depthWords.map((word, idx) => {
+                  const animatedStyle = {
+                    opacity: depthWordAnim[idx].interpolate({
                       inputRange: [0, 1],
-                      outputRange: ['18%', '100%'],
+                      outputRange: [0.35, 1],
                     }),
-                  },
-                ]}
-              />
-            </View>
-            <View style={styles.timerPill}>
-              <Text style={styles.timerLabel}>Time elapsed</Text>
-              <Text style={styles.timerValue}>{formatTimer(elapsedSeconds)}</Text>
-            </View>
-          </View>
-        )}
+                    transform: [
+                      {
+                        translateY: depthWordAnim[idx].interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [10, -6],
+                        }),
+                      },
+                      {
+                        scale: depthWordAnim[idx].interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0.94, 1.08],
+                        }),
+                      },
+                    ],
+                  };
 
-        {analysisPayloadState ? (
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Summary</Text>
-            <Text style={styles.bodyText}>{summaryText}</Text>
-
-            <Text style={styles.sectionTitle}>Key factors</Text>
-            <Text style={styles.bodyText}>
-              {keyFactors ? '• ' + keyFactors.join('\n• ') : 'No key factors highlighted.'}
-            </Text>
-
-            {oddsProbabilities && (
-              <View style={styles.sectionBlock}>
-                <Text style={styles.sectionTitle}>Implied odds probabilities</Text>
-                <Text style={styles.bodyText}>
-                  Match winner: {'\n'}Home: {formatPct(oddsProbabilities.match_winner?.home)} | Draw:{' '}
-                  {formatPct(oddsProbabilities.match_winner?.draw)} | Away: {formatPct(oddsProbabilities.match_winner?.away)}
-                </Text>
-                <Text style={styles.bodyText}>
-                  Double chance: {'\n'}12: {formatPct(oddsProbabilities.double_chance?.['12'])} | 1X:{' '}
-                  {formatPct(oddsProbabilities.double_chance?.['1X'])} | X2:{' '}
-                  {formatPct(oddsProbabilities.double_chance?.['X2'])}
-                </Text>
-                <Text style={styles.bodyText}>
-                  BTTS: Yes: {formatPct(oddsProbabilities.btts?.yes)} | No: {formatPct(oddsProbabilities.btts?.no)}
-                </Text>
-                <Text style={styles.bodyText}>HT over 0.5: {formatPct(oddsProbabilities.ht_over_0_5)}</Text>
-                <Text style={styles.bodyText}>
-                  Team over 0.5: Home {formatPct(oddsProbabilities.home_goals_over_0_5)} | Away{' '}
-                  {formatPct(oddsProbabilities.away_goals_over_0_5)}
-                </Text>
-                <Text style={styles.bodyText}>
-                  Totals (Over): O1.5 {formatPct(oddsProbabilities.totals?.over_1_5)} | O2.5{' '}
-                  {formatPct(oddsProbabilities.totals?.over_2_5)} | O3.5 {formatPct(oddsProbabilities.totals?.over_3_5)}
-                </Text>
-                <Text style={styles.bodyText}>
-                  Totals (Under): U3.5 {formatPct(oddsProbabilities.totals?.under_3_5)} | U4.5{' '}
-                  {formatPct(oddsProbabilities.totals?.under_4_5)}
-                </Text>
+                  return (
+                    <Animated.Text key={`${word}-${idx}`} style={[styles.depthWord, animatedStyle]}>
+                      {word}
+                    </Animated.Text>
+                  );
+                })}
               </View>
-            )}
-
-            {valueBet ? (
-              <View style={styles.sectionBlock}>
-                <Text style={styles.sectionTitle}>Value bets</Text>
-                <Text style={styles.bodyText}>
-                  Market: {valueBet.market}{'\n'}Selection: {valueBet.selection}{'\n'}Success probability:{' '}
-                  {formatPct(valueBet.model_probability_pct)}
-                </Text>
-              </View>
-            ) : null}
-
-            {correctScores ? (
-              <View style={styles.sectionBlock}>
-                <Text style={styles.sectionTitle}>Most probable correct scores</Text>
-                <Text style={styles.bodyText}>
-                  {correctScores
-                    .map((item: any, idx: number) =>
-                      `${idx + 1}. ${item.score || 'N/A'} (${formatPct(item.probability_pct)})`,
-                    )
-                    .join('\n')}
-                </Text>
-              </View>
-            ) : null}
-
-            {cornerProbabilities ? (
-              <View style={styles.sectionBlock}>
-                <Text style={styles.sectionTitle}>Corners probability</Text>
-                <Text style={styles.bodyText}>
-                  Over 8.5: {formatPct(cornerProbabilities.over_8_5_pct)}{'\n'}Over 9.5:{' '}
-                  {formatPct(cornerProbabilities.over_9_5_pct)}{'\n'}Over 10.5:{' '}
-                  {formatPct(cornerProbabilities.over_10_5_pct)}
-                </Text>
-              </View>
-            ) : null}
-
-            {cardProbabilities ? (
-              <View style={styles.sectionBlock}>
-                <Text style={styles.sectionTitle}>Yellow cards probability</Text>
-                <Text style={styles.bodyText}>
-                  Over 3.5: {formatPct(cardProbabilities.over_3_5_pct)}{'\n'}Over 4.5:{' '}
-                  {formatPct(cardProbabilities.over_4_5_pct)}{'\n'}Over 5.5:{' '}
-                  {formatPct(cardProbabilities.over_5_5_pct)}
-                </Text>
-              </View>
-            ) : null}
-
-            <View style={styles.sectionBlock}>
-              <Text style={styles.sectionTitle}>Risks</Text>
-              <Text style={styles.bodyText}>
-                {risks ? '• ' + risks.join('\n• ') : 'No major risks flagged.'}
+              <ActivityIndicator color={COLORS.neonPurple} size="large" style={styles.loader} />
+              <Text style={styles.loadingText}>
+                Analyzing odds, recent team form, goals trends, h2h, standings...
               </Text>
-            </View>
-
-            {analysis?.disclaimer ? (
-              <View style={styles.sectionBlock}>
-                <Text style={styles.sectionTitle}>Disclaimer</Text>
-                <Text style={styles.bodyText}>{analysis.disclaimer}</Text>
+              <View style={styles.loadingBarTrack}>
+                <Animated.View
+                  style={[
+                    styles.loadingBarFill,
+                    {
+                      width: loadingBar.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ['18%', '100%'],
+                      }),
+                    },
+                  ]}
+                />
               </View>
-            ) : null}
-          </View>
-        ) : null}
+              <View style={styles.timerPill}>
+                <Text style={styles.timerLabel}>Time elapsed</Text>
+                <Text style={styles.timerValue}>{formatTimer(elapsedSeconds)}</Text>
+              </View>
+            </View>
+          )}
 
-        {status === 'missing' && (
-          <View style={styles.card}>
-            <Text style={styles.bodyText}>
-              No cached AI analysis yet for this match. Run it once to generate the report.
-            </Text>
-            <TouchableOpacity
-              style={[styles.retryButton, isGenerating && styles.retryButtonDisabled]}
-              onPress={startGeneration}
-              disabled={isGenerating}
-            >
-              <Text style={styles.retryButtonLabel}>Run analysis</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+          {analysisPayloadState ? (
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Summary</Text>
+              <Text style={styles.bodyText}>{summaryText}</Text>
 
-        {status === 'error' && (
-          <View style={styles.card}>
-            <Text style={styles.errorText}>
-              {error?.message || 'AI analysis is temporarily unavailable. Please try again.'}
-            </Text>
-            <TouchableOpacity
-              style={[styles.retryButton, isGenerating && styles.retryButtonDisabled]}
-              onPress={startGeneration}
-              disabled={isGenerating}
-            >
-              <Text style={styles.retryButtonLabel}>Try again</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </ScrollView>
+              <Text style={styles.sectionTitle}>Key factors</Text>
+              <Text style={styles.bodyText}>
+                {keyFactors ? '• ' + keyFactors.join('\n• ') : 'No key factors highlighted.'}
+              </Text>
+
+              {oddsProbabilities && (
+                <View style={styles.sectionBlock}>
+                  <Text style={styles.sectionTitle}>Implied odds probabilities</Text>
+                  <Text style={styles.bodyText}>
+                    Match winner: {'\n'}Home: {formatPct(oddsProbabilities.match_winner?.home)} |
+                    Draw: {formatPct(oddsProbabilities.match_winner?.draw)} | Away:{' '}
+                    {formatPct(oddsProbabilities.match_winner?.away)}
+                  </Text>
+                  <Text style={styles.bodyText}>
+                    Double chance: {'\n'}12: {formatPct(oddsProbabilities.double_chance?.['12'])} |
+                    1X: {formatPct(oddsProbabilities.double_chance?.['1X'])} | X2:{' '}
+                    {formatPct(oddsProbabilities.double_chance?.['X2'])}
+                  </Text>
+                  <Text style={styles.bodyText}>
+                    BTTS: Yes: {formatPct(oddsProbabilities.btts?.yes)} | No:{' '}
+                    {formatPct(oddsProbabilities.btts?.no)}
+                  </Text>
+                  <Text style={styles.bodyText}>
+                    HT over 0.5: {formatPct(oddsProbabilities.ht_over_0_5)}
+                  </Text>
+                  <Text style={styles.bodyText}>
+                    Team over 0.5: Home {formatPct(oddsProbabilities.home_goals_over_0_5)} | Away{' '}
+                    {formatPct(oddsProbabilities.away_goals_over_0_5)}
+                  </Text>
+                  <Text style={styles.bodyText}>
+                    Totals (Over): O1.5 {formatPct(oddsProbabilities.totals?.over_1_5)} | O2.5{' '}
+                    {formatPct(oddsProbabilities.totals?.over_2_5)} | O3.5{' '}
+                    {formatPct(oddsProbabilities.totals?.over_3_5)}
+                  </Text>
+                  <Text style={styles.bodyText}>
+                    Totals (Under): U3.5 {formatPct(oddsProbabilities.totals?.under_3_5)} | U4.5{' '}
+                    {formatPct(oddsProbabilities.totals?.under_4_5)}
+                  </Text>
+                </View>
+              )}
+
+              {valueBet ? (
+                <View style={styles.sectionBlock}>
+                  <Text style={styles.sectionTitle}>Value bets</Text>
+                  <Text style={styles.bodyText}>
+                    Market: {valueBet.market}
+                    {'\n'}Selection: {valueBet.selection}
+                    {'\n'}Success probability: {formatPct(valueBet.model_probability_pct)}
+                  </Text>
+                </View>
+              ) : null}
+
+              {correctScores ? (
+                <View style={styles.sectionBlock}>
+                  <Text style={styles.sectionTitle}>Most probable correct scores</Text>
+                  <Text style={styles.bodyText}>
+                    {correctScores
+                      .map((item: any, idx: number) =>
+                        `${idx + 1}. ${item.score || 'N/A'} (${formatPct(item.probability_pct)})`,
+                      )
+                      .join('\n')}
+                  </Text>
+                </View>
+              ) : null}
+
+              {cornerProbabilities ? (
+                <View style={styles.sectionBlock}>
+                  <Text style={styles.sectionTitle}>Corners probability</Text>
+                  <Text style={styles.bodyText}>
+                    Over 8.5: {formatPct(cornerProbabilities.over_8_5_pct)}
+                    {'\n'}Over 9.5: {formatPct(cornerProbabilities.over_9_5_pct)}
+                    {'\n'}Over 10.5: {formatPct(cornerProbabilities.over_10_5_pct)}
+                  </Text>
+                </View>
+              ) : null}
+
+              {cardProbabilities ? (
+                <View style={styles.sectionBlock}>
+                  <Text style={styles.sectionTitle}>Yellow cards probability</Text>
+                  <Text style={styles.bodyText}>
+                    Over 3.5: {formatPct(cardProbabilities.over_3_5_pct)}
+                    {'\n'}Over 4.5: {formatPct(cardProbabilities.over_4_5_pct)}
+                    {'\n'}Over 5.5: {formatPct(cardProbabilities.over_5_5_pct)}
+                  </Text>
+                </View>
+              ) : null}
+
+              <View style={styles.sectionBlock}>
+                <Text style={styles.sectionTitle}>Risks</Text>
+                <Text style={styles.bodyText}>
+                  {risks ? '• ' + risks.join('\n• ') : 'No major risks flagged.'}
+                </Text>
+              </View>
+
+              {analysis?.disclaimer ? (
+                <View style={styles.sectionBlock}>
+                  <Text style={styles.sectionTitle}>Disclaimer</Text>
+                  <Text style={styles.bodyText}>{analysis.disclaimer}</Text>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+
+          {status === 'missing' && (
+            <View style={styles.card}>
+              <Text style={styles.bodyText}>
+                No cached AI analysis yet for this match. Run it once to generate the report.
+              </Text>
+              <TouchableOpacity
+                style={[styles.retryButton, isGenerating && styles.retryButtonDisabled]}
+                onPress={startGeneration}
+                disabled={isGenerating}
+              >
+                <Text style={styles.retryButtonLabel}>Run analysis</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {status === 'error' && (
+            <View style={styles.card}>
+              <Text style={styles.errorText}>
+                {error?.message || 'AI analysis is temporarily unavailable. Please try again.'}
+              </Text>
+              <TouchableOpacity
+                style={[styles.retryButton, isGenerating && styles.retryButtonDisabled]}
+                onPress={startGeneration}
+                disabled={isGenerating}
+              >
+                <Text style={styles.retryButtonLabel}>Try again</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 };
