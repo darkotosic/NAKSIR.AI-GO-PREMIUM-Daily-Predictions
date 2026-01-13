@@ -19,6 +19,8 @@ import { trackEvent } from '@lib/tracking';
 import TelegramBanner from '@components/TelegramBanner';
 import { LoadingState } from '@components/LoadingState';
 import { padTwoDigits } from '@lib/time';
+import UnlockAnalysisModal from '@components/UnlockAnalysisModal';
+import { isAnalysisUnlocked, setAnalysisUnlocked } from '@lib/analysisUnlock';
 
 const COLORS = {
   background: '#040312',
@@ -46,6 +48,8 @@ const AIAnalysisScreen: React.FC = () => {
   >('idle');
   const [error, setError] = useState<AiAnalysisError | null>(null);
   const [cacheStatus, setCacheStatus] = useState<string | null>(null);
+  const [unlockGate, setUnlockGate] = useState<'checking' | 'locked' | 'unlocked'>('checking');
+  const [showUnlockModal, setShowUnlockModal] = useState(false);
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
   const pollInFlightRef = useRef(false);
   const requestIdRef = useRef(0);
@@ -152,6 +156,23 @@ const AIAnalysisScreen: React.FC = () => {
     if (fixtureId) {
       trackEvent('OpenAnalysis', { fixture_id: fixtureId });
     }
+  }, [fixtureId]);
+
+  useEffect(() => {
+    let alive = true;
+    setUnlockGate('checking');
+    setShowUnlockModal(false);
+
+    (async () => {
+      const ok = await isAnalysisUnlocked(fixtureId);
+      if (!alive) return;
+      setUnlockGate(ok ? 'unlocked' : 'locked');
+      setShowUnlockModal(!ok);
+    })();
+
+    return () => {
+      alive = false;
+    };
   }, [fixtureId]);
 
   const stopPolling = useCallback(() => {
@@ -264,11 +285,17 @@ const AIAnalysisScreen: React.FC = () => {
     setCacheStatus(null);
     setError(null);
     setStatus('idle');
-    if (fixtureId) {
-      startGeneration({ live: isLiveMatch });
+
+    if (!fixtureId) return () => stopPolling();
+
+    // HARD GATE: nema mrežnih poziva dok nije otključano
+    if (unlockGate !== 'unlocked') {
+      return () => stopPolling();
     }
+
+    startGeneration({ live: isLiveMatch });
     return () => stopPolling();
-  }, [fixtureId, isLiveMatch, startGeneration, stopPolling]);
+  }, [fixtureId, isLiveMatch, startGeneration, stopPolling, unlockGate]);
 
   const analysisPayload = analysisPayloadState;
   const analysis = (analysisPayload as any)?.analysis || analysisPayload;
@@ -318,6 +345,20 @@ const AIAnalysisScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <UnlockAnalysisModal
+        visible={showUnlockModal}
+        onCancel={() => {
+          setShowUnlockModal(false);
+          // CANCEL zatvara popup; praktično: vraćamo usera nazad jer nema analize
+          if (navigation.canGoBack()) navigation.goBack();
+          else navigation.navigate(originTab as any);
+        }}
+        onUnlocked={async () => {
+          await setAnalysisUnlocked(fixtureId);
+          setUnlockGate('unlocked');
+          setShowUnlockModal(false);
+        }}
+      />
       <ScrollView contentContainerStyle={styles.container}>
         <TelegramBanner />
         <TouchableOpacity style={styles.backButton} onPress={goBackToMatch}>

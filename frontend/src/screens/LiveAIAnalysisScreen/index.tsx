@@ -18,6 +18,8 @@ import { RootStackParamList } from '@navigation/types';
 import TelegramBanner from '@components/TelegramBanner';
 import { LoadingState } from '@components/LoadingState';
 import { padTwoDigits } from '@lib/time';
+import UnlockAnalysisModal from '@components/UnlockAnalysisModal';
+import { isAnalysisUnlocked, setAnalysisUnlocked } from '@lib/analysisUnlock';
 
 const COLORS = {
   background: '#040312',
@@ -41,6 +43,8 @@ const LiveAIAnalysisScreen: React.FC = () => {
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [error, setError] = useState<AiAnalysisError | null>(null);
   const [cacheStatus, setCacheStatus] = useState<string | null>(null);
+  const [unlockGate, setUnlockGate] = useState<'checking' | 'locked' | 'unlocked'>('checking');
+  const [showUnlockModal, setShowUnlockModal] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const requestIdRef = useRef(0);
   const isGeneratingRef = useRef(false);
@@ -136,15 +140,36 @@ const LiveAIAnalysisScreen: React.FC = () => {
   }, [fixtureId]);
 
   useEffect(() => {
+    let alive = true;
+    setUnlockGate('checking');
+    setShowUnlockModal(false);
+
+    (async () => {
+      const ok = await isAnalysisUnlocked(fixtureId);
+      if (!alive) return;
+      setUnlockGate(ok ? 'unlocked' : 'locked');
+      setShowUnlockModal(!ok);
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [fixtureId]);
+
+  useEffect(() => {
     requestIdRef.current += 1;
     setAnalysisPayload(null);
     setCacheStatus(null);
     setError(null);
     setStatus('idle');
-    if (fixtureId) {
-      startLiveAnalysis();
-    }
-  }, [fixtureId, startLiveAnalysis]);
+
+    if (!fixtureId) return;
+
+    // HARD GATE
+    if (unlockGate !== 'unlocked') return;
+
+    startLiveAnalysis();
+  }, [fixtureId, startLiveAnalysis, unlockGate]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout | undefined;
@@ -203,6 +228,19 @@ const LiveAIAnalysisScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <UnlockAnalysisModal
+        visible={showUnlockModal}
+        onCancel={() => {
+          setShowUnlockModal(false);
+          if (navigation.canGoBack()) navigation.goBack();
+          else navigation.navigate(originTab as any);
+        }}
+        onUnlocked={async () => {
+          await setAnalysisUnlocked(fixtureId);
+          setUnlockGate('unlocked');
+          setShowUnlockModal(false);
+        }}
+      />
       <ScrollView contentContainerStyle={styles.container}>
         <TelegramBanner />
         <TouchableOpacity style={styles.backButton} onPress={goBackToMatch}>
