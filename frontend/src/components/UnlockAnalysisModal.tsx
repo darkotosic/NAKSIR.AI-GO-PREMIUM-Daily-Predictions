@@ -72,8 +72,8 @@ export default function UnlockAnalysisModal({ visible, onCancel, onUnlocked }: P
           <Text style={styles.title}>UNLOCK ANALYSIS</Text>
 
           <Text style={styles.body}>
-            To gain access to full in depth naksir ai alaysis you need to watch an ad and one match
-            analysis will be unlocked
+            To gain access to the full in-depth Naksir AI analysis, you need to watch a video ad. One
+            match analysis will be unlocked.
           </Text>
 
           {hint ? <Text style={styles.hint}>{hint}</Text> : null}
