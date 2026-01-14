@@ -83,6 +83,14 @@ export const useRewardedAd = ({
   useEffect(() => {
     if (!ad || !adModule) return;
 
+    if (typeof ad.addAdEventListener !== 'function') {
+      if (__DEV__) console.warn('RewardedAd.addAdEventListener is not available');
+      setIsAvailable(false);
+      setIsLoaded(false);
+      setIsLoading(false);
+      return;
+    }
+
     const loadedUnsub = ad.addAdEventListener?.(adModule.AdEventType.LOADED, () => {
       setIsLoaded(true);
       setIsLoading(false);
