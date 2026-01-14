@@ -19,7 +19,7 @@ type Props = {
 };
 
 export default function UnlockAnalysisModal({ visible, onCancel, onUnlocked }: Props) {
-  const { isAvailable, isLoaded, isLoading, load, show, reward } = useRewardedAd();
+  const { isAvailable, isLoaded, isLoading, load, show, reward, resetReward } = useRewardedAd();
   const [ctaPressed, setCtaPressed] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
 
@@ -44,8 +44,9 @@ export default function UnlockAnalysisModal({ visible, onCancel, onUnlocked }: P
     if (!visible) return;
     if (reward) {
       onUnlocked();
+      resetReward?.();
     }
-  }, [reward, onUnlocked, visible]);
+  }, [reward, onUnlocked, resetReward, visible]);
 
   const onViewAd = () => {
     setHint(null);
