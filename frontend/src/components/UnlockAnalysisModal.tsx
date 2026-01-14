@@ -30,8 +30,8 @@ export default function UnlockAnalysisModal({ visible, onCancel, onUnlocked }: P
     setCtaPressed(false);
     setHint(null);
     // pre-load čim se modal pojavi
-    load();
-  }, [visible, load]);
+    if (isAvailable) load();
+  }, [visible, load, isAvailable]);
 
   useEffect(() => {
     if (!visible) return;

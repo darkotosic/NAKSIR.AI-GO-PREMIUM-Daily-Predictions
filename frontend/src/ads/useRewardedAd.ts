@@ -21,7 +21,7 @@ export const useRewardedAd = ({
   );
   const [adModule, setAdModule] = useState<any | null>(null);
   const [ad, setAd] = useState<any | null>(null);
-  const [isAvailable, setIsAvailable] = useState(true);
+  const [isAvailable, setIsAvailable] = useState(false);
 
   const [isLoaded, setIsLoaded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -111,8 +111,11 @@ export const useRewardedAd = ({
   }, [ad, adModule]);
 
   const load = useCallback(() => {
-    if (!ad) {
+    if (!ad || typeof ad.load !== 'function') {
+      if (__DEV__) console.warn('RewardedAd.load is not available (ad not ready)');
+      setIsAvailable(false);
       setIsLoading(false);
+      setIsLoaded(false);
       return;
     }
     setIsLoading(true);
@@ -120,9 +123,12 @@ export const useRewardedAd = ({
   }, [ad]);
 
   const show = useCallback(() => {
-    if (isLoaded && ad?.show) {
-      ad.show();
+    if (!ad || typeof ad.show !== 'function') {
+      if (__DEV__) console.warn('RewardedAd.show is not available (ad not ready)');
+      setIsAvailable(false);
+      return;
     }
+    if (isLoaded) ad.show();
   }, [ad, isLoaded]);
 
   const resetReward = useCallback(() => {
