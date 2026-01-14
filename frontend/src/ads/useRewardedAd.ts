@@ -82,24 +82,31 @@ export const useRewardedAd = ({
 
   useEffect(() => {
     if (!ad || !adModule) return;
-    const loadedListener = ad.addAdEventListener(adModule.AdEventType.LOADED, () => {
+
+    const loadedUnsub = ad.addAdEventListener?.(adModule.AdEventType.LOADED, () => {
       setIsLoaded(true);
       setIsLoading(false);
     });
-    const closedListener = ad.addAdEventListener(adModule.AdEventType.CLOSED, () => {
+
+    const closedUnsub = ad.addAdEventListener?.(adModule.AdEventType.CLOSED, () => {
       setIsLoaded(false);
     });
-    const errorListener = ad.addAdEventListener(adModule.AdEventType.ERROR, () => {
+
+    const errorUnsub = ad.addAdEventListener?.(adModule.AdEventType.ERROR, () => {
       setIsLoading(false);
       setIsLoaded(false);
     });
-    const rewardListener = ad.addAdEventListener(adModule.RewardedAdEventType.EARNED_REWARD, setReward);
+
+    const rewardUnsub = ad.addAdEventListener?.(
+      adModule.RewardedAdEventType.EARNED_REWARD,
+      (r: RewardedAdReward) => setReward(r),
+    );
 
     return () => {
-      loadedListener();
-      closedListener();
-      errorListener();
-      rewardListener();
+      if (typeof loadedUnsub === 'function') loadedUnsub();
+      if (typeof closedUnsub === 'function') closedUnsub();
+      if (typeof errorUnsub === 'function') errorUnsub();
+      if (typeof rewardUnsub === 'function') rewardUnsub();
     };
   }, [ad, adModule]);
 
@@ -113,10 +120,14 @@ export const useRewardedAd = ({
   }, [ad]);
 
   const show = useCallback(() => {
-    if (isLoaded) {
+    if (isLoaded && ad?.show) {
       ad.show();
     }
   }, [ad, isLoaded]);
+
+  const resetReward = useCallback(() => {
+    setReward(null);
+  }, []);
 
   return {
     ad,
@@ -127,5 +138,6 @@ export const useRewardedAd = ({
     load,
     show,
     reward,
+    resetReward,
   };
 };
