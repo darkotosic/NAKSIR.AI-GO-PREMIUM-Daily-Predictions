@@ -98,14 +98,19 @@ export const useRewardedAd = ({
       setIsLoading(false);
     });
 
-    const closedUnsub = ad.addAdEventListener?.(adModule.AdEventType.CLOSED, () => {
-      setIsLoaded(false);
-    });
+    const CLOSED_EVT = adModule.AdEventType?.CLOSED;
+    const ERROR_EVT = adModule.AdEventType?.ERROR;
 
-    const errorUnsub = ad.addAdEventListener?.(adModule.AdEventType.ERROR, () => {
-      setIsLoading(false);
-      setIsLoaded(false);
-    });
+    const closedUnsub =
+      CLOSED_EVT ? ad.addAdEventListener?.(CLOSED_EVT, () => {
+        setIsLoaded(false);
+      }) : undefined;
+
+    const errorUnsub =
+      ERROR_EVT ? ad.addAdEventListener?.(ERROR_EVT, () => {
+        setIsLoading(false);
+        setIsLoaded(false);
+      }) : undefined;
 
     const rewardUnsub = ad.addAdEventListener?.(
       adModule.RewardedAdEventType.EARNED_REWARD,

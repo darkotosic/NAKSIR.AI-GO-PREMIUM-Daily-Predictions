@@ -36,6 +36,7 @@ export const useAppOpenAd = ({
 
   useEffect(() => {
     if (!ad || !AdEventType) return;
+    if (typeof (ad as any).addAdEventListener !== 'function') return;
     const loadedListener = ad.addAdEventListener(AdEventType.LOADED, () => {
       setIsLoaded(true);
       setIsLoading(false);
@@ -54,11 +55,11 @@ export const useAppOpenAd = ({
     });
 
     return () => {
-      loadedListener();
-      openedListener();
-      closedListener();
-      errorListener();
-      ad.destroy();
+      if (typeof loadedListener === 'function') loadedListener();
+      if (typeof openedListener === 'function') openedListener();
+      if (typeof closedListener === 'function') closedListener();
+      if (typeof errorListener === 'function') errorListener();
+      (ad as any).destroy?.();
     };
   }, [ad]);
 
