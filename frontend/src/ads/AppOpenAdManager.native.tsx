@@ -77,8 +77,15 @@ const AppOpenAdManager: React.FC = () => {
       }
     };
 
-    const sub = AppState.addEventListener('change', onChange);
-    return () => sub.remove();
+    const sub: any = AppState.addEventListener?.('change', onChange);
+    return () => {
+      if (sub && typeof sub.remove === 'function') {
+        sub.remove();
+        return;
+      }
+      // Fallback for older React Native API
+      (AppState as any).removeEventListener?.('change', onChange);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoaded, isShowing, show]);
 

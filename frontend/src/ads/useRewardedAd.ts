@@ -91,7 +91,9 @@ export const useRewardedAd = ({
       return;
     }
 
-    const loadedUnsub = ad.addAdEventListener?.(adModule.AdEventType.LOADED, () => {
+    const LOADED_EVT = adModule.RewardedAdEventType?.LOADED ?? adModule.AdEventType?.LOADED;
+
+    const loadedUnsub = ad.addAdEventListener?.(LOADED_EVT, () => {
       setIsLoaded(true);
       setIsLoading(false);
     });
