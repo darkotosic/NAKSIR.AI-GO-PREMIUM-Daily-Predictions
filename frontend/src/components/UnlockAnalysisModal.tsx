@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { ActivityIndicator, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRewardedAd } from '@ads/useRewardedAd';
+import { useInterstitialAdGate } from '@ads/useInterstitialAdGate';
 
 const COLORS = {
   backdrop: 'rgba(0,0,0,0.65)',
@@ -18,52 +19,130 @@ type Props = {
   onUnlocked: () => void;
 };
 
+const REWARDED_FALLBACK_MS = 5000;
+
 export default function UnlockAnalysisModal({ visible, onCancel, onUnlocked }: Props) {
   const { isAvailable, isLoaded, isLoading, load, show, reward, resetReward } = useRewardedAd();
+
+  // Interstitial “gate” (resolve kada se ad zatvori ili timeout)
+  const { showAd: showInterstitialGate, isSupported: isInterstitialSupported } = useInterstitialAdGate({
+    timeoutMs: 12000,
+  });
+
   const [ctaPressed, setCtaPressed] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
 
-  const canShow = useMemo(() => Boolean(isAvailable), [isAvailable]);
+  const canShowRewarded = useMemo(() => Boolean(isAvailable), [isAvailable]);
+
+  // Refs da izbegnemo stale state u timeout callback-u
+  const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const resolvedRef = useRef(false);
+  const rewardedLoadedRef = useRef(false);
 
   useEffect(() => {
+    rewardedLoadedRef.current = Boolean(isLoaded);
+  }, [isLoaded]);
+
+  const clearFallbackTimer = useCallback(() => {
+    if (fallbackTimerRef.current) {
+      clearTimeout(fallbackTimerRef.current);
+      fallbackTimerRef.current = null;
+    }
+  }, []);
+
+  const unlockOnce = useCallback(() => {
+    if (resolvedRef.current) return;
+    resolvedRef.current = true;
+    clearFallbackTimer();
+    onUnlocked();
+  }, [onUnlocked, clearFallbackTimer]);
+
+  // Reset state kad se modal otvori
+  useEffect(() => {
     if (!visible) return;
+
+    resolvedRef.current = false;
     setCtaPressed(false);
     setHint(null);
-    // pre-load čim se modal pojavi
-    if (isAvailable) load();
-  }, [visible, load, isAvailable]);
+    clearFallbackTimer();
 
+    // pre-load rewarded čim se modal pojavi
+    if (isAvailable) load();
+  }, [visible, load, isAvailable, clearFallbackTimer]);
+
+  // Cleanup kad se modal zatvori (bitno za timers)
+  useEffect(() => {
+    if (visible) return;
+    clearFallbackTimer();
+    resolvedRef.current = false;
+    setCtaPressed(false);
+    setHint(null);
+  }, [visible, clearFallbackTimer]);
+
+  // Ako user klikne, a rewarded se u međuvremenu učita -> prikaži rewarded (osim ako je fallback već odradio unlock)
   useEffect(() => {
     if (!visible) return;
+    if (resolvedRef.current) return;
+
     if (ctaPressed && isLoaded) {
       show();
     }
   }, [ctaPressed, isLoaded, show, visible]);
 
+  // Rewarded reward event -> unlock
   useEffect(() => {
     if (!visible) return;
     if (reward) {
-      onUnlocked();
+      unlockOnce();
       resetReward?.();
     }
-  }, [reward, onUnlocked, resetReward, visible]);
+  }, [reward, unlockOnce, resetReward, visible]);
+
+  const runInterstitialFallback = useCallback(async () => {
+    if (resolvedRef.current) return;
+
+    if (!isInterstitialSupported) {
+      setHint('Ad is not available right now. Please try again.');
+      return;
+    }
+
+    // Interstitial je “gate”: kad se zatvori, unlock
+    await showInterstitialGate();
+    unlockOnce();
+  }, [isInterstitialSupported, showInterstitialGate, unlockOnce]);
+
+  const scheduleFallback = useCallback(() => {
+    clearFallbackTimer();
+
+    fallbackTimerRef.current = setTimeout(() => {
+      // Ako rewarded nije loaded u roku od 5s -> automatski interstitial
+      if (resolvedRef.current) return;
+      if (rewardedLoadedRef.current) return;
+
+      runInterstitialFallback();
+    }, REWARDED_FALLBACK_MS);
+  }, [clearFallbackTimer, runInterstitialFallback]);
 
   const onViewAd = () => {
     setHint(null);
 
-    if (!canShow) {
-      setHint('Ad is not available right now. Please try again.');
+    // Ako rewarded nije dostupan uopšte -> odmah fallback na interstitial (nema čekanja)
+    if (!canShowRewarded) {
+      runInterstitialFallback();
       return;
     }
 
     setCtaPressed(true);
 
+    // Ako je već loaded, prikaži odmah
     if (isLoaded) {
       show();
       return;
     }
 
+    // Start loading rewarded + start 5s timer
     load();
+    scheduleFallback();
   };
 
   return (
@@ -73,8 +152,7 @@ export default function UnlockAnalysisModal({ visible, onCancel, onUnlocked }: P
           <Text style={styles.title}>UNLOCK ANALYSIS</Text>
 
           <Text style={styles.body}>
-            To gain access to the full in-depth Naksir AI analysis, you need to watch a video ad. One
-            match analysis will be unlocked.
+            To gain access to the full in-depth Naksir AI analysis, you need to watch a video ad. One match analysis will be unlocked.
           </Text>
 
           {hint ? <Text style={styles.hint}>{hint}</Text> : null}
@@ -83,10 +161,11 @@ export default function UnlockAnalysisModal({ visible, onCancel, onUnlocked }: P
             <TouchableOpacity
               onPress={onViewAd}
               activeOpacity={0.9}
-              style={[styles.primaryBtn, (isLoading || !canShow) && styles.primaryBtnDisabled]}
-              disabled={isLoading}
+              style={[styles.primaryBtn, (isLoading && canShowRewarded) && styles.primaryBtnDisabled]}
+              // Ne blokiramo dugme kad rewarded “load-uje”, jer fallback ide automatski posle 5s
+              disabled={false}
             >
-              {isLoading ? (
+              {(isLoading && canShowRewarded) ? (
                 <View style={styles.btnInline}>
                   <ActivityIndicator />
                   <Text style={styles.primaryText}> Loading…</Text>
