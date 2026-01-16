@@ -13,6 +13,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import BannerAdSticky, { BANNER_RESERVED_HEIGHT } from '@ads/BannerAdSticky';
 import { configureMobileAds } from '@ads/admob';
 import AppOpenAdManager from '@ads/AppOpenAdManager';
+import { InterstitialProvider } from '@ads/InterstitialProvider';
 
 const queryClient = new QueryClient();
 
@@ -107,37 +108,39 @@ const AppRoot: React.FC = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <View
-        style={{
-          flex: 1,
-          paddingBottom: reservedHeight,
-          backgroundColor: '#040312',
-        }}
-      >
-        <NavigationContainer theme={navigationTheme}>
-          <StatusBar style="light" />
-          {adsReady ? <AppOpenAdManager /> : null}
-          <DrawerNavigator />
-        </NavigationContainer>
+      <InterstitialProvider>
+        <View
+          style={{
+            flex: 1,
+            paddingBottom: reservedHeight,
+            backgroundColor: '#040312',
+          }}
+        >
+          <NavigationContainer theme={navigationTheme}>
+            <StatusBar style="light" />
+            {adsReady ? <AppOpenAdManager /> : null}
+            <DrawerNavigator />
+          </NavigationContainer>
 
-        {/* Bottom sticky banner (single placement, no popups) */}
-        {adsReady ? (
-          <View
-            style={{
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: reservedHeight,
-              alignItems: 'center',
-              justifyContent: 'center',
-              paddingBottom: insets.bottom,
-            }}
-          >
-            <BannerAdSticky />
-          </View>
-        ) : null}
-      </View>
+          {/* Bottom sticky banner (single placement, no popups) */}
+          {adsReady ? (
+            <View
+              style={{
+                position: 'absolute',
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: reservedHeight,
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingBottom: insets.bottom,
+              }}
+            >
+              <BannerAdSticky />
+            </View>
+          ) : null}
+        </View>
+      </InterstitialProvider>
     </QueryClientProvider>
   );
 };
