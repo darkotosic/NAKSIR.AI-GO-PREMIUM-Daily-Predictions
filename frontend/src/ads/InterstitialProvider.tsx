@@ -6,6 +6,7 @@ import { useInterstitialAd } from './useInterstitialAd';
 type InterstitialCtx = {
   isLoaded: boolean;
   isLoading: boolean;
+  isEnabled: boolean;
   show: () => Promise<boolean>;
   load: () => void;
   addClosedListener: (listener: () => void) => () => void;
@@ -27,27 +28,40 @@ export function InterstitialProvider({ children }: { children: React.ReactNode }
     };
   }, []);
 
+  const unitId = getAdUnitId('interstitial', __DEV__);
+  const isEnabled = Boolean(unitId);
   const ad = useInterstitialAd({
-    adUnitId: getAdUnitId('interstitial', __DEV__),
+    adUnitId: unitId ?? 'DISABLED',
     autoReload: true,
     onClosed: notifyClosed,
     onError: notifyClosed,
   });
 
   useEffect(() => {
+    if (!isEnabled) {
+      console.log('[ads] Interstitial disabled: missing unit id');
+      return;
+    }
     ad.load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isEnabled]);
 
   const value = useMemo<InterstitialCtx>(() => {
     return {
       isLoaded: ad.isLoaded,
       isLoading: ad.isLoading,
-      show: ad.show,
-      load: ad.load,
+      isEnabled,
+      show: async () => {
+        if (!isEnabled) return false;
+        return ad.show();
+      },
+      load: () => {
+        if (!isEnabled) return;
+        ad.load();
+      },
       addClosedListener,
     };
-  }, [ad.isLoaded, ad.isLoading, ad.show, ad.load, addClosedListener]);
+  }, [ad.isLoaded, ad.isLoading, ad.show, ad.load, addClosedListener, isEnabled]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
