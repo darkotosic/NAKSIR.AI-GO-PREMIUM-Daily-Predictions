@@ -54,8 +54,9 @@ export default function UnlockAnalysisModal({ visible, onCancel, onUnlocked }: P
     if (resolvedRef.current) return;
     resolvedRef.current = true;
     clearFallbackTimer();
+    setHint(null);
     onUnlocked();
-  }, [onUnlocked, clearFallbackTimer]);
+  }, [onUnlocked, clearFallbackTimer, setHint]);
 
   // Reset state kad se modal otvori
   useEffect(() => {
@@ -106,10 +107,12 @@ export default function UnlockAnalysisModal({ visible, onCancel, onUnlocked }: P
       return;
     }
 
+    setHint('Video ad unavailable — opening alternative ad');
+
     // Interstitial je “gate”: kad se zatvori, unlock
     await showInterstitialGate();
     unlockOnce();
-  }, [isInterstitialSupported, showInterstitialGate, unlockOnce]);
+  }, [isInterstitialSupported, showInterstitialGate, unlockOnce, setHint]);
 
   const scheduleFallback = useCallback(() => {
     clearFallbackTimer();
