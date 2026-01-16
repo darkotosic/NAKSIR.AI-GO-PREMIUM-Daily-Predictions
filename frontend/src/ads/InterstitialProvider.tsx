@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 
-import { ADMOB_AD_UNITS } from './admob.native';
+import { getAdUnitId } from './admob';
 import { useInterstitialAd } from './useInterstitialAd';
 
 type InterstitialCtx = {
@@ -28,7 +28,7 @@ export function InterstitialProvider({ children }: { children: React.ReactNode }
   }, []);
 
   const ad = useInterstitialAd({
-    adUnitId: ADMOB_AD_UNITS.interstitial,
+    adUnitId: getAdUnitId('interstitial', __DEV__),
     autoReload: true,
     onClosed: notifyClosed,
     onError: notifyClosed,
