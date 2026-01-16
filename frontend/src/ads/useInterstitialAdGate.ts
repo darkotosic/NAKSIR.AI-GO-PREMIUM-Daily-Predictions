@@ -1,57 +1,26 @@
 // @ts-nocheck
 import { useCallback, useEffect, useRef } from 'react';
-import type { AdRequestOptions } from 'react-native-google-mobile-ads';
 
-import { useInterstitialAd } from './useInterstitialAd';
+import { useGlobalInterstitial } from './InterstitialProvider';
 
 interface UseInterstitialAdGateOptions {
-  adUnitId?: string;
-  requestOptions?: AdRequestOptions;
-  isTestMode?: boolean;
   timeoutMs?: number;
 }
 
-export const useInterstitialAdGate = ({
-  adUnitId,
-  requestOptions,
-  isTestMode = __DEV__,
-  timeoutMs = 4000,
-}: UseInterstitialAdGateOptions = {}) => {
+export const useInterstitialAdGate = ({ timeoutMs = 4000 }: UseInterstitialAdGateOptions = {}) => {
   const resolveRef = useRef<(() => void) | null>(null);
   const showRequestedRef = useRef(false);
 
-  const { isLoaded, isLoading, isSupported, load, show } = useInterstitialAd({
-    adUnitId,
-    requestOptions,
-    isTestMode,
-    onClosed: () => {
-      resolveRef.current?.();
-      resolveRef.current = null;
-    },
-    onError: () => {
-      resolveRef.current?.();
-      resolveRef.current = null;
-    },
-  });
+  const interstitial = useGlobalInterstitial();
 
   useEffect(() => {
-    if (isSupported) {
-      load();
-    }
-  }, [isSupported, load]);
-
-  useEffect(() => {
-    if (showRequestedRef.current && isLoaded) {
+    if (showRequestedRef.current && interstitial.isLoaded) {
       showRequestedRef.current = false;
-      show();
+      interstitial.show();
     }
-  }, [isLoaded, show]);
+  }, [interstitial.isLoaded, interstitial.show]);
 
   const showAd = useCallback(() => {
-    if (!isSupported) {
-      return Promise.resolve();
-    }
-
     return new Promise<void>((resolve) => {
       const timeoutId = setTimeout(() => {
         if (!resolveRef.current) return;
@@ -59,25 +28,33 @@ export const useInterstitialAdGate = ({
         resolve();
       }, timeoutMs);
 
+      const unsubscribe = interstitial.addClosedListener(() => {
+        clearTimeout(timeoutId);
+        unsubscribe();
+        resolveRef.current = null;
+        resolve();
+      });
+
       resolveRef.current = () => {
         clearTimeout(timeoutId);
+        unsubscribe();
         resolveRef.current = null;
         resolve();
       };
 
-      if (isLoaded) {
-        show();
+      if (interstitial.isLoaded) {
+        interstitial.show();
       } else {
         showRequestedRef.current = true;
-        load();
+        interstitial.load();
       }
     });
-  }, [isLoaded, isSupported, load, show, timeoutMs]);
+  }, [interstitial.addClosedListener, interstitial.isLoaded, interstitial.load, interstitial.show, timeoutMs]);
 
   return {
     showAd,
-    isLoaded,
-    isLoading,
-    isSupported,
+    isLoaded: interstitial.isLoaded,
+    isLoading: interstitial.isLoading,
+    isSupported: true,
   };
 };

@@ -11,6 +11,7 @@ interface UseInterstitialAdOptions {
   onClosed?: () => void;
   onError?: () => void;
   onOpened?: () => void;
+  autoReload?: boolean;
 }
 
 export const useInterstitialAd = ({
@@ -20,6 +21,7 @@ export const useInterstitialAd = ({
   onClosed,
   onError,
   onOpened,
+  autoReload = true,
 }: UseInterstitialAdOptions = {}) => {
   const isSupported = Boolean(
     InterstitialAd && typeof InterstitialAd.createForAdRequest === 'function' && AdEventType,
@@ -40,6 +42,12 @@ export const useInterstitialAd = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isShowing, setIsShowing] = useState(false);
 
+  const load = useCallback(() => {
+    if (!ad?.load) return;
+    setIsLoading(true);
+    ad.load();
+  }, [ad]);
+
   useEffect(() => {
     if (!ad || !AdEventType) return;
     const loadedListener = ad.addAdEventListener(AdEventType.LOADED, () => {
@@ -54,6 +62,9 @@ export const useInterstitialAd = ({
       setIsLoaded(false);
       setIsShowing(false);
       onClosed?.();
+      if (autoReload) {
+        load();
+      }
     });
     const errorListener = ad.addAdEventListener(AdEventType.ERROR, () => {
       setIsLoading(false);
@@ -69,18 +80,14 @@ export const useInterstitialAd = ({
       errorListener();
       ad.destroy();
     };
-  }, [ad, onClosed, onError, onOpened]);
+  }, [ad, autoReload, load, onClosed, onError, onOpened]);
 
-  const load = useCallback(() => {
-    if (!ad?.load) return;
-    setIsLoading(true);
-    ad.load();
-  }, [ad]);
-
-  const show = useCallback(() => {
+  const show = useCallback(async () => {
     if (isLoaded && ad?.show) {
       ad.show();
+      return true;
     }
+    return false;
   }, [ad, isLoaded]);
 
   return {
