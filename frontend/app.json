@@ -25,7 +25,16 @@
     },
 
     "plugins": [
-      ["./plugins/withAdMobAppId", { "androidAppId": "ca-app-pub-1726722567967096~4895623430" }]
+      ["./plugins/withAdMobAppId", { "androidAppId": "ca-app-pub-1726722567967096~4895623430" }],
+      ["react-native-google-mobile-ads", { "delayAppMeasurementInit": true }],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "extraProguardRules": "-keep class com.google.android.gms.internal.consent_sdk.** { *; }"
+          }
+        }
+      ]
     ],
 
     "extra": {

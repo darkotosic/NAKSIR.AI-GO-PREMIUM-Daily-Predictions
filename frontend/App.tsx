@@ -14,6 +14,7 @@ import BannerAdSticky, { BANNER_RESERVED_HEIGHT } from '@ads/BannerAdSticky';
 import { configureMobileAds } from '@ads/admob';
 import AppOpenAdManager from '@ads/AppOpenAdManager';
 import { InterstitialProvider } from '@ads/InterstitialProvider';
+import { initConsent } from '@ads/consent';
 
 const queryClient = new QueryClient();
 
@@ -90,6 +91,16 @@ const AppRoot: React.FC = () => {
     let isMounted = true;
     const initAds = async () => {
       try {
+        // 1) Consent first (TCF/UMP)
+        const consent = await initConsent();
+
+        // If Google says we cannot request ads, do not init ads.
+        if (!consent.canRequestAds) {
+          if (isMounted) setAdsReady(false);
+          return;
+        }
+
+        // 2) Initialize Mobile Ads SDK after consent
         await configureMobileAds({ isTestMode: __DEV__ });
       } catch {
         // Swallow ads errors so the app can still render content.
