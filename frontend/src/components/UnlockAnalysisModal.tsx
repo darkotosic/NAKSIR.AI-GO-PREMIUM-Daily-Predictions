@@ -110,8 +110,12 @@ export default function UnlockAnalysisModal({ visible, onCancel, onUnlocked }: P
     setHint('Video ad unavailable — opening alternative ad');
 
     // Interstitial je “gate”: kad se zatvori, unlock
-    await showInterstitialGate();
-    unlockOnce();
+    const shown = await showInterstitialGate();
+    if (shown) {
+      unlockOnce();
+    } else {
+      setHint('Ad is not available right now. Please try again.');
+    }
   }, [isInterstitialSupported, showInterstitialGate, unlockOnce, setHint]);
 
   const scheduleFallback = useCallback(() => {
