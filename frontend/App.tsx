@@ -117,41 +117,43 @@ const AppRoot: React.FC = () => {
     };
   }, []);
 
-  return (
-    <QueryClientProvider client={queryClient}>
-      <InterstitialProvider>
+  const appContent = (
+    <View
+      style={{
+        flex: 1,
+        paddingBottom: reservedHeight,
+        backgroundColor: '#040312',
+      }}
+    >
+      <NavigationContainer theme={navigationTheme}>
+        <StatusBar style="light" />
+        {adsReady ? <AppOpenAdManager /> : null}
+        <DrawerNavigator />
+      </NavigationContainer>
+
+      {/* Bottom sticky banner (single placement, no popups) */}
+      {adsReady ? (
         <View
           style={{
-            flex: 1,
-            paddingBottom: reservedHeight,
-            backgroundColor: '#040312',
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: reservedHeight,
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingBottom: insets.bottom,
           }}
         >
-          <NavigationContainer theme={navigationTheme}>
-            <StatusBar style="light" />
-            {adsReady ? <AppOpenAdManager /> : null}
-            <DrawerNavigator />
-          </NavigationContainer>
-
-          {/* Bottom sticky banner (single placement, no popups) */}
-          {adsReady ? (
-            <View
-              style={{
-                position: 'absolute',
-                left: 0,
-                right: 0,
-                bottom: 0,
-                height: reservedHeight,
-                alignItems: 'center',
-                justifyContent: 'center',
-                paddingBottom: insets.bottom,
-              }}
-            >
-              <BannerAdSticky />
-            </View>
-          ) : null}
+          <BannerAdSticky />
         </View>
-      </InterstitialProvider>
+      ) : null}
+    </View>
+  );
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      {adsReady ? <InterstitialProvider>{appContent}</InterstitialProvider> : appContent}
     </QueryClientProvider>
   );
 };

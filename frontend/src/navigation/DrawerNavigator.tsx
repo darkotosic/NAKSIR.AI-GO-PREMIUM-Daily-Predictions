@@ -24,6 +24,7 @@ import PredictionsScreen from '@screens/PredictionsScreen';
 import InjuriesScreen from '@screens/InjuriesScreen';
 import SubscriptionsScreen from '@screens/SubscriptionsScreen';
 import InDepthAnalysisScreen from '@screens/InDepthAnalysisScreen';
+import PrivacySettingsScreen from '@screens/PrivacySettingsScreen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import RateAppButton from '@components/RateAppButton';
 import { openRateApp } from '@lib/rateApp';
@@ -73,6 +74,7 @@ type DrawerParamList = {
   Players: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
   Predictions: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
   Injuries: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
+  PrivacySettings: undefined;
 };
 
 function CustomDrawerContent(props: DrawerContentComponentProps) {
@@ -204,6 +206,11 @@ const DrawerNavigator = () => (
         name="Injuries"
         component={InjuriesScreen}
         options={{ title: 'Injuries', drawerItemStyle: { display: 'none' } }}
+      />
+      <Drawer.Screen
+        name="PrivacySettings"
+        component={PrivacySettingsScreen}
+        options={{ title: 'Privacy Settings' }}
       />
     </Drawer.Navigator>
   </GestureHandlerRootView>

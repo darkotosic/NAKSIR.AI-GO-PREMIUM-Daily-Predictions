@@ -39,4 +39,5 @@ export type RootStackParamList = {
   Players: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
   Predictions: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
   Injuries: { fixtureId?: number | string; summary?: MatchSummary } | undefined;
+  PrivacySettings: undefined;
 };

@@ -19,6 +19,7 @@ import PredictionsScreen from '@screens/PredictionsScreen';
 import InjuriesScreen from '@screens/InjuriesScreen';
 import SubscriptionsScreen from '@screens/SubscriptionsScreen';
 import InDepthAnalysisScreen from '@screens/InDepthAnalysisScreen';
+import PrivacySettingsScreen from '@screens/PrivacySettingsScreen';
 
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -53,6 +54,11 @@ export default function RootNavigator() {
       <Stack.Screen name="Players" component={PlayersScreen} options={{ title: 'Players' }} />
       <Stack.Screen name="Predictions" component={PredictionsScreen} options={{ title: 'Predictions' }} />
       <Stack.Screen name="Injuries" component={InjuriesScreen} options={{ title: 'Injuries' }} />
+      <Stack.Screen
+        name="PrivacySettings"
+        component={PrivacySettingsScreen}
+        options={{ title: 'Privacy Settings' }}
+      />
     </Stack.Navigator>
   );
 }
