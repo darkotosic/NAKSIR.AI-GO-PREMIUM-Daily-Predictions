@@ -31,7 +31,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     plugins: [
       [
         './plugins/withAdMobAppId',
-        { androidAppId: 'ca-app-pub-1726722567967096~4895623430' },
+        {
+          androidAppId: 'ca-app-pub-1726722567967096~4895623430',
+          iosAppId: 'ca-app-pub-3940256099942544~1458002511',
+        },
       ],
       [
         'expo-build-properties',
