@@ -1,122 +1,241 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import TelegramBanner from '@components/TelegramBanner';
 import { usePlayBilling } from '@billing/usePlayBilling';
+import { formatMoney, microsToNumber, perDay, pickBestPriceString, pickMicrosAndCurrency } from '@billing/price_utils';
+import { useEntitlements } from '@state/EntitlementsContext';
 import { SUBS_SKUS, Sku } from '@shared/billing_skus';
 
-const LABEL: Record<Sku, { title: string; subtitle: string }> = {
-  naksir_premium_7d: { title: 'Premium 7 days', subtitle: 'Full access • No ads' },
-  naksir_premium_1m: { title: 'Premium 1 month', subtitle: 'Full access • No ads' },
-  naksir_premium_1y: { title: 'Premium 1 year', subtitle: 'Best value • Full access • No ads' },
+const DAYS: Record<Sku, number> = {
+  naksir_premium_7d: 7,
+  naksir_premium_1m: 30,
+  naksir_premium_1y: 365,
 };
 
-export default function SubscriptionsScreen() {
-  const { isLoading, activeSku, lastError, buySubscription, refreshEntitlement } =
-    usePlayBilling();
+const LABEL: Record<Sku, { title: string; popular?: boolean }> = {
+  naksir_premium_7d: { title: 'Weekly' },
+  naksir_premium_1m: { title: 'Monthly', popular: true },
+  naksir_premium_1y: { title: 'Yearly' },
+};
 
-  const rows = useMemo(() => [...SUBS_SKUS], []);
+const BENEFITS = [
+  'No Ads',
+  'Full access to AI predictions',
+  'Full access to Power Charts',
+  'Full access to recommendations',
+  'Filtering matches by odds and probability',
+];
+
+export default function SubscriptionsScreen() {
+  const { isLoading, lastError, buySubscription, refreshEntitlement, products } = usePlayBilling();
+  const { isPremium } = useEntitlements();
+
+  const [selected, setSelected] = useState<Sku>('naksir_premium_1m');
+
+  const productBySku = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const p of products || []) map.set((p as any).productId, p);
+    return map;
+  }, [products]);
+
+  const selectedProduct = productBySku.get(selected);
+
+  const { micros, currency } = selectedProduct
+    ? pickMicrosAndCurrency(selectedProduct)
+    : { micros: null, currency: null };
+
+  const canBuy = !isLoading && !isPremium;
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <TelegramBanner />
-
-      <View style={styles.card}>
-        <Text style={styles.title}>Go Premium</Text>
-        <Text style={styles.subtitle}>
-          Premium unlocks the full app experience with no ads. Choose a plan below.
-        </Text>
-
-        {lastError ? <Text style={styles.error}>{lastError}</Text> : null}
-
-        <View style={{ gap: 10 }}>
-          {rows.map((sku) => {
-            const isActive = activeSku === sku;
-            return (
-              <View key={sku} style={[styles.planCard, isActive ? styles.planCardActive : null]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.planTitle}>{LABEL[sku].title}</Text>
-                  <Text style={styles.planSubtitle}>{LABEL[sku].subtitle}</Text>
-                  {isActive ? <Text style={styles.activeTag}>Active</Text> : null}
-                </View>
-
-                <TouchableOpacity
-                  disabled={isLoading || isActive}
-                  onPress={() => buySubscription(sku)}
-                  style={[styles.buyBtn, isLoading || isActive ? styles.buyBtnDisabled : null]}
-                >
-                  {isLoading ? (
-                    <ActivityIndicator />
-                  ) : (
-                    <Text style={styles.buyBtnText}>{isActive ? 'Current' : 'Buy'}</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            );
-          })}
+    <View style={styles.root}>
+      <View style={styles.bg}>
+        <View style={styles.topBar}>
+          <View style={styles.premiumPill}>
+            <Text style={styles.premiumPillText}>PREMIUM</Text>
+          </View>
         </View>
 
-        <TouchableOpacity
-          onPress={() => refreshEntitlement()}
-          disabled={isLoading}
-          style={[styles.restoreBtn, isLoading ? styles.restoreBtnDisabled : null]}
-        >
-          <Text style={styles.restoreText}>Restore purchase</Text>
-        </TouchableOpacity>
+        <Text style={styles.title}>
+          GET FULL ACCESS TO THE{'
+'}
+          <Text style={styles.titleAccent}>AI ASSISTANT</Text>
+        </Text>
+
+        <View style={styles.sheet}>
+          <View style={styles.benefits}>
+            {BENEFITS.map((b) => (
+              <View key={b} style={styles.benefitRow}>
+                <Text style={styles.check}>✓</Text>
+                <Text style={styles.benefitText}>{b}</Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={{ height: 14 }} />
+
+          {(SUBS_SKUS as readonly Sku[]).map((sku) => {
+            const p = productBySku.get(sku);
+            const best = p ? pickBestPriceString(p) : null;
+            const { micros: m, currency: c } = p
+              ? pickMicrosAndCurrency(p)
+              : { micros: null, currency: null };
+
+            const pd = m && c ? formatMoney(perDay(microsToNumber(m), DAYS[sku]), c) : null;
+
+            const selectedRow = selected === sku;
+
+            return (
+              <TouchableOpacity
+                key={sku}
+                style={[styles.planRow, selectedRow ? styles.planRowSelected : null]}
+                onPress={() => setSelected(sku)}
+                activeOpacity={0.9}
+              >
+                <View style={styles.radioOuter}>
+                  {selectedRow ? <View style={styles.radioInner} /> : null}
+                </View>
+
+                <View style={{ flex: 1 }}>
+                  {LABEL[sku].popular ? (
+                    <View style={styles.popularBadge}>
+                      <Text style={styles.popularText}>MOST POPULAR</Text>
+                    </View>
+                  ) : null}
+
+                  <Text style={styles.planTitle}>{LABEL[sku].title}</Text>
+                  <Text style={styles.planSub}>{best ? best : 'Loading price...'}</Text>
+                </View>
+
+                <View style={styles.priceBox}>
+                  <Text style={styles.perDay}>{pd ? pd : '--'}</Text>
+                  <Text style={styles.perDayLabel}>per Day</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+
+          {lastError ? <Text style={styles.error}>{lastError}</Text> : null}
+
+          <Text style={styles.legal}>
+            Auto-renewal can be turned off 24 hours before the end of the billing period. You can
+            cancel any time on Google Play.
+          </Text>
+
+          <TouchableOpacity
+            style={[styles.cta, !canBuy ? styles.ctaDisabled : null]}
+            onPress={() => buySubscription(selected)}
+            disabled={!canBuy}
+            activeOpacity={0.9}
+          >
+            {isLoading ? (
+              <ActivityIndicator />
+            ) : (
+              <Text style={styles.ctaText}>{isPremium ? 'ACTIVE' : 'SUBSCRIBE'}</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => refreshEntitlement()}
+            disabled={isLoading}
+            style={styles.restore}
+          >
+            <Text style={styles.restoreText}>Restore purchase</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16 },
-  card: {
-    borderRadius: 18,
-    padding: 16,
-    backgroundColor: '#0b0c1f',
-    borderWidth: 1,
-    borderColor: '#6d28d9',
+  root: { flex: 1, backgroundColor: '#000' },
+  bg: { flex: 1, paddingTop: 42, backgroundColor: '#0b0c1f' },
+  topBar: { paddingHorizontal: 16, flexDirection: 'row', justifyContent: 'flex-start' },
+  premiumPill: { backgroundColor: '#facc15', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
+  premiumPillText: { fontWeight: '900', color: '#000', letterSpacing: 1 },
+
+  title: {
+    color: '#fff',
+    fontSize: 32,
+    fontWeight: '900',
+    paddingHorizontal: 16,
+    marginTop: 12,
+    lineHeight: 36,
   },
-  title: { fontSize: 22, fontWeight: '800', color: '#f8fafc', marginBottom: 6 },
-  subtitle: { fontSize: 13, color: '#a5b4fc', marginBottom: 14, lineHeight: 18 },
-  error: { color: '#fb7185', marginBottom: 10, fontSize: 12 },
-  planCard: {
+  titleAccent: { color: '#facc15' },
+
+  sheet: {
+    marginTop: 18,
+    backgroundColor: '#7c3aed',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 16,
+    flex: 1,
+  },
+  benefits: { backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 18, padding: 14 },
+  benefitRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  check: { color: '#22c55e', fontSize: 18, fontWeight: '900', width: 22 },
+  benefitText: { color: '#fff', fontWeight: '700' },
+
+  planRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    borderRadius: 18,
+    padding: 14,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.10)',
+    marginBottom: 12,
     gap: 12,
-    padding: 12,
+  },
+  planRowSelected: { borderColor: '#fff' },
+
+  radioOuter: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioInner: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#a78bfa' },
+
+  popularBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#a78bfa',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    marginBottom: 8,
+  },
+  popularText: { color: '#000', fontWeight: '900', fontSize: 10, letterSpacing: 0.6 },
+
+  planTitle: { color: '#fff', fontWeight: '900', fontSize: 16 },
+  planSub: { color: 'rgba(255,255,255,0.75)', marginTop: 4, fontWeight: '700' },
+
+  priceBox: { alignItems: 'flex-end', minWidth: 96 },
+  perDay: { color: '#fff', fontWeight: '900', fontSize: 18 },
+  perDayLabel: { color: 'rgba(255,255,255,0.8)', fontWeight: '700', marginTop: 2, fontSize: 12 },
+
+  error: { color: '#fecaca', fontWeight: '800', marginTop: 8 },
+
+  legal: { color: 'rgba(255,255,255,0.8)', fontSize: 11, marginTop: 2, lineHeight: 15 },
+  cta: {
+    marginTop: 12,
+    backgroundColor: '#2a004f',
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#312e81',
-    backgroundColor: '#05051a',
-  },
-  planCardActive: { borderColor: '#22c55e' },
-  planTitle: { color: '#f8fafc', fontWeight: '800', fontSize: 15 },
-  planSubtitle: { color: '#a5b4fc', fontSize: 12, marginTop: 3 },
-  activeTag: { color: '#22c55e', fontSize: 12, marginTop: 6, fontWeight: '700' },
-  buyBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#b06bff',
-  },
-  buyBtnDisabled: { opacity: 0.55 },
-  buyBtnText: { color: '#b06bff', fontWeight: '800' },
-  restoreBtn: {
-    marginTop: 14,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#334155',
+    paddingVertical: 14,
     alignItems: 'center',
   },
-  restoreBtnDisabled: { opacity: 0.55 },
-  restoreText: { color: '#cbd5e1', fontWeight: '700' },
+  ctaDisabled: { opacity: 0.6 },
+  ctaText: { color: '#fff', fontWeight: '900', letterSpacing: 1 },
+
+  restore: { marginTop: 10, alignItems: 'center', paddingVertical: 10 },
+  restoreText: { color: 'rgba(255,255,255,0.85)', fontWeight: '800' },
 });
