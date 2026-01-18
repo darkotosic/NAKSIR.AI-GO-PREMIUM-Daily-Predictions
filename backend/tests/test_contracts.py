@@ -77,10 +77,10 @@ def test_app_contract_models() -> None:
 
 def test_data_contract_models() -> None:
     plan = BillingEntitlementPlan(
-        sku="naksir_day_1_10",
-        period_days=1,
+        sku="naksir_premium_7d",
+        period_days=7,
         daily_limit=None,
-        total_allowance=10,
-        unlimited=False,
+        total_allowance=None,
+        unlimited=True,
     )
-    assert plan.sku == "naksir_day_1_10"
+    assert plan.sku == "naksir_premium_7d"
