@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform } from 'react-native';
+import type { Subscription } from 'react-native-iap';
 import * as RNIap from 'react-native-iap';
 
 import { verifyGooglePurchase } from '@api/billing';
@@ -29,6 +30,8 @@ export function usePlayBilling() {
     activeSku: null,
     lastError: null,
   });
+  const [products, setProducts] = useState<Subscription[]>([]);
+  const [productBySku, setProductBySku] = useState<Map<string, Subscription>>(new Map());
 
   const purchaseUpdateSub = useRef<ReturnType<typeof RNIap.purchaseUpdatedListener> | null>(null);
   const purchaseErrorSub = useRef<ReturnType<typeof RNIap.purchaseErrorListener> | null>(null);
@@ -45,9 +48,15 @@ export function usePlayBilling() {
 
     if (typeof RNIap.getSubscriptions === 'function') {
       try {
-        return await (RNIap.getSubscriptions as any)({ skus } as any);
+        const subs = await (RNIap.getSubscriptions as any)({ skus } as any);
+        setProducts(subs);
+        setProductBySku(new Map(subs.map((p: Subscription) => [(p as any).productId, p])));
+        return subs;
       } catch (error) {
-        return await (RNIap.getSubscriptions as any)(skus);
+        const subs = await (RNIap.getSubscriptions as any)(skus);
+        setProducts(subs);
+        setProductBySku(new Map(subs.map((p: Subscription) => [(p as any).productId, p])));
+        return subs;
       }
     }
 
@@ -57,10 +66,13 @@ export function usePlayBilling() {
         (RNIap as any).ProductType?.Subs ||
         (RNIap as any).PRODUCT_TYPE_SUBSCRIPTION;
 
-      return await (RNIap as any).getProducts({
+      const subs = await (RNIap as any).getProducts({
         skus,
         type: productType,
       } as any);
+      setProducts(subs);
+      setProductBySku(new Map(subs.map((p: Subscription) => [(p as any).productId, p])));
+      return subs;
     }
 
     throw new Error('Subscriptions API is unavailable in react-native-iap.');
@@ -204,7 +216,9 @@ export function usePlayBilling() {
       ...state,
       buySubscription,
       refreshEntitlement,
+      products,
+      productBySku,
     }),
-    [state, buySubscription, refreshEntitlement],
+    [state, buySubscription, refreshEntitlement, products, productBySku],
   );
 }
