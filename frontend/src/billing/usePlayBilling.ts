@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import * as RNIap from 'react-native-iap';
 
 import { verifyGooglePurchase } from '@api/billing';
+import { useEntitlements } from '@state/EntitlementsContext';
 import { extractGooglePurchasePayload } from './googlePurchase';
 import { SUBS_SKUS, Sku } from '../shared/billing_skus';
 
@@ -33,6 +34,7 @@ export function usePlayBilling() {
   const purchaseErrorSub = useRef<ReturnType<typeof RNIap.purchaseErrorListener> | null>(null);
 
   const isAndroid = Platform.OS === 'android';
+  const { refresh: refreshServerEntitlements } = useEntitlements();
 
   const setError = useCallback((msg: string) => {
     setState((s) => ({ ...s, lastError: msg }));
@@ -124,10 +126,11 @@ export function usePlayBilling() {
         .find((sku) => !!sku) ?? null;
 
       setState((s) => ({ ...s, activeSku: active }));
+      await refreshServerEntitlements();
     } catch (e: any) {
       setError(`Failed to read purchases: ${e?.message || String(e)}`);
     }
-  }, [isAndroid, setError]);
+  }, [isAndroid, refreshServerEntitlements, setError]);
 
   const startListeners = useCallback(() => {
     if (!isAndroid) return;
@@ -141,6 +144,7 @@ export function usePlayBilling() {
 
         // Server verify + entitlement grant
         await verifyGooglePurchase(payload);
+        await refreshServerEntitlements();
 
         // Acknowledge / finish
         try {
@@ -159,7 +163,7 @@ export function usePlayBilling() {
     purchaseErrorSub.current = RNIap.purchaseErrorListener((err: any) => {
       setError(`Purchase error: ${err?.message || JSON.stringify(err)}`);
     });
-  }, [isAndroid, setError]);
+  }, [isAndroid, refreshServerEntitlements, setError]);
 
   const buySubscription = useCallback(
     async (sku: Sku) => {

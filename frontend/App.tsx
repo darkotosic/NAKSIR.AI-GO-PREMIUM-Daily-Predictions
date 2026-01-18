@@ -15,6 +15,7 @@ import { configureMobileAds } from '@ads/admob';
 import AppOpenAdManager from '@ads/AppOpenAdManager';
 import { InterstitialProvider } from '@ads/InterstitialProvider';
 import { initConsent } from '@ads/consent';
+import { EntitlementsProvider, useEntitlements } from '@state/EntitlementsContext';
 
 const queryClient = new QueryClient();
 
@@ -81,41 +82,44 @@ class RootErrorBoundary extends React.Component<
 
 const AppRoot: React.FC = () => {
   const insets = useSafeAreaInsets();
-  const reservedHeight = BANNER_RESERVED_HEIGHT + insets.bottom;
+  const { isPremium } = useEntitlements();
+
+  const reservedHeight = (isPremium ? 0 : BANNER_RESERVED_HEIGHT) + insets.bottom;
+
   const [adsReady, setAdsReady] = useState(false);
 
   useEffect(() => {
     initAnalytics();
-    // Ensures ads SDK is configured + initialized ASAP.
-    // NOTE: android app id is injected via expo config plugin (withAdMobAppId).
+
+    // Premium = no ads (do not init SDK, do not request consent, do not render placements)
+    if (isPremium) {
+      setAdsReady(false);
+      return;
+    }
+
     let isMounted = true;
+
     const initAds = async () => {
       try {
-        // 1) Consent first (TCF/UMP)
         const consent = await initConsent();
-
-        // If Google says we cannot request ads, do not init ads.
         if (!consent.canRequestAds) {
           if (isMounted) setAdsReady(false);
           return;
         }
-
-        // 2) Initialize Mobile Ads SDK after consent
         await configureMobileAds({ isTestMode: __DEV__ });
       } catch {
-        // Swallow ads errors so the app can still render content.
+        // swallow
       } finally {
-        if (isMounted) {
-          setAdsReady(true);
-        }
+        if (isMounted) setAdsReady(true);
       }
     };
 
     initAds();
+
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [isPremium]);
 
   const appContent = (
     <View
@@ -127,12 +131,11 @@ const AppRoot: React.FC = () => {
     >
       <NavigationContainer theme={navigationTheme}>
         <StatusBar style="light" />
-        {adsReady ? <AppOpenAdManager /> : null}
+        {!isPremium && adsReady ? <AppOpenAdManager /> : null}
         <DrawerNavigator />
       </NavigationContainer>
 
-      {/* Bottom sticky banner (single placement, no popups) */}
-      {adsReady ? (
+      {!isPremium && adsReady ? (
         <View
           style={{
             position: 'absolute',
@@ -153,7 +156,7 @@ const AppRoot: React.FC = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {adsReady ? <InterstitialProvider>{appContent}</InterstitialProvider> : appContent}
+      {!isPremium && adsReady ? <InterstitialProvider>{appContent}</InterstitialProvider> : appContent}
     </QueryClientProvider>
   );
 };
@@ -161,7 +164,9 @@ const AppRoot: React.FC = () => {
 const App: React.FC = () => (
   <SafeAreaProvider>
     <RootErrorBoundary>
-      <AppRoot />
+      <EntitlementsProvider>
+        <AppRoot />
+      </EntitlementsProvider>
     </RootErrorBoundary>
   </SafeAreaProvider>
 );

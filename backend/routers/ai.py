@@ -27,8 +27,9 @@ from backend.services.ai_analysis_cache_service import (
     wait_for_ready,
     list_cached_ready_for_fixture_ids,
 )
+from backend.services.entitlements_service import check_and_consume_ai, get_active_entitlement
 from backend.services.live_ai_policy import compute_15m_bucket_ts, is_live_ai_allowed_for_league
-from backend.services.users_service import get_or_create_user
+from backend.services.users_service import get_or_create_user, mark_free_reward_used
 
 router = APIRouter(tags=["ai"])
 logger = logging.getLogger("naksir.go_premium.api")
@@ -60,8 +61,39 @@ def _enforce_ai_access(
     wallet,
     mark_reward: bool = True,
 ) -> None:
-    _ = session, user_id, trial_by_reward, consume, wallet, mark_reward
-    return
+    # 1) Premium entitlement -> allow (and consume quota if needed)
+    entitlement = get_active_entitlement(session, user_id)
+    if entitlement is not None:
+        if consume:
+            ok, reason = check_and_consume_ai(session, user_id, entitlement)
+            if not ok:
+                session.rollback()
+                raise HTTPException(
+                    status_code=402,
+                    detail=reason or "AI quota reached",
+                )
+        session.commit()
+        return
+
+    # 2) Free user path: require rewarded unlock (single lifetime)
+    if not trial_by_reward:
+        raise HTTPException(
+            status_code=402,
+            detail="Premium required. Watch an ad or buy Premium to continue.",
+        )
+
+    # Rewarded unlock used already?
+    if getattr(wallet, "free_reward_used", False):
+        raise HTTPException(
+            status_code=402,
+            detail="Free ad unlock already used. Please buy Premium.",
+        )
+
+    # Mark free reward used (single lifetime)
+    if mark_reward:
+        mark_free_reward_used(session, wallet)
+    else:
+        session.commit()
 
 
 def _cache_headers(cache_key: str, cache_status: str) -> dict[str, str]:
@@ -196,9 +228,9 @@ def post_match_ai_analysis(
         session,
         user_id=user.id,
         trial_by_reward=payload.trial_by_reward,
-        consume=False,
+        consume=True,
         wallet=wallet,
-        mark_reward=False,
+        mark_reward=True,
     )
 
     is_live = (mode or "").lower() == "live"
@@ -328,15 +360,6 @@ def post_match_ai_analysis(
             content={"status": "generating"},
             headers=_cache_headers(cache_key, "WAIT"),
         )
-
-    _enforce_ai_access(
-        session,
-        user_id=user.id,
-        trial_by_reward=payload.trial_by_reward,
-        consume=True,
-        wallet=wallet,
-        mark_reward=True,
-    )
 
     try:
         if fixture is None:
