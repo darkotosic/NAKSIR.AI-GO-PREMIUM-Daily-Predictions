@@ -18,6 +18,6 @@ config.resolver.nodeModulesPaths = [
 
 // Keep Expo defaults intact; do NOT override assetExts/sourceExts
 // Optional: prevents duplicate module instances in monorepos
-config.resolver.disableHierarchicalLookup = true;
+config.resolver.disableHierarchicalLookup = false;
 
 module.exports = config;
