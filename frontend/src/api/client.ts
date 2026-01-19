@@ -92,7 +92,12 @@ apiClient.interceptors.response.use(
       const status = error.response?.status;
 
       // Central premium gate: any 402 => open paywall
-      if (status === 402) {
+      // Allow selected requests (e.g. AI analysis screens) to handle 402 locally without forced navigation.
+      const skipPaywall =
+        Boolean((error.config as any)?.headers?.['X-Skip-Paywall']) ||
+        Boolean((error.config as any)?.headers?.['x-skip-paywall']);
+
+      if (status === 402 && !skipPaywall) {
         openPaywall();
       }
 

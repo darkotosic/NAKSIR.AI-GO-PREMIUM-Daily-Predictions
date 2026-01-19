@@ -59,6 +59,7 @@ export async function postAiAnalysis({
       {
         timeout: 60000,
         params: live ? { mode: 'live' } : undefined,
+        headers: { 'X-Skip-Paywall': '1' },
       },
     );
     return res.data;
@@ -83,6 +84,7 @@ export async function requestAiAnalysis({
       {
         timeout: 60000,
         params: live ? { mode: 'live' } : undefined,
+        headers: { 'X-Skip-Paywall': '1' },
       },
     );
     return {
@@ -99,7 +101,9 @@ export async function getAiAnalysis(
   fixtureId: number | string,
 ): Promise<AiAnalysisResponse> {
   try {
-    const res = await apiClient.get(`/matches/${fixtureId}/ai-analysis`);
+    const res = await apiClient.get(`/matches/${fixtureId}/ai-analysis`, {
+      headers: { 'X-Skip-Paywall': '1' },
+    });
     return {
       status: res.status,
       data: res.data,
