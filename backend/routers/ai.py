@@ -27,9 +27,8 @@ from backend.services.ai_analysis_cache_service import (
     wait_for_ready,
     list_cached_ready_for_fixture_ids,
 )
-from backend.services.entitlements_service import check_and_consume_ai, get_active_entitlement
 from backend.services.live_ai_policy import compute_15m_bucket_ts, is_live_ai_allowed_for_league
-from backend.services.users_service import get_or_create_user, mark_free_reward_used
+from backend.services.users_service import get_or_create_user
 
 router = APIRouter(tags=["ai"])
 logger = logging.getLogger("naksir.go_premium.api")
@@ -52,48 +51,14 @@ def _require_install_id(install_id: Optional[str]) -> None:
         raise HTTPException(status_code=400, detail="X-Install-Id header is required")
 
 
-def _enforce_ai_access(
-    session: Session,
-    *,
-    user_id: int,
-    trial_by_reward: bool,
-    consume: bool,
-    wallet,
-    mark_reward: bool = True,
-) -> None:
-    # 1) Premium entitlement -> allow (and consume quota if needed)
-    entitlement = get_active_entitlement(session, user_id)
-    if entitlement is not None:
-        if consume:
-            ok, reason = check_and_consume_ai(session, user_id, entitlement)
-            if not ok:
-                session.rollback()
-                raise HTTPException(
-                    status_code=402,
-                    detail=reason or "AI quota reached",
-                )
-        session.commit()
-        return
-
-    # 2) Free user path: require rewarded unlock (single lifetime)
-    if not trial_by_reward:
-        raise HTTPException(
-            status_code=402,
-            detail="Premium required. Watch an ad or buy Premium to continue.",
-        )
-
-    # Rewarded unlock used already?
-    if getattr(wallet, "free_reward_used", False):
-        raise HTTPException(
-            status_code=402,
-            detail="Free ad unlock already used. Please buy Premium.",
-        )
-
-    # Mark free reward used (single lifetime)
-    if mark_reward:
-        mark_free_reward_used(session, wallet)
-    else:
-        session.commit()
+def _enforce_ai_access(*args, **kwargs) -> None:
+    """
+    BACKEND ROLLBACK (2026-01-19):
+    AI access is no longer paywalled server-side.
+    Monetization is handled client-side via ads/subscriptions UX.
+    This function intentionally does nothing to avoid 402 regressions in production.
+    """
+    return
 
 
 def _cache_headers(cache_key: str, cache_status: str) -> dict[str, str]:
@@ -122,8 +87,7 @@ def get_match_ai_analysis(
 ) -> Any:
     _require_install_id(install_id)
 
-    user, wallet = get_or_create_user(session, install_id)
-    _enforce_ai_access(session, user_id=user.id, trial_by_reward=False, consume=False, wallet=wallet)
+    get_or_create_user(session, install_id)
 
     is_live = (mode or "").lower() == "live"
     if is_live:
@@ -223,15 +187,7 @@ def post_match_ai_analysis(
 
     _require_install_id(install_id)
 
-    user, wallet = get_or_create_user(session, install_id)
-    _enforce_ai_access(
-        session,
-        user_id=user.id,
-        trial_by_reward=payload.trial_by_reward,
-        consume=True,
-        wallet=wallet,
-        mark_reward=True,
-    )
+    get_or_create_user(session, install_id)
 
     is_live = (mode or "").lower() == "live"
     prompt_version = "live-v1" if is_live else "v1"
