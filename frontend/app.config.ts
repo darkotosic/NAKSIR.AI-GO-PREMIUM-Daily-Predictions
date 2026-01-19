@@ -11,8 +11,15 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const baseConfig = { ...appJson.expo, ...config };
   const extra = (baseConfig.extra ?? {}) as Record<string, string | undefined>;
 
+  // merge plugins: existing (from app.json/config) + expo-asset (no duplicates)
+  const existingPlugins = (baseConfig.plugins ?? []) as any[];
+  const plugins = existingPlugins.includes('expo-asset')
+    ? existingPlugins
+    : [...existingPlugins, 'expo-asset'];
+
   return {
     ...baseConfig,
+    plugins,
     extra: {
       ...extra,
       apiBaseUrl: readEnv('EXPO_PUBLIC_API_BASE_URL') ?? extra.apiBaseUrl,

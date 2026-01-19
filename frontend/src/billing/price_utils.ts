@@ -1,4 +1,4 @@
-import type { Subscription } from 'react-native-iap';
+type Subscription = any;
 
 export function pickBestPriceString(p: Subscription): string | null {
   // Best effort: prefer localizedPrice if present

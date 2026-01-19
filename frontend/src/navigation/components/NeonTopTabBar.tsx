@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
   activeGlowInner: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: 14,
-    shadowColor: COLORS.neonOrange,
+    shadowColor: COLORS.neonViolet,
     shadowOpacity: 0.25,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 0 },

@@ -628,7 +628,7 @@ const AIAnalysisScreen: React.FC = () => {
               </Text>
               <TouchableOpacity
                 style={[styles.retryButton, isGenerating && styles.retryButtonDisabled]}
-                onPress={startGeneration}
+                onPress={() => startGeneration()}
                 disabled={isGenerating}
               >
                 <Text style={styles.retryButtonLabel}>Run analysis</Text>
@@ -643,7 +643,7 @@ const AIAnalysisScreen: React.FC = () => {
               </Text>
               <TouchableOpacity
                 style={[styles.retryButton, isGenerating && styles.retryButtonDisabled]}
-                onPress={startGeneration}
+                onPress={() => startGeneration()}
                 disabled={isGenerating}
               >
                 <Text style={styles.retryButtonLabel}>Try again</Text>

@@ -26,9 +26,7 @@ const LABEL: Record<Sku, { title: string; popular?: boolean }> = {
 const BENEFITS = [
   'No Ads',
   'Full access to AI predictions',
-  'Full access to Power Charts',
-  'Full access to recommendations',
-  'Filtering matches by odds and probability',
+  'Full access to live match analysis',
 ];
 
 export default function SubscriptionsScreen() {
@@ -61,9 +59,8 @@ export default function SubscriptionsScreen() {
         </View>
 
         <Text style={styles.title}>
-          GET FULL ACCESS TO THE{'
-'}
-          <Text style={styles.titleAccent}>AI ASSISTANT</Text>
+          GET FULL ACCESS{"\n"}
+          <Text style={styles.titleAccent}>NO ADS</Text>
         </Text>
 
         <View style={styles.sheet}>

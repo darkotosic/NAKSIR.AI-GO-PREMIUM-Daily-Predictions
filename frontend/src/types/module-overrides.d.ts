@@ -59,3 +59,21 @@ declare module 'react-native-iap' {
   export function getSubscriptions(skus: { skus: string[] } | string[]): Promise<any>;
   export function requestSubscription(sku: string | { sku: string }): Promise<any>;
 }
+
+declare module 'react-native-google-mobile-ads' {
+  export enum AdsConsentStatus {
+    UNKNOWN = 0,
+    REQUIRED = 1,
+    NOT_REQUIRED = 2,
+    OBTAINED = 3,
+  }
+
+   export const AdsConsent: {
+  requestInfoUpdate: (options?: any) => Promise<any>;
+  loadAndShowConsentFormIfRequired: () => Promise<any>;
+  gatherConsent: (options?: any) => Promise<any>;
+  showPrivacyOptionsForm: () => Promise<any>; // <- DODAJ OVO
+  getConsentStatus: () => AdsConsentStatus;
+  getGdprApplies: () => boolean | null;
+};
+}
