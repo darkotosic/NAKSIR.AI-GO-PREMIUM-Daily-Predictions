@@ -51,11 +51,17 @@ export function usePlayBilling() {
         const subs = await (RNIap.getSubscriptions as any)({ skus } as any);
         setProducts(subs);
         setProductBySku(new Map(subs.map((p: Subscription) => [(p as any).productId, p])));
+        console.log('[IAP] getSubscriptions result count:', subs?.length ?? 0);
+        console.log('[IAP] skus:', skus);
+        console.log('[IAP] subs sample:', subs?.[0]);
         return subs;
       } catch (error) {
         const subs = await (RNIap.getSubscriptions as any)(skus);
         setProducts(subs);
         setProductBySku(new Map(subs.map((p: Subscription) => [(p as any).productId, p])));
+        console.log('[IAP] getSubscriptions result count:', subs?.length ?? 0);
+        console.log('[IAP] skus:', skus);
+        console.log('[IAP] subs sample:', subs?.[0]);
         return subs;
       }
     }
@@ -72,6 +78,9 @@ export function usePlayBilling() {
       } as any);
       setProducts(subs);
       setProductBySku(new Map(subs.map((p: Subscription) => [(p as any).productId, p])));
+      console.log('[IAP] getSubscriptions result count:', subs?.length ?? 0);
+      console.log('[IAP] skus:', skus);
+      console.log('[IAP] subs sample:', subs?.[0]);
       return subs;
     }
 
@@ -111,6 +120,11 @@ export function usePlayBilling() {
       // Load products
       try {
         await loadSubscriptions();
+        if (!products || products.length === 0) {
+          setError(
+            'No subscriptions returned from Google Play. Install from Play Internal Test track and ensure tester account is used.',
+          );
+        }
         setState((s) => ({ ...s, productsLoaded: true }));
       } catch (e: any) {
         setError(`Failed to load subscriptions: ${e?.message || String(e)}`);
