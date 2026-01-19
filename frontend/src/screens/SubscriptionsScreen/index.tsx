@@ -148,7 +148,7 @@ export default function SubscriptionsScreen() {
               </View>
             ) : null}
 
-            {lastError ? <Text style={styles.error}>{lastError}</Text> : null}
+            {lastError ? <Text style={styles.warningText}>{lastError}</Text> : null}
 
             <Text style={styles.legal}>
               Auto-renewal can be turned off 24 hours before the end of the billing period. You can
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
   perDay: { color: '#fff', fontWeight: '900', fontSize: 18 },
   perDayLabel: { color: 'rgba(255,255,255,0.8)', fontWeight: '700', marginTop: 2, fontSize: 12 },
 
-  error: { color: '#fecaca', fontWeight: '800', marginTop: 8 },
+  warningText: { color: '#facc15', fontWeight: '800', marginTop: 10, lineHeight: 18 },
   pricesWarn: {
     marginTop: 8,
     borderRadius: 16,
