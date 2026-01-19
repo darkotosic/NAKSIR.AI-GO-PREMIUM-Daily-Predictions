@@ -8,6 +8,7 @@ import {
   NativeAssetType,
   NativeMediaView,
 } from 'react-native-google-mobile-ads';
+import { useEntitlements } from '@state/EntitlementsContext';
 
 import { getAdUnitId } from './admob';
 
@@ -20,6 +21,13 @@ export const NativeAdvanceAdCard: React.FC<NativeAdvanceAdCardProps> = ({
   adUnitId,
   isTestMode = __DEV__,
 }) => {
+  const { isPremium } = useEntitlements();
+
+  // Premium = absolutely no ads
+  if (isPremium) {
+    return null;
+  }
+
   const [nativeAd, setNativeAd] = useState<NativeAd | null>(null);
   const resolvedAdUnitId = useMemo(
     () => adUnitId ?? getAdUnitId('nativeAdvanced', isTestMode),
