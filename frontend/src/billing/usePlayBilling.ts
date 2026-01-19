@@ -215,15 +215,42 @@ export function usePlayBilling() {
       setState((s) => ({ ...s, isLoading: true, lastError: null }));
 
       try {
-        // For many versions:
-        await RNIap.requestSubscription({ sku } as any);
+        const product = productBySku.get(sku) as any;
+
+        const offerDetails =
+          product?.subscriptionOfferDetails ||
+          (product as any)?.subscriptionOfferDetailsAndroid ||
+          (product as any)?.offers ||
+          [];
+
+        // Prefer a "base" offer when possible; otherwise fallback to first available offer
+        const baseOffer =
+          offerDetails?.find((offer: any) => offer?.pricingPhases?.pricingPhaseList?.length) ||
+          offerDetails?.find((offer: any) => offer?.basePlanId) ||
+          offerDetails?.[0];
+
+        const offerToken: string | undefined = baseOffer?.offerToken;
+
+        if (!offerToken) {
+          setError(
+            'Subscription offer token is unavailable for this product. Check Play Console base plan/offer configuration.',
+          );
+          return;
+        }
+
+        console.log('[IAP] buying sku:', sku, 'offerToken:', offerToken);
+
+        await RNIap.requestSubscription({
+          sku,
+          subscriptionOffers: [{ sku, offerToken }],
+        } as any);
       } catch (e: any) {
         setError(`requestSubscription failed: ${e?.message || String(e)}`);
       } finally {
         setState((s) => ({ ...s, isLoading: false }));
       }
     },
-    [isAndroid, setError],
+    [isAndroid, productBySku, setError],
   );
 
   useEffect(() => {
