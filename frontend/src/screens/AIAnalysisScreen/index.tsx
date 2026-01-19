@@ -50,6 +50,7 @@ const AIAnalysisScreen: React.FC = () => {
   const [cacheStatus, setCacheStatus] = useState<string | null>(null);
   const [unlockGate, setUnlockGate] = useState<'checking' | 'locked' | 'unlocked'>('checking');
   const [showUnlockModal, setShowUnlockModal] = useState(false);
+  const [showPremiumPromo, setShowPremiumPromo] = useState(false);
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
   const pollInFlightRef = useRef(false);
   const requestIdRef = useRef(0);
@@ -355,6 +356,9 @@ const AIAnalysisScreen: React.FC = () => {
           await setAnalysisUnlocked(fixtureId);
           setUnlockGate('unlocked');
           setShowUnlockModal(false);
+
+          // show promo popup, but KEEP user on in-depth analysis screen
+          setShowPremiumPromo(true);
         }}
       />
       {unlockGate === 'locked' && (
@@ -708,6 +712,51 @@ const AIAnalysisScreen: React.FC = () => {
           )}
         </ScrollView>
       )}
+      {showPremiumPromo && (
+        <View style={styles.promoOverlay}>
+          <View style={styles.promoCard}>
+            <View style={styles.promoHeader}>
+              <View>
+                <Text style={styles.promoTitlePrimary}>GO PREMIUM</Text>
+                <Text style={styles.promoTitleSecondary}>NO ADS</Text>
+              </View>
+
+              <TouchableOpacity
+                onPress={() => setShowPremiumPromo(false)}
+                activeOpacity={0.9}
+                style={styles.promoX}
+              >
+                <Text style={styles.promoXText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.promoBody}>
+              You unlocked this analysis with a video ad. Go Premium to unlock all analyses
+              instantly and remove ads.
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => {
+                setShowPremiumPromo(false);
+                navigation.navigate('Subscriptions');
+              }}
+              activeOpacity={0.9}
+              style={styles.promoCta}
+            >
+              <Text style={styles.promoCtaText}>GO PREMIUM</Text>
+              <Text style={styles.promoCtaSubText}>NO ADS</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setShowPremiumPromo(false)}
+              activeOpacity={0.9}
+              style={styles.promoCloseBtn}
+            >
+              <Text style={styles.promoCloseBtnText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -971,6 +1020,105 @@ const styles = StyleSheet.create({
   },
   heroTeamNameRight: {
     textAlign: 'right',
+  },
+  promoOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  promoCard: {
+    width: '100%',
+    maxWidth: 460,
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.55)',
+    backgroundColor: '#0b0c1f',
+  },
+  promoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  promoTitlePrimary: {
+    color: '#facc15',
+    fontWeight: '900',
+    fontSize: 16,
+    letterSpacing: 0.6,
+  },
+  promoTitleSecondary: {
+    color: '#ffffff',
+    fontWeight: '900',
+    fontSize: 14,
+    marginTop: 2,
+    letterSpacing: 0.4,
+  },
+  promoX: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(0,0,0,0.25)',
+  },
+  promoXText: {
+    color: '#ffffff',
+    fontWeight: '900',
+    fontSize: 16,
+  },
+  promoBody: {
+    marginTop: 12,
+    color: 'rgba(255,255,255,0.82)',
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+  promoCta: {
+    marginTop: 14,
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    borderWidth: 1,
+    borderColor: '#facc15',
+    backgroundColor: '#0b1220',
+  },
+  promoCtaText: {
+    color: '#facc15',
+    fontWeight: '900',
+    fontSize: 12,
+    letterSpacing: 0.7,
+  },
+  promoCtaSubText: {
+    color: '#ffffff',
+    fontWeight: '900',
+    fontSize: 12,
+    letterSpacing: 0.7,
+  },
+  promoCloseBtn: {
+    marginTop: 10,
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(0,0,0,0.2)',
+  },
+  promoCloseBtnText: {
+    color: '#ffffff',
+    fontWeight: '900',
+    fontSize: 12,
+    letterSpacing: 0.5,
+    opacity: 0.95,
   },
 });
 
