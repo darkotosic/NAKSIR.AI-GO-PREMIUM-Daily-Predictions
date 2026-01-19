@@ -51,17 +51,43 @@ export function usePlayBilling() {
         const subs = await (RNIap.getSubscriptions as any)({ skus } as any);
         setProducts(subs);
         setProductBySku(new Map(subs.map((p: Subscription) => [(p as any).productId, p])));
-        console.log('[IAP] getSubscriptions result count:', subs?.length ?? 0);
-        console.log('[IAP] skus:', skus);
-        console.log('[IAP] subs sample:', subs?.[0]);
+        console.log('[IAP] requested skus:', skus);
+        console.log('[IAP] subscriptions returned:', subs?.length ?? 0);
+        if (subs?.length) {
+          console.log('[IAP] first sub keys:', Object.keys(subs[0] as any));
+          console.log(
+            '[IAP] first sub offerDetails:',
+            (subs[0] as any)?.subscriptionOfferDetails ??
+              (subs[0] as any)?.subscriptionOfferDetailsAndroid ??
+              (subs[0] as any)?.offers,
+          );
+        }
+        if (!subs || subs.length === 0) {
+          setError(
+            'No subscriptions returned from Google Play. Ensure you installed from Play (Internal testing) and your account is in License Testing.',
+          );
+        }
         return subs;
       } catch (error) {
         const subs = await (RNIap.getSubscriptions as any)(skus);
         setProducts(subs);
         setProductBySku(new Map(subs.map((p: Subscription) => [(p as any).productId, p])));
-        console.log('[IAP] getSubscriptions result count:', subs?.length ?? 0);
-        console.log('[IAP] skus:', skus);
-        console.log('[IAP] subs sample:', subs?.[0]);
+        console.log('[IAP] requested skus:', skus);
+        console.log('[IAP] subscriptions returned:', subs?.length ?? 0);
+        if (subs?.length) {
+          console.log('[IAP] first sub keys:', Object.keys(subs[0] as any));
+          console.log(
+            '[IAP] first sub offerDetails:',
+            (subs[0] as any)?.subscriptionOfferDetails ??
+              (subs[0] as any)?.subscriptionOfferDetailsAndroid ??
+              (subs[0] as any)?.offers,
+          );
+        }
+        if (!subs || subs.length === 0) {
+          setError(
+            'No subscriptions returned from Google Play. Ensure you installed from Play (Internal testing) and your account is in License Testing.',
+          );
+        }
         return subs;
       }
     }
@@ -78,14 +104,27 @@ export function usePlayBilling() {
       } as any);
       setProducts(subs);
       setProductBySku(new Map(subs.map((p: Subscription) => [(p as any).productId, p])));
-      console.log('[IAP] getSubscriptions result count:', subs?.length ?? 0);
-      console.log('[IAP] skus:', skus);
-      console.log('[IAP] subs sample:', subs?.[0]);
+      console.log('[IAP] requested skus:', skus);
+      console.log('[IAP] subscriptions returned:', subs?.length ?? 0);
+      if (subs?.length) {
+        console.log('[IAP] first sub keys:', Object.keys(subs[0] as any));
+        console.log(
+          '[IAP] first sub offerDetails:',
+          (subs[0] as any)?.subscriptionOfferDetails ??
+            (subs[0] as any)?.subscriptionOfferDetailsAndroid ??
+            (subs[0] as any)?.offers,
+        );
+      }
+      if (!subs || subs.length === 0) {
+        setError(
+          'No subscriptions returned from Google Play. Ensure you installed from Play (Internal testing) and your account is in License Testing.',
+        );
+      }
       return subs;
     }
 
     throw new Error('Subscriptions API is unavailable in react-native-iap.');
-  }, []);
+  }, [setError]);
 
   const reloadProducts = useCallback(async () => {
     if (!isAndroid) return;
@@ -120,11 +159,6 @@ export function usePlayBilling() {
       // Load products
       try {
         await loadSubscriptions();
-        if (!products || products.length === 0) {
-          setError(
-            'No subscriptions returned from Google Play. Install from Play Internal Test track and ensure tester account is used.',
-          );
-        }
         setState((s) => ({ ...s, productsLoaded: true }));
       } catch (e: any) {
         setError(`Failed to load subscriptions: ${e?.message || String(e)}`);
