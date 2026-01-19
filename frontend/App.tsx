@@ -5,11 +5,13 @@ import { SafeAreaView, Text, TouchableOpacity, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NavigationContainer } from '@react-navigation/native';
+import OneSignal from 'react-native-onesignal';
 import DrawerNavigator from '@navigation/DrawerNavigator';
 import { navigationRef } from '@navigation/RootNavigation';
 import { navigationTheme } from '@navigation/theme';
 import { initAnalytics } from '@lib/tracking';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import Constants from 'expo-constants';
 
 import BannerAdSticky, { BANNER_RESERVED_HEIGHT } from '@ads/BannerAdSticky';
 import { configureMobileAds } from '@ads/admob';
@@ -19,6 +21,10 @@ import { initConsent } from '@ads/consent';
 import { EntitlementsProvider, useEntitlements } from '@state/EntitlementsContext';
 
 const queryClient = new QueryClient();
+const ONESIGNAL_APP_ID =
+  process.env.EXPO_PUBLIC_ONESIGNAL_APP_ID ||
+  (Constants.expoConfig?.extra as any)?.EXPO_PUBLIC_ONESIGNAL_APP_ID ||
+  '';
 
 class RootErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -162,14 +168,28 @@ const AppRoot: React.FC = () => {
   );
 };
 
-const App: React.FC = () => (
-  <SafeAreaProvider>
-    <RootErrorBoundary>
-      <EntitlementsProvider>
-        <AppRoot />
-      </EntitlementsProvider>
-    </RootErrorBoundary>
-  </SafeAreaProvider>
-);
+const App: React.FC = () => {
+  React.useEffect(() => {
+    if (!ONESIGNAL_APP_ID) return;
+
+    OneSignal.initialize(ONESIGNAL_APP_ID);
+
+    // Android 13+ / general permission prompt where applicable
+    OneSignal.Notifications.requestPermission(true);
+
+    // Optional: verbose logs during dev
+    // OneSignal.Debug.setLogLevel(6);
+  }, []);
+
+  return (
+    <SafeAreaProvider>
+      <RootErrorBoundary>
+        <EntitlementsProvider>
+          <AppRoot />
+        </EntitlementsProvider>
+      </RootErrorBoundary>
+    </SafeAreaProvider>
+  );
+};
 
 export default App;
