@@ -22,6 +22,9 @@
       },
       "edgeToEdgeEnabled": true
     },
+    "ios": {
+      "bundleIdentifier": "com.naksir.soccerpredictions"
+    },
 
     "plugins": [
       [
