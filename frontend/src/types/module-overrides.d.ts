@@ -57,7 +57,14 @@ declare module 'react-native-google-mobile-ads' {
 declare module 'react-native-iap' {
   export function flushFailedPurchasesCachedAsPendingAndroid(): Promise<void>;
   export function getSubscriptions(skus: { skus: string[] } | string[]): Promise<any>;
-  export function requestSubscription(sku: string | { sku: string }): Promise<any>;
+  export function requestSubscription(sku: string): Promise<any>;
+  export function requestSubscription(options: {
+    sku: string;
+    subscriptionOffers?: Array<{
+      sku: string;
+      offerToken: string;
+    }>;
+  }): Promise<any>;
 }
 
 declare module 'react-native-google-mobile-ads' {
