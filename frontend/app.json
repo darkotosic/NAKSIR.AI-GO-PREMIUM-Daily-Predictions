@@ -31,6 +31,12 @@
         }
       ],
       [
+        "onesignal-expo-plugin",
+        {
+          "mode": "production"
+        }
+      ],
+      [
         "expo-build-properties",
         {
           "android": {
