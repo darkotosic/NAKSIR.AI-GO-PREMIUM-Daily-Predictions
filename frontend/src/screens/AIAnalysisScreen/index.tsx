@@ -359,6 +359,28 @@ const AIAnalysisScreen: React.FC = () => {
       />
       {unlockGate === 'locked' && (
         <View style={{ paddingHorizontal: 16, paddingTop: 14 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <Text style={{ color: '#f8fafc', fontWeight: '900', fontSize: 16 }}>
+              Naksir In-depth Analysis
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => navigation.navigate('TodayMatches')}
+              activeOpacity={0.9}
+              style={{
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: '#8b5cf6',
+                backgroundColor: '#0b1220',
+              }}
+            >
+              <Text style={{ color: '#f8fafc', fontWeight: '900', fontSize: 12 }}>Home</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Lock card */}
           <View
             style={{
               borderWidth: 1,
@@ -368,9 +390,7 @@ const AIAnalysisScreen: React.FC = () => {
               backgroundColor: '#0b0c1f',
             }}
           >
-            <Text style={{ color: '#f8fafc', fontWeight: '900', fontSize: 14 }}>
-              🔒 Analysis locked
-            </Text>
+            <Text style={{ color: '#f8fafc', fontWeight: '900', fontSize: 14 }}>🔒 Analysis locked</Text>
             <Text style={{ color: '#a5b4fc', marginTop: 8, lineHeight: 18 }}>
               Watch a video ad to unlock this match’s in-depth Naksir AI analysis.
             </Text>
@@ -390,6 +410,42 @@ const AIAnalysisScreen: React.FC = () => {
             >
               <Text style={{ color: '#f8fafc', fontWeight: '900', fontSize: 12, letterSpacing: 0.4 }}>
                 UNLOCK WITH VIDEO AD
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Premium promo card */}
+          <View
+            style={{
+              marginTop: 12,
+              borderWidth: 1,
+              borderColor: 'rgba(250,204,21,0.35)',
+              borderRadius: 16,
+              padding: 14,
+              backgroundColor: 'rgba(0,0,0,0.35)',
+            }}
+          >
+            <Text style={{ color: '#facc15', fontWeight: '900', fontSize: 14 }}>GO PREMIUM</Text>
+            <Text style={{ color: '#f8fafc', fontWeight: '900', fontSize: 14, marginTop: 2 }}>NO ADS</Text>
+            <Text style={{ color: '#a5b4fc', marginTop: 8, lineHeight: 18 }}>
+              Unlock all analyses instantly. Clean experience. Full power.
+            </Text>
+
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => navigation.navigate('Subscriptions')}
+              style={{
+                marginTop: 12,
+                borderWidth: 1,
+                borderColor: '#facc15',
+                borderRadius: 12,
+                paddingVertical: 12,
+                alignItems: 'center',
+                backgroundColor: '#0b1220',
+              }}
+            >
+              <Text style={{ color: '#facc15', fontWeight: '900', fontSize: 12, letterSpacing: 0.6 }}>
+                GO PREMIUM
               </Text>
             </TouchableOpacity>
           </View>

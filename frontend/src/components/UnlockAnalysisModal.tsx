@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { ActivityIndicator, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@navigation/types';
 import { useRewardedAd } from '@ads/useRewardedAd';
 import { useInterstitialAdGate } from '@ads/useInterstitialAdGate';
 
@@ -23,6 +26,7 @@ const REWARDED_FALLBACK_MS = 5000;
 
 export default function UnlockAnalysisModal({ visible, onCancel, onUnlocked }: Props) {
   const { isAvailable, isLoaded, isLoading, load, show, reward, resetReward } = useRewardedAd();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   // Interstitial “gate” (resolve kada se ad zatvori ili timeout)
   const { showAd: showInterstitialGate, isSupported: isInterstitialSupported } = useInterstitialAdGate({
@@ -187,6 +191,18 @@ export default function UnlockAnalysisModal({ visible, onCancel, onUnlocked }: P
             </TouchableOpacity>
           </View>
 
+          <TouchableOpacity
+            onPress={() => {
+              onCancel();
+              navigation.navigate('Subscriptions');
+            }}
+            activeOpacity={0.9}
+            style={styles.premiumBar}
+          >
+            <Text style={styles.premiumBarPrimary}>GO PREMIUM</Text>
+            <Text style={styles.premiumBarSecondary}>NO ADS</Text>
+          </TouchableOpacity>
+
           <Text style={styles.micro}>
             Rewarded ad required per match. After completion, this match analysis stays unlocked.
           </Text>
@@ -276,5 +292,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  premiumBar: {
+    marginTop: 10,
+    width: '100%',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.neonViolet,
+    backgroundColor: '#0b1220',
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 10,
+  },
+  premiumBarPrimary: {
+    color: '#facc15',
+    fontWeight: '900',
+    fontSize: 12,
+    letterSpacing: 0.6,
+  },
+  premiumBarSecondary: {
+    color: COLORS.text,
+    fontWeight: '900',
+    fontSize: 12,
+    letterSpacing: 0.6,
+    opacity: 0.95,
   },
 });

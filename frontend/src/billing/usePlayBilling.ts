@@ -78,6 +78,20 @@ export function usePlayBilling() {
     throw new Error('Subscriptions API is unavailable in react-native-iap.');
   }, []);
 
+  const reloadProducts = useCallback(async () => {
+    if (!isAndroid) return;
+    setState((s) => ({ ...s, isLoading: true, lastError: null }));
+
+    try {
+      await loadSubscriptions();
+      setState((s) => ({ ...s, productsLoaded: true }));
+    } catch (e: any) {
+      setError(`Failed to load subscriptions: ${e?.message || String(e)}`);
+    } finally {
+      setState((s) => ({ ...s, isLoading: false }));
+    }
+  }, [isAndroid, loadSubscriptions, setError]);
+
   const connect = useCallback(async () => {
     if (!isAndroid) return;
 
@@ -216,9 +230,10 @@ export function usePlayBilling() {
       ...state,
       buySubscription,
       refreshEntitlement,
+      reloadProducts,
       products,
       productBySku,
     }),
-    [state, buySubscription, refreshEntitlement, products, productBySku],
+    [state, buySubscription, refreshEntitlement, reloadProducts, products, productBySku],
   );
 }
