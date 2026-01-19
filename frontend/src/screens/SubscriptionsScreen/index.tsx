@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -30,10 +31,22 @@ const BENEFITS = [
 ];
 
 export default function SubscriptionsScreen() {
-  const { isLoading, lastError, buySubscription, refreshEntitlement, products } = usePlayBilling();
+  const {
+    isLoading,
+    lastError,
+    buySubscription,
+    refreshEntitlement,
+    reloadProducts,
+    products,
+    productsLoaded,
+  } = usePlayBilling();
   const { isPremium } = useEntitlements();
 
   const [selected, setSelected] = useState<Sku>('naksir_premium_1m');
+
+  useEffect(() => {
+    reloadProducts?.();
+  }, [reloadProducts]);
 
   const productBySku = useMemo(() => {
     const map = new Map<string, any>();
@@ -64,85 +77,101 @@ export default function SubscriptionsScreen() {
         </Text>
 
         <View style={styles.sheet}>
-          <View style={styles.benefits}>
-            {BENEFITS.map((b) => (
-              <View key={b} style={styles.benefitRow}>
-                <Text style={styles.check}>✓</Text>
-                <Text style={styles.benefitText}>{b}</Text>
+          <ScrollView
+            contentContainerStyle={styles.sheetScroll}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.benefits}>
+              {BENEFITS.map((b) => (
+                <View key={b} style={styles.benefitRow}>
+                  <Text style={styles.check}>✓</Text>
+                  <Text style={styles.benefitText}>{b}</Text>
+                </View>
+              ))}
+            </View>
+
+            <View style={{ height: 14 }} />
+
+            {(SUBS_SKUS as readonly Sku[]).map((sku) => {
+              const p = productBySku.get(sku);
+              const best = p ? pickBestPriceString(p) : null;
+              const { micros: m, currency: c } = p
+                ? pickMicrosAndCurrency(p)
+                : { micros: null, currency: null };
+
+              const pd = m && c ? formatMoney(perDay(microsToNumber(m), DAYS[sku]), c) : null;
+              const selectedRow = selected === sku;
+
+              return (
+                <TouchableOpacity
+                  key={sku}
+                  style={[styles.planRow, selectedRow ? styles.planRowSelected : null]}
+                  onPress={() => setSelected(sku)}
+                  activeOpacity={0.9}
+                >
+                  <View style={styles.radioOuter}>
+                    {selectedRow ? <View style={styles.radioInner} /> : null}
+                  </View>
+
+                  <View style={{ flex: 1 }}>
+                    {LABEL[sku].popular ? (
+                      <View style={styles.popularBadge}>
+                        <Text style={styles.popularText}>MOST POPULAR</Text>
+                      </View>
+                    ) : null}
+
+                    <Text style={styles.planTitle}>{LABEL[sku].title}</Text>
+                    <Text style={styles.planSub}>{best ? best : 'Loading price...'}</Text>
+                  </View>
+
+                  <View style={styles.priceBox}>
+                    <Text style={styles.perDay}>{pd ? pd : '--'}</Text>
+                    <Text style={styles.perDayLabel}>per Day</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+
+            {productsLoaded && (!products || products.length === 0) ? (
+              <View style={styles.pricesWarn}>
+                <Text style={styles.pricesWarnTitle}>Prices not available</Text>
+                <Text style={styles.pricesWarnText}>
+                  Subscriptions did not load from Google Play. Check SKU IDs and tester account.
+                </Text>
+                <TouchableOpacity
+                  onPress={() => reloadProducts?.()}
+                  activeOpacity={0.9}
+                  style={styles.retryBtn}
+                >
+                  <Text style={styles.retryBtnText}>Retry loading prices</Text>
+                </TouchableOpacity>
               </View>
-            ))}
-          </View>
+            ) : null}
 
-          <View style={{ height: 14 }} />
+            {lastError ? <Text style={styles.error}>{lastError}</Text> : null}
 
-          {(SUBS_SKUS as readonly Sku[]).map((sku) => {
-            const p = productBySku.get(sku);
-            const best = p ? pickBestPriceString(p) : null;
-            const { micros: m, currency: c } = p
-              ? pickMicrosAndCurrency(p)
-              : { micros: null, currency: null };
+            <Text style={styles.legal}>
+              Auto-renewal can be turned off 24 hours before the end of the billing period. You can
+              cancel any time on Google Play.
+            </Text>
 
-            const pd = m && c ? formatMoney(perDay(microsToNumber(m), DAYS[sku]), c) : null;
+            <TouchableOpacity
+              style={[styles.cta, !canBuy ? styles.ctaDisabled : null]}
+              onPress={() => buySubscription(selected)}
+              disabled={!canBuy}
+              activeOpacity={0.9}
+            >
+              {isLoading ? <ActivityIndicator /> : <Text style={styles.ctaText}>{isPremium ? 'ACTIVE' : 'SUBSCRIBE'}</Text>}
+            </TouchableOpacity>
 
-            const selectedRow = selected === sku;
-
-            return (
-              <TouchableOpacity
-                key={sku}
-                style={[styles.planRow, selectedRow ? styles.planRowSelected : null]}
-                onPress={() => setSelected(sku)}
-                activeOpacity={0.9}
-              >
-                <View style={styles.radioOuter}>
-                  {selectedRow ? <View style={styles.radioInner} /> : null}
-                </View>
-
-                <View style={{ flex: 1 }}>
-                  {LABEL[sku].popular ? (
-                    <View style={styles.popularBadge}>
-                      <Text style={styles.popularText}>MOST POPULAR</Text>
-                    </View>
-                  ) : null}
-
-                  <Text style={styles.planTitle}>{LABEL[sku].title}</Text>
-                  <Text style={styles.planSub}>{best ? best : 'Loading price...'}</Text>
-                </View>
-
-                <View style={styles.priceBox}>
-                  <Text style={styles.perDay}>{pd ? pd : '--'}</Text>
-                  <Text style={styles.perDayLabel}>per Day</Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-
-          {lastError ? <Text style={styles.error}>{lastError}</Text> : null}
-
-          <Text style={styles.legal}>
-            Auto-renewal can be turned off 24 hours before the end of the billing period. You can
-            cancel any time on Google Play.
-          </Text>
-
-          <TouchableOpacity
-            style={[styles.cta, !canBuy ? styles.ctaDisabled : null]}
-            onPress={() => buySubscription(selected)}
-            disabled={!canBuy}
-            activeOpacity={0.9}
-          >
-            {isLoading ? (
-              <ActivityIndicator />
-            ) : (
-              <Text style={styles.ctaText}>{isPremium ? 'ACTIVE' : 'SUBSCRIBE'}</Text>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => refreshEntitlement()}
-            disabled={isLoading}
-            style={styles.restore}
-          >
-            <Text style={styles.restoreText}>Restore purchase</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => refreshEntitlement()}
+              disabled={isLoading}
+              style={styles.restore}
+            >
+              <Text style={styles.restoreText}>Restore purchase</Text>
+            </TouchableOpacity>
+          </ScrollView>
         </View>
       </View>
     </View>
@@ -173,6 +202,9 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 28,
     padding: 16,
     flex: 1,
+  },
+  sheetScroll: {
+    paddingBottom: 24,
   },
   benefits: { backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 18, padding: 14 },
   benefitRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
@@ -221,6 +253,25 @@ const styles = StyleSheet.create({
   perDayLabel: { color: 'rgba(255,255,255,0.8)', fontWeight: '700', marginTop: 2, fontSize: 12 },
 
   error: { color: '#fecaca', fontWeight: '800', marginTop: 8 },
+  pricesWarn: {
+    marginTop: 8,
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  pricesWarnTitle: { color: '#fff', fontWeight: '900' },
+  pricesWarnText: { color: 'rgba(255,255,255,0.8)', marginTop: 6, lineHeight: 16, fontWeight: '700' },
+  retryBtn: {
+    marginTop: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#facc15',
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  retryBtnText: { color: '#facc15', fontWeight: '900', letterSpacing: 0.5 },
 
   legal: { color: 'rgba(255,255,255,0.8)', fontSize: 11, marginTop: 2, lineHeight: 15 },
   cta: {
