@@ -1,6 +1,7 @@
 import axios, { AxiosError, AxiosHeaders } from 'axios';
 import Constants from 'expo-constants';
 import { getOrCreateInstallId } from '@lib/installId';
+import { openPaywall } from '@navigation/RootNavigation';
 
 const env = process.env as Record<string, string | undefined>;
 const extra = (
@@ -88,9 +89,16 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (axios.isAxiosError(error)) {
+      const status = error.response?.status;
+
+      // Central premium gate: any 402 => open paywall
+      if (status === 402) {
+        openPaywall();
+      }
+
       const enrichedError = new Error(extractErrorMessage(error));
       const responseData = error.response?.data as any;
-      (enrichedError as any).status = error.response?.status;
+      (enrichedError as any).status = status;
       (enrichedError as any).code = responseData?.code;
       (enrichedError as any).actions = responseData?.actions;
       return Promise.reject(enrichedError);

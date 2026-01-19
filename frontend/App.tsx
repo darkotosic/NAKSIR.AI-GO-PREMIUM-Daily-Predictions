@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NavigationContainer } from '@react-navigation/native';
 import DrawerNavigator from '@navigation/DrawerNavigator';
+import { navigationRef } from '@navigation/RootNavigation';
 import { navigationTheme } from '@navigation/theme';
 import { initAnalytics } from '@lib/tracking';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -129,7 +130,7 @@ const AppRoot: React.FC = () => {
         backgroundColor: '#040312',
       }}
     >
-      <NavigationContainer theme={navigationTheme}>
+      <NavigationContainer ref={navigationRef} theme={navigationTheme}>
         <StatusBar style="light" />
         {!isPremium && adsReady ? <AppOpenAdManager /> : null}
         <DrawerNavigator />
