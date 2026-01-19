@@ -18,6 +18,8 @@ module.exports = function (api) {
             '@types': './src/types',
             '@billing': './src/billing',
             '@ads': './src/ads',
+            '@state': './src/state',
+            '@shared': '../shared',
           },
         },
       ],

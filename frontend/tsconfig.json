@@ -12,7 +12,9 @@
       "@lib/*": ["src/lib/*"],
       "@types/*": ["src/types/*"],
       "@billing/*": ["src/billing/*"],
-      "@ads/*": ["src/ads/*"]
+      "@ads/*": ["src/ads/*"],
+      "@state/*": ["src/state/*"],
+      "@shared/*": ["../shared/*"]
     },
     "strict": true
   },
