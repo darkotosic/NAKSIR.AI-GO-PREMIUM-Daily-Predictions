@@ -23,7 +23,26 @@ export const getTodayMatches = async (options: {
     limit: options.limit,
     include_badge: options.include_badge,
   });
-  return apiGet<BttsMatch[]>(`/btts/matches/today${query}`);
+  const data = await apiGet<BttsMatch[]>(`/btts/matches/today${query}`);
+  return (data ?? []).map((match) => {
+    const odds = match.odds ?? {};
+    const rawMatch = match as BttsMatch & {
+      btts_yes_odds?: number | string;
+      btts_no_odds?: number | string;
+      btts_yes?: number | string;
+      btts_no?: number | string;
+    };
+    const bttsYes = odds.btts_yes ?? rawMatch.btts_yes_odds ?? rawMatch.btts_yes;
+    const bttsNo = odds.btts_no ?? rawMatch.btts_no_odds ?? rawMatch.btts_no;
+    return {
+      ...match,
+      odds: {
+        ...odds,
+        btts_yes: bttsYes,
+        btts_no: bttsNo,
+      },
+    };
+  });
 };
 
 export const getTomorrowMatches = async (options: {

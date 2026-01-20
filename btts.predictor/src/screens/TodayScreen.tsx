@@ -1,115 +1,191 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import SegmentedControl from '@react-native-segmented-control/segmented-control';
 import { getTodayMatches } from '../api/btts';
 import type { BttsMatch, MatchFilter } from '../types/btts';
 import MatchCard from '../ui/MatchCard';
+import { COLORS } from '../theme/colors';
 
-const FILTERS: MatchFilter[] = ['all', 'prematch', 'live', 'finished'];
+const FILTER_VALUES: MatchFilter[] = ['all', 'prematch', 'live', 'finished'];
 
 export default function TodayScreen() {
   const [filter, setFilter] = useState<MatchFilter>('all');
   const [matches, setMatches] = useState<BttsMatch[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let isActive = true;
-    setLoading(true);
+  const segments = useMemo(() => ['All', 'Prematch', 'Live', 'Finished'], []);
+  const selectedIndex = FILTER_VALUES.indexOf(filter);
+
+  const fetchMatches = useCallback(async (activeFilter: MatchFilter, showLoader: boolean) => {
+    if (showLoader) {
+      setLoading(true);
+    }
     setError(null);
-    getTodayMatches({ filter, include_badge: true })
-      .then((data) => {
-        if (isActive) {
-          setMatches(data ?? []);
-        }
-      })
-      .catch((err: Error) => {
-        if (isActive) {
-          setError(err.message);
-          setMatches([]);
-        }
-      })
-      .finally(() => {
-        if (isActive) {
-          setLoading(false);
-        }
-      });
-    return () => {
-      isActive = false;
-    };
-  }, [filter]);
+    try {
+      const data = await getTodayMatches({ filter: activeFilter, limit: 60, include_badge: true });
+      setMatches(data ?? []);
+    } catch (err) {
+      setError((err as Error).message);
+      setMatches([]);
+    } finally {
+      if (showLoader) {
+        setLoading(false);
+      }
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchMatches(filter, true);
+  }, [fetchMatches, filter]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchMatches(filter, false);
+  };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.filterRow}>
-        {FILTERS.map((item) => (
-          <Pressable
-            key={item}
-            onPress={() => setFilter(item)}
-            style={[styles.filterButton, filter === item && styles.filterButtonActive]}
-          >
-            <Text style={[styles.filterText, filter === item && styles.filterTextActive]}>
-              {item.toUpperCase()}
-            </Text>
-          </Pressable>
-        ))}
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Today</Text>
+        <Text style={styles.subtitle}>BTTS Matches</Text>
       </View>
 
+      <View style={styles.segmentWrapper}>
+        <View style={styles.segmentContainer}>
+          <SegmentedControl
+            values={segments}
+            selectedIndex={selectedIndex}
+            onChange={(event) => setFilter(FILTER_VALUES[event.nativeEvent.selectedSegmentIndex])}
+            backgroundColor={COLORS.cardDark2}
+            tintColor={COLORS.neonGreen}
+            fontStyle={styles.segmentText}
+            activeFontStyle={styles.segmentTextActive}
+          />
+        </View>
+      </View>
+
+      {error ? (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText} numberOfLines={1}>
+            {error}
+          </Text>
+        </View>
+      ) : null}
+
       {loading ? (
-        <ActivityIndicator size="large" color="#2563eb" style={styles.loader} />
-      ) : error ? (
-        <Text style={styles.errorText}>{error}</Text>
+        <ActivityIndicator size="large" color={COLORS.neonGreen} style={styles.loader} />
       ) : (
         <FlatList
           data={matches}
           keyExtractor={(item, index) => `${item.id ?? index}`}
           renderItem={({ item }) => <MatchCard match={item} />}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            matches.length === 0 && styles.listContentEmpty,
+          ]}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.neonGreen} />}
+          ListEmptyComponent={
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyText}>No matches for selected filter.</Text>
+            </View>
+          }
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
-    backgroundColor: '#f9fafb',
+    backgroundColor: COLORS.bgLight,
   },
-  filterRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 12,
+  header: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: COLORS.cardDark,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.neonPink,
   },
-  filterButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#ffffff',
+  title: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: COLORS.text,
   },
-  filterButtonActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
-  },
-  filterText: {
-    fontSize: 11,
+  subtitle: {
+    marginTop: 4,
+    fontSize: 12,
     fontWeight: '600',
-    color: '#1f2937',
+    color: COLORS.muted,
   },
-  filterTextActive: {
-    color: '#ffffff',
+  segmentWrapper: {
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 8,
+    backgroundColor: COLORS.bgLight,
+  },
+  segmentContainer: {
+    backgroundColor: COLORS.cardDark2,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.neonGreen,
+    padding: 4,
+  },
+  segmentText: {
+    color: COLORS.text,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  segmentTextActive: {
+    color: COLORS.black,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  errorBanner: {
+    marginHorizontal: 12,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: COLORS.telegramBlue,
+  },
+  errorText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: '600',
   },
   loader: {
     marginTop: 24,
   },
-  errorText: {
-    color: '#dc2626',
-    fontSize: 13,
-  },
   listContent: {
+    paddingHorizontal: 12,
+    paddingTop: 10,
     paddingBottom: 24,
+  },
+  listContentEmpty: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
+  emptyCard: {
+    backgroundColor: COLORS.cardDark,
+    padding: 16,
+    borderRadius: 14,
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: COLORS.muted,
+    fontSize: 12,
+    fontWeight: '600',
   },
 });
