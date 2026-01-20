@@ -7,29 +7,50 @@ export type BttsBadge = {
   reasoning_short?: string;
 };
 
-export type MatchTeamInfo = {
-  name?: string;
+export type MatchLeague = {
+  name: string;
+  country?: string;
+  logo?: string;
 };
 
-export type MatchScore = {
+export type MatchTeamInfo = {
+  name?: string;
+  logo?: string;
+};
+
+export type MatchTeams = {
+  home: MatchTeamInfo;
+  away: MatchTeamInfo;
+};
+
+export type MatchGoals = {
   home?: number | null;
   away?: number | null;
 };
 
-export type MatchLeague = {
-  name?: string;
-  country?: string;
+export type MatchStatus = {
+  short?: string;
+  elapsed?: number;
+};
+
+export type MatchOdds = {
+  btts_yes?: number | string;
+  btts_no?: number | string;
 };
 
 export type BttsMatch = {
   id?: number | string;
-  league?: MatchLeague;
+  league: MatchLeague;
+  teams: MatchTeams;
+  kickoff: string;
+  status?: MatchStatus;
+  goals?: MatchGoals;
+  odds?: MatchOdds;
+  btts_badge?: BttsBadge;
   kickoff_time?: string;
-  status?: MatchFilter;
   home_team?: MatchTeamInfo;
   away_team?: MatchTeamInfo;
-  score?: MatchScore;
-  btts_badge?: BttsBadge;
+  score?: MatchGoals;
 };
 
 export type Ticket = {

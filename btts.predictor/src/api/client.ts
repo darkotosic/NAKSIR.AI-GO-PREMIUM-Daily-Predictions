@@ -2,25 +2,29 @@ export type ApiErrorDetail = {
   detail?: string | { msg?: string; type?: string } | Array<{ msg?: string }>;
 };
 
-const getEnv = (key: 'EXPO_PUBLIC_API_BASE_URL' | 'EXPO_PUBLIC_CLIENT_KEY' | 'EXPO_PUBLIC_APP_ID') => {
-  return process.env[key];
-};
+const getEnv = (key: 'EXPO_PUBLIC_API_BASE_URL' | 'EXPO_PUBLIC_CLIENT_KEY' | 'EXPO_PUBLIC_APP_ID') =>
+  process.env[key];
 
-const requireEnv = (key: 'EXPO_PUBLIC_API_BASE_URL' | 'EXPO_PUBLIC_CLIENT_KEY' | 'EXPO_PUBLIC_APP_ID') => {
-  const value = getEnv(key);
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${key}`);
+const requireEnvSet = () => {
+  const baseUrl = getEnv('EXPO_PUBLIC_API_BASE_URL');
+  const clientKey = getEnv('EXPO_PUBLIC_CLIENT_KEY');
+  const appId = getEnv('EXPO_PUBLIC_APP_ID');
+  if (!baseUrl || !clientKey || !appId) {
+    throw new Error('Missing EXPO_PUBLIC_API_BASE_URL / EXPO_PUBLIC_CLIENT_KEY / EXPO_PUBLIC_APP_ID');
   }
-  return value;
+  return { baseUrl, clientKey, appId };
 };
 
-export const getBaseUrl = () => requireEnv('EXPO_PUBLIC_API_BASE_URL');
+export const getBaseUrl = () => requireEnvSet().baseUrl;
 
-const buildHeaders = () => ({
-  Accept: 'application/json',
-  'X-App-Id': requireEnv('EXPO_PUBLIC_APP_ID'),
-  'X-Client-Key': requireEnv('EXPO_PUBLIC_CLIENT_KEY'),
-});
+const buildHeaders = () => {
+  const { appId, clientKey } = requireEnvSet();
+  return {
+    Accept: 'application/json',
+    'X-App-Id': appId,
+    'X-Client-Key': clientKey,
+  };
+};
 
 const parseErrorDetail = (payload: ApiErrorDetail) => {
   if (!payload || !payload.detail) {
