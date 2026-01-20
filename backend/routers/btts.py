@@ -94,30 +94,33 @@ def _build_flashscore_item(fx: dict[str, Any], *, btts_badge: dict[str, Any] | N
 def _badge_from_cached_ai(cached_json: dict[str, Any] | None) -> dict[str, Any] | None:
     if not cached_json:
         return None
-    # očekujemo da analysis_json ima "analysis" ili direktan objekat; i eventualno odds_probabilities
+
     analysis = cached_json.get("analysis", cached_json)
+
     btts = None
-    reason_short = None
     if isinstance(analysis, dict):
-        reason_short = analysis.get("reasoning_short") or analysis.get("summary")
         btts = analysis.get("btts") or analysis.get("BTTS")
     if not isinstance(btts, dict):
         return None
 
     yes_pct = btts.get("yes_pct")
     no_pct = btts.get("no_pct")
-    rec = btts.get("recommended_btts_market") or btts.get("recommended")  # tolerantno
+    rec = btts.get("recommended_btts_market") or btts.get("recommended")
     conf = btts.get("confidence_pct") or btts.get("confidence")
-    if not reason_short:
-        reason_short = btts.get("reasoning_short")
+    reason_short = (
+        btts.get("reasoning_short") or analysis.get("reasoning_short") or analysis.get("summary")
+    )
+    avoid_flags = btts.get("avoid_flags")
 
-    return {
+    out = {
         "yes_pct": yes_pct,
         "no_pct": no_pct,
         "recommended": rec,
         "confidence": conf,
-        "reason_short": reason_short,
+        "reasoning_short": reason_short,
+        "avoid_flags": avoid_flags if isinstance(avoid_flags, list) else [],
     }
+    return out
 
 
 def _fetch_fixtures_for_day(offset_days: int) -> list[dict[str, Any]]:
@@ -275,8 +278,9 @@ def btts_top3_today(
         item = _build_flashscore_item(fx, btts_badge=badge)
         item["featured"] = {
             "headline": f"BTTS {market.upper()} {int(score_f)}%",
-            "reason_short": (badge.get("reason_short") if isinstance(badge, dict) else None),
+            "reason_short": badge.get("reasoning_short") if isinstance(badge, dict) else None,
             "market": market,
+            "avoid_flags": badge.get("avoid_flags") if isinstance(badge, dict) else [],
         }
         scored.append((score_f, item))
 

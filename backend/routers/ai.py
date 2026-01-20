@@ -364,7 +364,11 @@ def post_match_ai_analysis(
                 analysis = (
                     run_live_ai_analysis(full_match=full_context, user_question=user_question)
                     if is_live
-                    else run_ai_analysis(full_match=full_context, user_question=user_question)
+                    else run_ai_analysis(
+                        full_match=full_context,
+                        user_question=user_question,
+                        prompt_version=prompt_version,
+                    )
                 )
 
         save_ok(
