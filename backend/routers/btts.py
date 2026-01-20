@@ -14,6 +14,7 @@ from backend.config import TIMEZONE
 from backend.dependencies import require_app_context
 from backend.db import get_db
 from backend.services.ai_analysis_cache_service import (
+    get_cached_ok,
     list_cached_ready_for_fixture_ids,
     make_cache_key as make_ai_db_cache_key,
 )
