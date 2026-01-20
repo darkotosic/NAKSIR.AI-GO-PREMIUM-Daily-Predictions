@@ -18,16 +18,21 @@ logger = logging.getLogger("naksir.go_premium.cache")
 
 CACHE_PREFIX = "naksir:cache:"
 LOCK_PREFIX = "naksir:lock:"
+DEFAULT_APP_ID = "naksir.go_premium"
 
 
-def make_cache_key(endpoint: str, params: Optional[Dict[str, Any]] = None) -> str:
-    endpoint_clean = endpoint.strip("/")
+def make_cache_key(
+    endpoint: str,
+    params: Dict[str, Any] | None,
+    app_id: str = DEFAULT_APP_ID,
+) -> str:
     params = params or {}
-    if not params:
-        return endpoint_clean
-    sorted_items = sorted(params.items())
-    params_str = "|".join(f"{k}={v}" for k, v in sorted_items)
-    return f"{endpoint_clean}|{params_str}"
+    base_key = f"{endpoint}:{json.dumps(params, sort_keys=True)}"
+
+    if app_id == DEFAULT_APP_ID:
+        return f"{CACHE_PREFIX}{base_key}"
+
+    return f"{CACHE_PREFIX}{app_id}:{base_key}"
 
 
 @dataclass
@@ -66,6 +71,8 @@ class RedisCacheBackend:
             self.client = Redis.from_url(redis_url, decode_responses=False, socket_timeout=5)
 
     def _namespaced(self, key: str) -> str:
+        if key.startswith(CACHE_PREFIX):
+            return key
         return f"{CACHE_PREFIX}{key}"
 
     def get(self, key: str) -> Optional[Dict[str, Any]]:
