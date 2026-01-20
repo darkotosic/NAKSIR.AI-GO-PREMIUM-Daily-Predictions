@@ -28,21 +28,22 @@
 
     "plugins": [
       [
-        "./plugins/withAdMobAppId",
-        {
-          "androidAppId": "ca-app-pub-1726722567967096~4895623430"
-        }
-      ],
-      [
         "onesignal-expo-plugin",
         {
           "mode": "production"
         }
       ],
       [
+        "./plugins/withAdMobAppId",
+        {
+          "androidAppId": "ca-app-pub-1726722567967096~4895623430"
+        }
+      ],
+      [
         "expo-build-properties",
         {
           "android": {
+            "newArchEnabled": true,
             "extraProguardRules": "-keep class com.google.android.gms.internal.consent_sdk.** { *; }"
           }
         }
