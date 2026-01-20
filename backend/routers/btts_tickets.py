@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException
 
 from backend.apps.models import AppContext
 from backend.cache import cache_get_json, cache_set_json
+from backend.config import TIMEZONE
 from backend.contracts.btts_ticket import DailyBttsTicketsResponse
 from backend.dependencies import require_app_context
 from backend.services.btts_service import get_btts_today_fixtures
@@ -22,7 +24,7 @@ def _require_btts_app(app_ctx: AppContext) -> None:
 @router.get("/today", response_model=DailyBttsTicketsResponse)
 def get_btts_tickets_today(app_ctx: AppContext = Depends(require_app_context)) -> DailyBttsTicketsResponse:
     _require_btts_app(app_ctx)
-    today = date.today()
+    today = datetime.now(ZoneInfo(TIMEZONE)).date()
     cache_key = f"btts:daily:tickets:{today.isoformat()}"
 
     cached = cache_get_json(cache_key)
