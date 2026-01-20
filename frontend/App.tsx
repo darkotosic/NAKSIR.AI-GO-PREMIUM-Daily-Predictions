@@ -5,7 +5,7 @@ import { SafeAreaView, Text, TouchableOpacity, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NavigationContainer } from '@react-navigation/native';
-import OneSignal from 'react-native-onesignal';
+import { OneSignal, LogLevel } from 'react-native-onesignal';
 import DrawerNavigator from '@navigation/DrawerNavigator';
 import { navigationRef } from '@navigation/RootNavigation';
 import { navigationTheme } from '@navigation/theme';
@@ -21,11 +21,6 @@ import { initConsent } from '@ads/consent';
 import { EntitlementsProvider, useEntitlements } from '@state/EntitlementsContext';
 
 const queryClient = new QueryClient();
-const ONESIGNAL_APP_ID =
-  process.env.EXPO_PUBLIC_ONESIGNAL_APP_ID ||
-  (Constants.expoConfig?.extra as any)?.EXPO_PUBLIC_ONESIGNAL_APP_ID ||
-  '';
-
 class RootErrorBoundary extends React.Component<
   { children: React.ReactNode },
   { error: any }
@@ -169,16 +164,30 @@ const AppRoot: React.FC = () => {
 };
 
 const App: React.FC = () => {
+  const initOneSignal = () => {
+    try {
+      const appId =
+        process.env.EXPO_PUBLIC_ONESIGNAL_APP_ID ??
+        (Constants.expoConfig?.extra as any)?.oneSignalAppId;
+
+      if (!appId) {
+        console.warn('[OneSignal] Missing EXPO_PUBLIC_ONESIGNAL_APP_ID -> skipping init');
+        return;
+      }
+
+      OneSignal.Debug.setLogLevel(LogLevel.Verbose);
+
+      OneSignal.initialize(appId);
+
+      OneSignal.Notifications.requestPermission(true);
+      console.log('[OneSignal] initialized');
+    } catch (e) {
+      console.warn('[OneSignal] init failed (non-fatal):', e);
+    }
+  };
+
   React.useEffect(() => {
-    if (!ONESIGNAL_APP_ID) return;
-
-    OneSignal.initialize(ONESIGNAL_APP_ID);
-
-    // Android 13+ / general permission prompt where applicable
-    OneSignal.Notifications.requestPermission(true);
-
-    // Optional: verbose logs during dev
-    // OneSignal.Debug.setLogLevel(6);
+    initOneSignal();
   }, []);
 
   return (

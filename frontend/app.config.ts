@@ -25,6 +25,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       apiBaseUrl: readEnv('EXPO_PUBLIC_API_BASE_URL') ?? extra.apiBaseUrl,
       apiKey: readEnv('EXPO_PUBLIC_API_KEY') ?? extra.apiKey,
       androidPackage: readEnv('EXPO_PUBLIC_ANDROID_PACKAGE') ?? extra.androidPackage,
+      oneSignalAppId: readEnv('EXPO_PUBLIC_ONESIGNAL_APP_ID') ?? (extra as any).oneSignalAppId,
     },
   };
 };
