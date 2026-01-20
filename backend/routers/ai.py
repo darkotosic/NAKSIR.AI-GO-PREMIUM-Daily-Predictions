@@ -28,6 +28,7 @@ from backend.services.ai_analysis_cache_service import (
     wait_for_ready,
     list_cached_ready_for_fixture_ids,
 )
+from backend.services.app_feature_flags import is_live_ai_enabled
 from backend.services.live_ai_policy import compute_15m_bucket_ts, is_live_ai_allowed_for_league
 from backend.services.users_service import get_or_create_user
 
@@ -74,6 +75,15 @@ def _extract_league_id(fixture: dict[str, Any] | None) -> int | None:
     return league_id if isinstance(league_id, int) else None
 
 
+def _is_fixture_live(fixture: dict[str, Any] | None) -> bool:
+    if not fixture:
+        return False
+    fixture_info = fixture.get("fixture") or {}
+    status_info = fixture_info.get("status") or {}
+    status_short = (status_info.get("short") or "").upper()
+    return status_short in {"1H", "2H", "HT", "ET", "P", "PEN", "LIVE"}
+
+
 @router.get(
     "/matches/{fixture_id}/ai-analysis",
     summary="Cached AI analiza meča (read-only)",
@@ -92,6 +102,28 @@ def get_match_ai_analysis(
     get_or_create_user(session, install_id)
 
     is_live = (mode or "").lower() == "live"
+    live_enabled = is_live_ai_enabled(app_id)
+    if is_live and not live_enabled:
+        cache_key = make_cache_key(
+            fixture_id=fixture_id,
+            prompt_version="v1",
+            locale="en",
+        )
+        row = get_cached_row(session, cache_key, app_id=app_id)
+        if row and row.status in READY_STATUSES and row.analysis_json:
+            logger.info("AI cache HIT fixture_id=%s cache_key=%s", fixture_id, cache_key)
+            payload = {
+                "fixture_id": fixture_id,
+                "generated_at": row.updated_at.isoformat() if row.updated_at else None,
+                "timezone": TIMEZONE,
+                "analysis": row.analysis_json.get("analysis", row.analysis_json),
+                "odds_probabilities": row.analysis_json.get("odds_probabilities"),
+                "cached": True,
+                "cache_key": cache_key,
+            }
+            return JSONResponse(status_code=200, content=payload, headers=_cache_headers(cache_key, "HIT"))
+        return JSONResponse(status_code=200, content=LiveAiUnavailable().model_dump())
+
     if is_live:
         fixture = None
         try:
@@ -193,14 +225,32 @@ def post_match_ai_analysis(
     get_or_create_user(session, install_id)
 
     is_live = (mode or "").lower() == "live"
+    live_enabled = is_live_ai_enabled(app_id)
+    fixture: dict[str, Any] | None = None
+    fixture_error_reason: str | None = None
+
+    if is_live and not live_enabled:
+        return JSONResponse(status_code=200, content=LiveAiUnavailable().model_dump())
+
+    if not is_live and not live_enabled:
+        try:
+            fixture = api_football.get_fixture_by_id(fixture_id)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "Failed to fetch fixture_id=%s from API-Football for live guard: %s",
+                fixture_id,
+                exc,
+            )
+            fixture_error_reason = f"API-Football fetch failed: {exc}"
+        if _is_fixture_live(fixture):
+            return JSONResponse(status_code=200, content=LiveAiUnavailable().model_dump())
+
     prompt_version = "live-v1" if is_live else "v1"
     cache_key = make_cache_key(
         fixture_id=fixture_id,
         prompt_version=prompt_version,
         locale="en",
     )
-    fixture: dict[str, Any] | None = None
-    fixture_error_reason: str | None = None
     if is_live:
         try:
             fixture = api_football.get_fixture_by_id(fixture_id)
