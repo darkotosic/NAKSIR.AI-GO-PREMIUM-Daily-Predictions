@@ -9,6 +9,10 @@ import { useEntitlements } from '@state/EntitlementsContext';
 import { extractGooglePurchasePayload } from './googlePurchase';
 import { SUBS_SKUS, Sku } from '../shared/billing_skus';
 
+console.log('[IAP] RNIap keys:', Object.keys(RNIap || {}));
+console.log('[IAP] has getSubscriptions:', typeof (RNIap as any).getSubscriptions);
+console.log('[IAP] has getProducts:', typeof (RNIap as any).getProducts);
+
 type PurchaseState = {
   isConnected: boolean;
   isLoading: boolean;
