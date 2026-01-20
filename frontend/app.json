@@ -45,7 +45,7 @@
         {
           "android": {
             "newArchEnabled": true,
-            "kotlinVersion": "2.2.0",
+            "kotlinVersion": "2.1.20",
             "extraProguardRules": "-keep class com.google.android.gms.internal.consent_sdk.** { *; }\n-keep class com.android.billingclient.** { *; }\n-keep class io.github.hyochan.** { *; }\n-keep class io.github.hyochan.openiap.** { *; }\n-dontwarn io.github.hyochan.**\n-dontwarn io.github.hyochan.openiap.**\n"
           }
         }
