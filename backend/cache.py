@@ -75,6 +75,14 @@ class RedisCacheBackend:
             return key
         return f"{CACHE_PREFIX}{key}"
 
+    def _lock_key(self, key: str) -> str:
+        # lock treba da bude app-aware indirektno, preko key-a,
+        # ali bez dupliranja CACHE_PREFIX u lock prostoru
+        k = key
+        if k.startswith(CACHE_PREFIX):
+            k = k[len(CACHE_PREFIX) :]
+        return f"{LOCK_PREFIX}{k}"
+
     def get(self, key: str) -> Optional[Dict[str, Any]]:
         raw = self.client.get(self._namespaced(key))
         if raw is None:
@@ -93,7 +101,7 @@ class RedisCacheBackend:
         self.client.setex(self._namespaced(key), int(ttl_seconds), payload)
 
     def begin_inflight(self, key: str) -> tuple[InflightHandle, bool]:
-        lock = self.client.lock(f"{LOCK_PREFIX}{key}", timeout=30, blocking_timeout=5)
+        lock = self.client.lock(self._lock_key(key), timeout=30, blocking_timeout=5)
         acquired = lock.acquire(blocking=False)
         return InflightHandle(key=key, lock=lock, acquired=acquired), acquired
 
