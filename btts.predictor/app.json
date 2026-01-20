@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "btts.predictor",
-    "slug": "btts.predictor",
+    "slug": "btts-predictor",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -25,6 +25,11 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "0a913132-52f5-4c7c-aea9-99d5b8fee463"
+      }
     }
   }
 }
