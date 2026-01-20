@@ -18,16 +18,21 @@ logger = logging.getLogger("naksir.go_premium.cache")
 
 CACHE_PREFIX = "naksir:cache:"
 LOCK_PREFIX = "naksir:lock:"
+DEFAULT_APP_ID = "naksir.go_premium"
 
 
-def make_cache_key(endpoint: str, params: Optional[Dict[str, Any]] = None) -> str:
-    endpoint_clean = endpoint.strip("/")
+def make_cache_key(
+    endpoint: str,
+    params: Dict[str, Any] | None,
+    app_id: str = DEFAULT_APP_ID,
+) -> str:
     params = params or {}
-    if not params:
-        return endpoint_clean
-    sorted_items = sorted(params.items())
-    params_str = "|".join(f"{k}={v}" for k, v in sorted_items)
-    return f"{endpoint_clean}|{params_str}"
+    base_key = f"{endpoint}:{json.dumps(params, sort_keys=True)}"
+
+    if app_id == DEFAULT_APP_ID:
+        return f"{CACHE_PREFIX}{base_key}"
+
+    return f"{CACHE_PREFIX}{app_id}:{base_key}"
 
 
 @dataclass
@@ -66,7 +71,17 @@ class RedisCacheBackend:
             self.client = Redis.from_url(redis_url, decode_responses=False, socket_timeout=5)
 
     def _namespaced(self, key: str) -> str:
+        if key.startswith(CACHE_PREFIX):
+            return key
         return f"{CACHE_PREFIX}{key}"
+
+    def _lock_key(self, key: str) -> str:
+        # lock treba da bude app-aware indirektno, preko key-a,
+        # ali bez dupliranja CACHE_PREFIX u lock prostoru
+        k = key
+        if k.startswith(CACHE_PREFIX):
+            k = k[len(CACHE_PREFIX) :]
+        return f"{LOCK_PREFIX}{k}"
 
     def get(self, key: str) -> Optional[Dict[str, Any]]:
         raw = self.client.get(self._namespaced(key))
@@ -86,7 +101,7 @@ class RedisCacheBackend:
         self.client.setex(self._namespaced(key), int(ttl_seconds), payload)
 
     def begin_inflight(self, key: str) -> tuple[InflightHandle, bool]:
-        lock = self.client.lock(f"{LOCK_PREFIX}{key}", timeout=30, blocking_timeout=5)
+        lock = self.client.lock(self._lock_key(key), timeout=30, blocking_timeout=5)
         acquired = lock.acquire(blocking=False)
         return InflightHandle(key=key, lock=lock, acquired=acquired), acquired
 
@@ -187,6 +202,26 @@ def cache_get(key: str) -> Optional[Dict[str, Any]]:
 
 def cache_set(key: str, value: Dict[str, Any], ttl_seconds: float) -> None:
     _BACKEND.set(key, value, ttl_seconds)
+
+
+def cache_get_json(key: str) -> Optional[Dict[str, Any]]:
+    cached = cache_get(key)
+    if cached is None:
+        return None
+    if isinstance(cached, dict):
+        return cached
+    try:
+        if isinstance(cached, (bytes, bytearray)):
+            cached = cached.decode("utf-8")
+        if isinstance(cached, str):
+            return json.loads(cached)
+    except Exception:  # noqa: BLE001
+        return None
+    return None
+
+
+def cache_set_json(key: str, value: Dict[str, Any], ttl_seconds: float) -> None:
+    cache_set(key, value, ttl_seconds)
 
 
 def begin_inflight(key: str) -> tuple[InflightHandle, bool]:

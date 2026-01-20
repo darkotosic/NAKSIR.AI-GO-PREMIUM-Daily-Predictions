@@ -68,7 +68,7 @@ def test_ai_analysis_single_flight_waits_for_cached(
 
     from backend.routers import ai as ai_router
 
-    monkeypatch.setattr(ai_router, "wait_for_ready", lambda _cache_key: ready_row)
+    monkeypatch.setattr(ai_router, "wait_for_ready", lambda _cache_key, **_kwargs: ready_row)
 
     response = client.post(
         "/matches/321/ai-analysis",
