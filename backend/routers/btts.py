@@ -97,7 +97,9 @@ def _badge_from_cached_ai(cached_json: dict[str, Any] | None) -> dict[str, Any] 
     # očekujemo da analysis_json ima "analysis" ili direktan objekat; i eventualno odds_probabilities
     analysis = cached_json.get("analysis", cached_json)
     btts = None
+    reason_short = None
     if isinstance(analysis, dict):
+        reason_short = analysis.get("reasoning_short") or analysis.get("summary")
         btts = analysis.get("btts") or analysis.get("BTTS")
     if not isinstance(btts, dict):
         return None
@@ -106,12 +108,15 @@ def _badge_from_cached_ai(cached_json: dict[str, Any] | None) -> dict[str, Any] 
     no_pct = btts.get("no_pct")
     rec = btts.get("recommended_btts_market") or btts.get("recommended")  # tolerantno
     conf = btts.get("confidence_pct") or btts.get("confidence")
+    if not reason_short:
+        reason_short = btts.get("reasoning_short")
 
     return {
         "yes_pct": yes_pct,
         "no_pct": no_pct,
         "recommended": rec,
         "confidence": conf,
+        "reason_short": reason_short,
     }
 
 
@@ -267,7 +272,13 @@ def btts_top3_today(
             score_f = float(score)
         except Exception:
             continue
-        scored.append((score_f, _build_flashscore_item(fx, btts_badge=badge)))
+        item = _build_flashscore_item(fx, btts_badge=badge)
+        item["featured"] = {
+            "headline": f"BTTS {market.upper()} {int(score_f)}%",
+            "reason_short": (badge.get("reason_short") if isinstance(badge, dict) else None),
+            "market": market,
+        }
+        scored.append((score_f, item))
 
     scored.sort(key=lambda x: x[0], reverse=True)
     top_items = [it for _, it in scored[:3]]
