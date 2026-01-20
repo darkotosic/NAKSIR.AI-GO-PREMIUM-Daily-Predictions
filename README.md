@@ -124,7 +124,8 @@ docker run -p 8000:8000 --env-file .env naksir-api
 - `pytest` pokreće smoke testove (health, auth zaštita, matches) koristeći fake
   Redis i SQLite.
 - GitHub Actions workflow (`.github/workflows/ci.yml`) instalira zavisnosti i
-  izvršava testove na svakom push/pr zahtevu.
+  izvršava backend proveru, contract/smoke testove i frontend TypeScript
+  type-check na svakom push/pr zahtevu.
 
 ## Frontend (Expo / React Native)
 
