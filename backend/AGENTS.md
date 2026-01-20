@@ -9,3 +9,5 @@
   - Do **not** import or reuse Redis/in-memory cache key helpers for this DB cache key.
   - Keep retry/fallback and locking semantics intact by leaving the DB key format stable.
 - **Required checks:** contract check, AI cache unit tests.
+- Any change to ai_analysis_cache_service.make_cache_key requires explicit approval in PR description.
+
