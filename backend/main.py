@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from backend.config import TIMEZONE, settings
 from backend.monitoring import install_monitoring_hooks
 from backend.observability import ObservabilityMiddleware
-from backend.routers import ai, billing, debug_ops, matches, meta, players, teams
+from backend.routers import ai, billing, btts_tickets, debug_ops, matches, meta, players, teams
 from backend.routers.btts import router as btts_router
 
 logger = logging.getLogger("naksir.go_premium.api")
@@ -80,6 +80,7 @@ def create_app() -> FastAPI:
     app.include_router(billing.router)
     app.include_router(debug_ops.router)
     app.include_router(btts_router)
+    app.include_router(btts_tickets.router)
 
     return app
 

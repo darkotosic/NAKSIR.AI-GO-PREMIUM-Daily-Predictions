@@ -204,6 +204,26 @@ def cache_set(key: str, value: Dict[str, Any], ttl_seconds: float) -> None:
     _BACKEND.set(key, value, ttl_seconds)
 
 
+def cache_get_json(key: str) -> Optional[Dict[str, Any]]:
+    cached = cache_get(key)
+    if cached is None:
+        return None
+    if isinstance(cached, dict):
+        return cached
+    try:
+        if isinstance(cached, (bytes, bytearray)):
+            cached = cached.decode("utf-8")
+        if isinstance(cached, str):
+            return json.loads(cached)
+    except Exception:  # noqa: BLE001
+        return None
+    return None
+
+
+def cache_set_json(key: str, value: Dict[str, Any], ttl_seconds: float) -> None:
+    cache_set(key, value, ttl_seconds)
+
+
 def begin_inflight(key: str) -> tuple[InflightHandle, bool]:
     return _BACKEND.begin_inflight(key)
 
