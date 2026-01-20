@@ -14,7 +14,7 @@ from backend.config import TIMEZONE
 from backend.dependencies import require_app_context
 from backend.db import get_db
 from backend.services.ai_analysis_cache_service import (
-    get_cached_ok,
+    list_cached_ready_for_fixture_ids,
     make_cache_key as make_ai_db_cache_key,
 )
 
@@ -132,6 +132,31 @@ def _filter_items(items: list[dict[str, Any]], state: FilterState) -> list[dict[
     return [it for it in items if (it.get("status") or {}).get("state") == state]
 
 
+def _build_btts_badge_map(
+    session: Session,
+    fixture_ids: list[int],
+    *,
+    app_id: str,
+    prompt_version: str = "btts-v1",
+    locale: str = "en",
+) -> dict[int, dict[str, Any]]:
+    """
+    1 DB query: uzmi sve READY cached rows za fixture_ids.
+    Zatim pretvori analysis_json u btts_badge mapu.
+    """
+    cached_rows = list_cached_ready_for_fixture_ids(session, fixture_ids, app_id=app_id)
+
+    out: dict[int, dict[str, Any]] = {}
+    for fid, row in cached_rows.items():
+        if not row or not row.analysis_json:
+            continue
+
+        badge = _badge_from_cached_ai(row.analysis_json)
+        if badge:
+            out[int(fid)] = badge
+    return out
+
+
 # ---------- routes ----------
 @router.get("/matches/today")
 def btts_matches_today(
@@ -144,19 +169,28 @@ def btts_matches_today(
     _require_btts_app(app_ctx)
     fixtures = _fetch_fixtures_for_day(0)
 
-    items: list[dict[str, Any]] = []
     app_id = app_ctx.app_id
 
+    fixture_ids: list[int] = []
     for fx in fixtures:
-        btts_badge = None
-        if include_badge:
-            fid = ((fx.get("fixture") or {}).get("id"))
-            if isinstance(fid, int):
-                ck = make_ai_db_cache_key(fixture_id=fid, prompt_version="btts-v1", locale="en")
-                cached = get_cached_ok(session, ck, app_id=app_id)
-                if cached and cached.analysis_json:
-                    btts_badge = _badge_from_cached_ai(cached.analysis_json)
+        fid = ((fx.get("fixture") or {}).get("id"))
+        if isinstance(fid, int):
+            fixture_ids.append(fid)
 
+    badge_map: dict[int, dict[str, Any]] = {}
+    if include_badge and fixture_ids:
+        badge_map = _build_btts_badge_map(
+            session,
+            fixture_ids,
+            app_id=app_id,
+            prompt_version="btts-v1",
+            locale="en",
+        )
+
+    items: list[dict[str, Any]] = []
+    for fx in fixtures:
+        fid = ((fx.get("fixture") or {}).get("id"))
+        btts_badge = badge_map.get(fid) if isinstance(fid, int) else None
         items.append(_build_flashscore_item(fx, btts_badge=btts_badge))
 
     items = _filter_items(items, filter)
@@ -175,19 +209,28 @@ def btts_matches_tomorrow(
     _require_btts_app(app_ctx)
     fixtures = _fetch_fixtures_for_day(1)
 
-    items: list[dict[str, Any]] = []
     app_id = app_ctx.app_id
 
+    fixture_ids: list[int] = []
     for fx in fixtures:
-        btts_badge = None
-        if include_badge:
-            fid = ((fx.get("fixture") or {}).get("id"))
-            if isinstance(fid, int):
-                ck = make_ai_db_cache_key(fixture_id=fid, prompt_version="btts-v1", locale="en")
-                cached = get_cached_ok(session, ck, app_id=app_id)
-                if cached and cached.analysis_json:
-                    btts_badge = _badge_from_cached_ai(cached.analysis_json)
+        fid = ((fx.get("fixture") or {}).get("id"))
+        if isinstance(fid, int):
+            fixture_ids.append(fid)
 
+    badge_map: dict[int, dict[str, Any]] = {}
+    if include_badge and fixture_ids:
+        badge_map = _build_btts_badge_map(
+            session,
+            fixture_ids,
+            app_id=app_id,
+            prompt_version="btts-v1",
+            locale="en",
+        )
+
+    items: list[dict[str, Any]] = []
+    for fx in fixtures:
+        fid = ((fx.get("fixture") or {}).get("id"))
+        btts_badge = badge_map.get(fid) if isinstance(fid, int) else None
         items.append(_build_flashscore_item(fx, btts_badge=btts_badge))
 
     items = _filter_items(items, filter)
