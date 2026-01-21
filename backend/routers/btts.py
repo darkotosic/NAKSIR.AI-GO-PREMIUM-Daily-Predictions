@@ -18,6 +18,7 @@ from backend.services.ai_analysis_cache_service import (
     list_cached_ready_for_fixture_ids,
     make_cache_key as make_ai_db_cache_key,
 )
+from backend.services.btts_service import get_btts_today_fixtures
 
 logger = logging.getLogger("naksir.go_premium.api")
 
@@ -65,6 +66,11 @@ def _build_flashscore_item(fx: dict[str, Any], *, btts_badge: dict[str, Any] | N
         if isinstance(elapsed, int):
             minute = elapsed
 
+    team_payload = {
+        "home": {"id": home.get("id"), "name": home.get("name"), "logo": home.get("logo")},
+        "away": {"id": away.get("id"), "name": away.get("name"), "logo": away.get("logo")},
+    }
+
     item = {
         "fixture_id": fixture.get("id"),
         "league": {
@@ -79,14 +85,14 @@ def _build_flashscore_item(fx: dict[str, Any], *, btts_badge: dict[str, Any] | N
         },
         "kickoff": fixture.get("date"),
         "timestamp": fixture.get("timestamp"),
-        "home": {"id": home.get("id"), "name": home.get("name"), "logo": home.get("logo")},
-        "away": {"id": away.get("id"), "name": away.get("name"), "logo": away.get("logo")},
-        "score": {
-            "home": goals.get("home"),
-            "away": goals.get("away"),
-        },
+        "home": team_payload["home"],
+        "away": team_payload["away"],
+        "teams": team_payload,
+        "score": {"home": goals.get("home"), "away": goals.get("away")},
+        "goals": {"home": goals.get("home"), "away": goals.get("away")},
         "minute": minute,
         "btts_badge": btts_badge,
+        "odds": fx.get("odds") if isinstance(fx.get("odds"), dict) else {},
     }
     return item
 
@@ -127,7 +133,7 @@ def _fetch_fixtures_for_day(offset_days: int) -> list[dict[str, Any]]:
     # Reuse API layer; idealno: postoji cached endpoint u api_football
     # Ako nema, koristi get_fixtures_today + get_fixtures_by_date; zavisi od tvoje implementacije.
     if offset_days == 0:
-        return api_football.get_fixtures_today()  # mora postojati u projektu
+        return get_btts_today_fixtures()
     if offset_days == 1:
         tz = ZoneInfo(TIMEZONE)
         tomorrow = datetime.now(tz).date() + timedelta(days=1)
