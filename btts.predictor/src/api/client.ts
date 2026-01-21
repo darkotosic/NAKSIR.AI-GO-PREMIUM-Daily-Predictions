@@ -22,6 +22,11 @@ const buildHeaders = () => {
   return {
     Accept: 'application/json',
     'X-App-Id': appId,
+
+    // Backend auth header (primary)
+    'X-API-Key': clientKey,
+
+    // Backward-compat / alias
     'X-Client-Key': clientKey,
   };
 };
