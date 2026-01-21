@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: '800',
-    color: COLORS.text,
+    color: COLORS.neonPink,
   },
   subtitle: {
     marginTop: 4,
