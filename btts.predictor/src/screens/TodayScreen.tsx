@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
-    backgroundColor: COLORS.telegramBlue,
+    backgroundColor: COLORS.cardDark,
   },
   errorText: {
     color: COLORS.white,
