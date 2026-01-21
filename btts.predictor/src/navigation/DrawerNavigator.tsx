@@ -17,8 +17,8 @@ import TomorrowScreen from '../screens/TomorrowScreen';
 import Top3Screen from '../screens/Top3Screen';
 
 const COLORS = {
-  background: '#040312',
-  card: '#0b0c1f',
+  background: '#000000',
+  card: '#000000',
   neonPurple: '#b06bff',
   neonViolet: '#8b5cf6',
   neonGreen: '#00ff5e',
