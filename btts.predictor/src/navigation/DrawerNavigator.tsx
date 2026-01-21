@@ -17,10 +17,11 @@ import TomorrowScreen from '../screens/TomorrowScreen';
 import Top3Screen from '../screens/Top3Screen';
 
 const COLORS = {
-  background: '#040312',
-  card: '#0b0c1f',
+  background: '#000000',
+  card: '#000000',
   neonPurple: '#b06bff',
   neonViolet: '#8b5cf6',
+  neonGreen: '#00ff5e',
   text: '#f8fafc',
   borderSoft: '#1f1f3a',
 };
@@ -80,7 +81,7 @@ export const navigationTheme = {
     ...DefaultTheme.colors,
     background: COLORS.background,
     card: COLORS.card,
-    primary: COLORS.neonPurple,
+    primary: COLORS.neonGreen,
     text: COLORS.text,
     border: COLORS.borderSoft,
   },
@@ -95,16 +96,16 @@ export default function DrawerNavigator() {
         screenOptions={{
           headerStyle: { backgroundColor: COLORS.card },
           headerTintColor: COLORS.text,
-          drawerActiveTintColor: COLORS.neonViolet,
+          drawerActiveTintColor: COLORS.neonGreen,
           drawerInactiveTintColor: COLORS.text,
           drawerStyle: { backgroundColor: COLORS.background },
           headerRight: () => <RateAppButton style={{ marginRight: 12 }} />,
         }}
       >
-        <Drawer.Screen name="Today" component={TodayScreen} options={{ title: "Today's" }} />
-        <Drawer.Screen name="Tomorrow" component={TomorrowScreen} options={{ title: 'Tomorrow' }} />
-        <Drawer.Screen name="Top3" component={Top3Screen} options={{ title: 'Top 3' }} />
-        <Drawer.Screen name="Tickets" component={TicketsScreen} options={{ title: 'Tickets' }} />
+        <Drawer.Screen name="Today" component={TodayScreen} options={{ title: "Today's matches" }} />
+        <Drawer.Screen name="Tomorrow" component={TomorrowScreen} options={{ title: 'Tomorrow matches' }} />
+        <Drawer.Screen name="Top3" component={Top3Screen} options={{ title: 'Top 3 matches today' }} />
+        <Drawer.Screen name="Tickets" component={TicketsScreen} options={{ title: 'BTTS YES & NO Tickets' }} />
         <Drawer.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
       </Drawer.Navigator>
     </GestureHandlerRootView>

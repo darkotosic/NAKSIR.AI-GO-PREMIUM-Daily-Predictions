@@ -5,6 +5,7 @@ import logging
 import threading
 import time
 from dataclasses import dataclass
+from datetime import date, datetime
 from typing import Any, Dict, Optional, Protocol
 
 import fakeredis
@@ -19,6 +20,12 @@ logger = logging.getLogger("naksir.go_premium.cache")
 CACHE_PREFIX = "naksir:cache:"
 LOCK_PREFIX = "naksir:lock:"
 DEFAULT_APP_ID = "naksir.go_premium"
+
+
+def _json_default(value: object) -> str:
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    return str(value)
 
 
 def make_cache_key(
@@ -97,7 +104,7 @@ class RedisCacheBackend:
     def set(self, key: str, value: Dict[str, Any], ttl_seconds: float) -> None:
         if ttl_seconds <= 0:
             return
-        payload = json.dumps(value)
+        payload = json.dumps(value, default=_json_default, ensure_ascii=False)
         self.client.setex(self._namespaced(key), int(ttl_seconds), payload)
 
     def begin_inflight(self, key: str) -> tuple[InflightHandle, bool]:

@@ -1,9 +1,9 @@
 import { Linking, Platform } from 'react-native';
 
 export const PLAY_STORE_HTTP_URL =
-  'https://play.google.com/store/apps/details?id=com.naksir.soccerpredictions';
+  'https://play.google.com/store/apps/dev?id=6165954326742483653';
 
-const PLAY_STORE_MARKET_URL = 'market://details?id=com.naksir.soccerpredictions';
+const PLAY_STORE_MARKET_URL = 'store/apps/dev?id=6165954326742483653';
 
 export async function openRateApp(): Promise<void> {
   const primary = Platform.OS === 'android' ? PLAY_STORE_MARKET_URL : PLAY_STORE_HTTP_URL;

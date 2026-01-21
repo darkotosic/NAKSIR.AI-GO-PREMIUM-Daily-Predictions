@@ -32,8 +32,21 @@ export default function TodayScreen() {
     }
     setError(null);
     try {
-      const data = await getTodayMatches({ filter: activeFilter, limit: 60, include_badge: true });
-      setMatches(data ?? []);
+      const payload: unknown = await getTodayMatches({
+        filter: activeFilter,
+        limit: 60,
+        include_badge: true,
+      });
+
+      const normalizedMatches = Array.isArray(payload)
+        ? payload
+        : Array.isArray((payload as { data?: unknown }).data)
+        ? (payload as { data: BttsMatch[] }).data
+        : Array.isArray((payload as { matches?: unknown }).matches)
+        ? (payload as { matches: BttsMatch[] }).matches
+        : [];
+
+      setMatches(normalizedMatches);
     } catch (err) {
       setError((err as Error).message);
       setMatches([]);
@@ -53,6 +66,8 @@ export default function TodayScreen() {
     setRefreshing(true);
     fetchMatches(filter, false);
   };
+
+  const safeMatches = Array.isArray(matches) ? matches : [];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -87,12 +102,12 @@ export default function TodayScreen() {
         <ActivityIndicator size="large" color={COLORS.neonGreen} style={styles.loader} />
       ) : (
         <FlatList
-          data={matches}
+          data={safeMatches}
           keyExtractor={(item, index) => `${item.id ?? index}`}
           renderItem={({ item }) => <MatchCard match={item} />}
           contentContainerStyle={[
             styles.listContent,
-            matches.length === 0 && styles.listContentEmpty,
+            safeMatches.length === 0 && styles.listContentEmpty,
           ]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.neonGreen} />}
           ListEmptyComponent={
@@ -121,7 +136,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: '800',
-    color: COLORS.text,
+    color: COLORS.neonGreen,
   },
   subtitle: {
     marginTop: 4,
@@ -158,7 +173,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
-    backgroundColor: COLORS.telegramBlue,
+    backgroundColor: COLORS.cardDark,
   },
   errorText: {
     color: COLORS.white,

@@ -2,26 +2,52 @@ export type ApiErrorDetail = {
   detail?: string | { msg?: string; type?: string } | Array<{ msg?: string }>;
 };
 
-const getEnv = (key: 'EXPO_PUBLIC_API_BASE_URL' | 'EXPO_PUBLIC_CLIENT_KEY' | 'EXPO_PUBLIC_APP_ID') =>
-  process.env[key];
+// ✅ Expo can inline these (static access)
+const EXPO_PUBLIC_API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
+const EXPO_PUBLIC_APP_ID = process.env.EXPO_PUBLIC_APP_ID;
+const EXPO_PUBLIC_CLIENT_KEY = process.env.EXPO_PUBLIC_CLIENT_KEY;
+// Optional if you use it
+const EXPO_PUBLIC_API_KEY = process.env.EXPO_PUBLIC_API_KEY;
 
 const requireEnvSet = () => {
-  const baseUrl = getEnv('EXPO_PUBLIC_API_BASE_URL');
-  const clientKey = getEnv('EXPO_PUBLIC_CLIENT_KEY');
-  const appId = getEnv('EXPO_PUBLIC_APP_ID');
-  if (!baseUrl || !clientKey || !appId) {
-    throw new Error('Missing EXPO_PUBLIC_API_BASE_URL / EXPO_PUBLIC_CLIENT_KEY / EXPO_PUBLIC_APP_ID');
+  const missing: string[] = [];
+  if (!EXPO_PUBLIC_API_BASE_URL) missing.push('EXPO_PUBLIC_API_BASE_URL');
+  if (!EXPO_PUBLIC_CLIENT_KEY) missing.push('EXPO_PUBLIC_CLIENT_KEY');
+  if (!EXPO_PUBLIC_APP_ID) missing.push('EXPO_PUBLIC_APP_ID');
+
+  if (missing.length) {
+    throw new Error(`Missing ${missing.join(' / ')}`);
   }
-  return { baseUrl, clientKey, appId };
 };
 
-export const getBaseUrl = () => requireEnvSet().baseUrl;
+export const getApiBaseUrl = () => {
+  requireEnvSet();
+  return String(EXPO_PUBLIC_API_BASE_URL).replace(/\/$/, '');
+};
+
+export const getApiKey = () => (EXPO_PUBLIC_API_KEY ? String(EXPO_PUBLIC_API_KEY) : undefined);
+
+export const getClientKey = () => {
+  requireEnvSet();
+  return String(EXPO_PUBLIC_CLIENT_KEY);
+};
+
+export const getAppId = () => {
+  requireEnvSet();
+  return String(EXPO_PUBLIC_APP_ID);
+};
 
 const buildHeaders = () => {
-  const { appId, clientKey } = requireEnvSet();
+  const appId = getAppId();
+  const clientKey = getClientKey();
   return {
     Accept: 'application/json',
     'X-App-Id': appId,
+
+    // Backend auth header (primary)
+    'X-API-Key': clientKey,
+
+    // Backward-compat / alias
     'X-Client-Key': clientKey,
   };
 };
@@ -40,7 +66,7 @@ const parseErrorDetail = (payload: ApiErrorDetail) => {
 };
 
 export const apiGet = async <T>(path: string): Promise<T> => {
-  const baseUrl = getBaseUrl();
+  const baseUrl = getApiBaseUrl();
   const response = await fetch(`${baseUrl}${path}`, {
     method: 'GET',
     headers: buildHeaders(),
