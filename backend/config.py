@@ -75,10 +75,21 @@ class Settings(BaseModel):
 
         if not self.allowed_origins:
             self.allowed_origins = [
+                # Web dev (Expo Web / Vite / RN web)
+                "http://localhost:8081",
+                "http://127.0.0.1:8081",
+
+                # Legacy / local web tooling
                 "http://localhost:3000",
                 "http://127.0.0.1:3000",
+
+                # Expo dev clients
                 "http://localhost:19006",
+                "http://127.0.0.1:19006",
+                "http://localhost:19000",
+                "http://127.0.0.1:19000",
                 "exp://127.0.0.1:19000",
+                "exp://localhost:19000",
             ]
 
         self.api_auth_tokens = [token for token in self.api_auth_tokens if token]
