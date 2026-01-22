@@ -1,7 +1,5 @@
 import type { ConfigContext, ExpoConfig } from '@expo/config';
 
-const appJson = require('./app.json');
-
 const readEnv = (key: string): string | undefined => {
   const v = process.env[key];
   return v?.trim() ? v.trim() : undefined;
@@ -56,10 +54,67 @@ function dedupeOneSignalExtensions(extras: any): any {
 }
 
 export default ({ config }: ConfigContext): ExpoConfig => {
-  // app.json expo je primarni izvor istine
-  const base: ExpoConfig = appJson.expo;
+  const base: ExpoConfig = {
+    name: 'Soccer Predictions - Naksir AI',
+    slug: 'soccer-predictions-naksir-ai',
+    version: '1.0.0',
+    orientation: 'portrait',
+    newArchEnabled: true,
+    icon: './assets/icon.png',
+    splash: {
+      image: './assets/splash-icon.png',
+      resizeMode: 'contain',
+      backgroundColor: '#ffffff',
+    },
+    android: {
+      package: 'com.naksir.soccerpredictions',
+      versionCode: 1,
+      adaptiveIcon: {
+        foregroundImage: './assets/adaptive-icon.png',
+        backgroundColor: '#ffffff',
+      },
+      edgeToEdgeEnabled: true,
+    },
+    ios: {
+      bundleIdentifier: 'com.naksir.soccerpredictions',
+    },
+    plugins: [
+      [
+        'onesignal-expo-plugin',
+        {
+          mode: 'production',
+        },
+      ],
+      [
+        './plugins/withAdMobAppId',
+        {
+          androidAppId: 'ca-app-pub-1726722567967096~4895623430',
+        },
+      ],
+      [
+        'expo-build-properties',
+        {
+          android: {
+            newArchEnabled: true,
+            kotlinVersion: '2.1.20',
+            extraProguardRules:
+              '-keep class com.google.android.gms.internal.consent_sdk.** { *; }\n' +
+              '-keep class com.android.billingclient.** { *; }\n' +
+              '-keep class io.github.hyochan.** { *; }\n' +
+              '-keep class io.github.hyochan.openiap.** { *; }\n' +
+              '-dontwarn io.github.hyochan.**\n' +
+              '-dontwarn io.github.hyochan.openiap.**\n',
+          },
+        },
+      ],
+    ],
+    extra: {
+      eas: {
+        projectId: '0c92aea8-3378-4172-b48b-daff32887f51',
+      },
+    },
+  };
 
-  // plugin list: app.json plugins + eventualni iz config (ako postoji), pa dedupe
   const plugins = dedupePlugins([
     ...((base.plugins ?? []) as PluginEntry[]),
     ...(((config.plugins ?? []) as PluginEntry[]) || []),
@@ -67,7 +122,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     'react-native-iap',
   ]);
 
-  // extras: app.json.extra + env override
   const mergedExtra = {
     ...(base.extra ?? {}),
     apiBaseUrl: readEnv('EXPO_PUBLIC_API_BASE_URL') ?? (base.extra as any)?.apiBaseUrl,
