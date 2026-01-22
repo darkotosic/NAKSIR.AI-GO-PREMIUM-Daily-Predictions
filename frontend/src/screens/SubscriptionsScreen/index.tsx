@@ -26,7 +26,7 @@ const LABEL: Record<Sku, { title: string; popular?: boolean }> = {
 
 const BENEFITS = [
   'No Ads',
-  'Full access to AI predictions',
+  'Full access to instant AI predictions',
   'Full access to live match analysis',
 ];
 
