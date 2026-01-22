@@ -3,65 +3,84 @@ import type { ConfigContext, ExpoConfig } from '@expo/config';
 const appJson = require('./app.json');
 
 const readEnv = (key: string): string | undefined => {
-  const value = process.env[key];
-  return value?.trim() ? value.trim() : undefined;
+  const v = process.env[key];
+  return v?.trim() ? v.trim() : undefined;
 };
 
-export default ({ config }: ConfigContext): ExpoConfig => {
-  // UZMI app.json kao primarni source-of-truth
-  const appJsonExpo = appJson.expo as ExpoConfig;
+type PluginEntry = string | [string, any];
 
-  // Spoji config, ali pazi da plugins bude merge, ne overwrite
-  const extraFromConfig = (config.extra ?? {}) as Record<string, any>;
-  const extraFromJson = (appJsonExpo.extra ?? {}) as Record<string, any>;
+function pluginKey(p: PluginEntry): string {
+  return Array.isArray(p) ? p[0] : p;
+}
 
-  const jsonPlugins = (appJsonExpo.plugins ?? []) as any[];
-  const configPlugins = (config.plugins ?? []) as any[];
+function dedupePlugins(list: PluginEntry[]): PluginEntry[] {
+  const seen = new Set<string>();
+  const out: PluginEntry[] = [];
+  for (const p of list) {
+    const k = pluginKey(p);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(p);
+  }
+  return out;
+}
 
-  const mergedPlugins = [...jsonPlugins, ...configPlugins];
+function dedupeOneSignalExtensions(extras: any): any {
+  const ext = extras?.eas?.build?.experimental?.ios?.appExtensions;
+  if (!Array.isArray(ext)) return extras;
 
-  const ensurePlugin = (arr: any[], plugin: any) => {
-    if (typeof plugin === 'string') {
-      return arr.includes(plugin) ? arr : [...arr, plugin];
-    }
-    const name = plugin?.[0];
-    return arr.some((p) => Array.isArray(p) && p[0] === name) ? arr : [...arr, plugin];
-  };
-
-  let plugins = mergedPlugins;
-
-  // garantuj expo-asset (ako ti treba)
-  plugins = ensurePlugin(plugins, 'expo-asset');
-
-  // garantuj IAP + build-properties (safety net)
-  plugins = ensurePlugin(plugins, 'react-native-iap');
-  plugins = ensurePlugin(plugins, [
-    'expo-build-properties',
-    {
-      android: {
-        newArchEnabled: true,
-        kotlinVersion: '2.1.20',
-      },
-    },
-  ]);
+  const seen = new Set<string>();
+  const unique = ext.filter((x: any) => {
+    const k = `${x?.targetName ?? ''}|${x?.bundleIdentifier ?? ''}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
 
   return {
-    ...config,
-    ...appJsonExpo,
-    // plugins = merge (ne overwrite)
-    plugins,
-    extra: {
-      ...extraFromJson,
-      ...extraFromConfig,
-      apiBaseUrl:
-        readEnv('EXPO_PUBLIC_API_BASE_URL') ?? extraFromJson.apiBaseUrl ?? extraFromConfig.apiBaseUrl,
-      apiKey: readEnv('EXPO_PUBLIC_API_KEY') ?? extraFromJson.apiKey ?? extraFromConfig.apiKey,
-      androidPackage:
-        readEnv('EXPO_PUBLIC_ANDROID_PACKAGE') ?? extraFromJson.androidPackage ?? extraFromConfig.androidPackage,
-      oneSignalAppId:
-        readEnv('EXPO_PUBLIC_ONESIGNAL_APP_ID') ??
-        extraFromJson.oneSignalAppId ??
-        extraFromConfig.oneSignalAppId,
+    ...extras,
+    eas: {
+      ...extras?.eas,
+      build: {
+        ...extras?.eas?.build,
+        experimental: {
+          ...extras?.eas?.build?.experimental,
+          ios: {
+            ...extras?.eas?.build?.experimental?.ios,
+            appExtensions: unique,
+          },
+        },
+      },
     },
+  };
+}
+
+export default ({ config }: ConfigContext): ExpoConfig => {
+  // app.json expo je primarni izvor istine
+  const base: ExpoConfig = appJson.expo;
+
+  // plugin list: app.json plugins + eventualni iz config (ako postoji), pa dedupe
+  const plugins = dedupePlugins([
+    ...((base.plugins ?? []) as PluginEntry[]),
+    ...(((config.plugins ?? []) as PluginEntry[]) || []),
+    'expo-asset',
+    'react-native-iap',
+  ]);
+
+  // extras: app.json.extra + env override
+  const mergedExtra = {
+    ...(base.extra ?? {}),
+    apiBaseUrl: readEnv('EXPO_PUBLIC_API_BASE_URL') ?? (base.extra as any)?.apiBaseUrl,
+    apiKey: readEnv('EXPO_PUBLIC_API_KEY') ?? (base.extra as any)?.apiKey,
+    androidPackage: readEnv('EXPO_PUBLIC_ANDROID_PACKAGE') ?? (base.extra as any)?.androidPackage,
+    oneSignalAppId: readEnv('EXPO_PUBLIC_ONESIGNAL_APP_ID') ?? (base.extra as any)?.oneSignalAppId,
+  };
+
+  const extra = dedupeOneSignalExtensions(mergedExtra);
+
+  return {
+    ...base,
+    plugins,
+    extra,
   };
 };

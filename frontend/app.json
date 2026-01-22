@@ -6,13 +6,11 @@
     "orientation": "portrait",
     "newArchEnabled": true,
     "icon": "./assets/icon.png",
-
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-
     "android": {
       "package": "com.naksir.soccerpredictions",
       "versionCode": 1,
@@ -25,7 +23,6 @@
     "ios": {
       "bundleIdentifier": "com.naksir.soccerpredictions"
     },
-
     "plugins": [
       [
         "onesignal-expo-plugin",
@@ -39,7 +36,6 @@
           "androidAppId": "ca-app-pub-1726722567967096~4895623430"
         }
       ],
-      "react-native-iap",
       [
         "expo-build-properties",
         {
@@ -51,7 +47,6 @@
         }
       ]
     ],
-
     "extra": {
       "eas": {
         "projectId": "0c92aea8-3378-4172-b48b-daff32887f51"
