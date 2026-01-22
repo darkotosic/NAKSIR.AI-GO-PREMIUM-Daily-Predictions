@@ -8,24 +8,60 @@ const readEnv = (key: string): string | undefined => {
 };
 
 export default ({ config }: ConfigContext): ExpoConfig => {
-  const baseConfig = { ...appJson.expo, ...config };
-  const extra = (baseConfig.extra ?? {}) as Record<string, string | undefined>;
+  // UZMI app.json kao primarni source-of-truth
+  const appJsonExpo = appJson.expo as ExpoConfig;
 
-  // merge plugins: existing (from app.json/config) + expo-asset (no duplicates)
-  const existingPlugins = (baseConfig.plugins ?? []) as any[];
-  const plugins = existingPlugins.includes('expo-asset')
-    ? existingPlugins
-    : [...existingPlugins, 'expo-asset'];
+  // Spoji config, ali pazi da plugins bude merge, ne overwrite
+  const extraFromConfig = (config.extra ?? {}) as Record<string, any>;
+  const extraFromJson = (appJsonExpo.extra ?? {}) as Record<string, any>;
+
+  const jsonPlugins = (appJsonExpo.plugins ?? []) as any[];
+  const configPlugins = (config.plugins ?? []) as any[];
+
+  const mergedPlugins = [...jsonPlugins, ...configPlugins];
+
+  const ensurePlugin = (arr: any[], plugin: any) => {
+    if (typeof plugin === 'string') {
+      return arr.includes(plugin) ? arr : [...arr, plugin];
+    }
+    const name = plugin?.[0];
+    return arr.some((p) => Array.isArray(p) && p[0] === name) ? arr : [...arr, plugin];
+  };
+
+  let plugins = mergedPlugins;
+
+  // garantuj expo-asset (ako ti treba)
+  plugins = ensurePlugin(plugins, 'expo-asset');
+
+  // garantuj IAP + build-properties (safety net)
+  plugins = ensurePlugin(plugins, 'react-native-iap');
+  plugins = ensurePlugin(plugins, [
+    'expo-build-properties',
+    {
+      android: {
+        newArchEnabled: true,
+        kotlinVersion: '2.1.20',
+      },
+    },
+  ]);
 
   return {
-    ...baseConfig,
+    ...config,
+    ...appJsonExpo,
+    // plugins = merge (ne overwrite)
     plugins,
     extra: {
-      ...extra,
-      apiBaseUrl: readEnv('EXPO_PUBLIC_API_BASE_URL') ?? extra.apiBaseUrl,
-      apiKey: readEnv('EXPO_PUBLIC_API_KEY') ?? extra.apiKey,
-      androidPackage: readEnv('EXPO_PUBLIC_ANDROID_PACKAGE') ?? extra.androidPackage,
-      oneSignalAppId: readEnv('EXPO_PUBLIC_ONESIGNAL_APP_ID') ?? (extra as any).oneSignalAppId,
+      ...extraFromJson,
+      ...extraFromConfig,
+      apiBaseUrl:
+        readEnv('EXPO_PUBLIC_API_BASE_URL') ?? extraFromJson.apiBaseUrl ?? extraFromConfig.apiBaseUrl,
+      apiKey: readEnv('EXPO_PUBLIC_API_KEY') ?? extraFromJson.apiKey ?? extraFromConfig.apiKey,
+      androidPackage:
+        readEnv('EXPO_PUBLIC_ANDROID_PACKAGE') ?? extraFromJson.androidPackage ?? extraFromConfig.androidPackage,
+      oneSignalAppId:
+        readEnv('EXPO_PUBLIC_ONESIGNAL_APP_ID') ??
+        extraFromJson.oneSignalAppId ??
+        extraFromConfig.oneSignalAppId,
     },
   };
 };
