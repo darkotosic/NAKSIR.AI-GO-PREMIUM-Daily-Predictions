@@ -13,6 +13,9 @@ console.log('[IAP] RNIap keys:', Object.keys(RNIap || {}));
 console.log('[IAP] has getSubscriptions:', typeof (RNIap as any).getSubscriptions);
 console.log('[IAP] has getProducts:', typeof (RNIap as any).getProducts);
 
+let IAP_INITIALIZED = false;
+let IAP_INITIALIZING = false;
+
 type PurchaseState = {
   isConnected: boolean;
   isLoading: boolean;
@@ -144,14 +147,25 @@ export function usePlayBilling() {
     }
   }, [isAndroid, loadSubscriptions, setError]);
 
-  const connect = useCallback(async () => {
+  const initIap = useCallback(async () => {
     if (!isAndroid) return;
+    if (IAP_INITIALIZED || IAP_INITIALIZING) {
+      console.log('[IAP] init skipped (already initialized)');
+      return;
+    }
 
+    IAP_INITIALIZING = true;
+    console.log('[IAP] init start');
     setState((s) => ({ ...s, isLoading: true, lastError: null }));
 
     try {
+      await RNIap.enablePendingPurchasesAndroid?.();
+      console.log('[IAP] pending purchases enabled');
+
       const ok = await RNIap.initConnection();
+      console.log('[IAP] initConnection:', ok);
       setState((s) => ({ ...s, isConnected: !!ok }));
+      IAP_INITIALIZED = true;
 
       // Optional: Android flush failed purchases
       try {
@@ -171,6 +185,7 @@ export function usePlayBilling() {
       setError(`IAP initConnection failed: ${e?.message || String(e)}`);
       setState((s) => ({ ...s, isConnected: false }));
     } finally {
+      IAP_INITIALIZING = false;
       setState((s) => ({ ...s, isLoading: false }));
     }
   }, [isAndroid, loadSubscriptions, setError]);
@@ -294,15 +309,14 @@ export function usePlayBilling() {
   useEffect(() => {
     if (!isAndroid) return;
 
-    connect().then(() => {
-      startListeners();
-      refreshEntitlement();
-    });
+    initIap();
+    startListeners();
+    refreshEntitlement();
 
     return () => {
       disconnect();
     };
-  }, [isAndroid, connect, startListeners, refreshEntitlement, disconnect]);
+  }, [isAndroid, initIap, startListeners, refreshEntitlement, disconnect]);
 
   return useMemo(
     () => ({
