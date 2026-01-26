@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.models import Product, Purchase
@@ -38,11 +39,20 @@ def get_purchase_by_token(
     )
 
 
+def _normalize_to_utc(value: Optional[datetime]) -> Optional[datetime]:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
 def _derive_status_from_end_at(end_at: Optional[datetime]) -> PurchaseStatus:
-    if end_at is None:
-        return PurchaseStatus.active
-    now = datetime.utcnow()
-    return PurchaseStatus.active if end_at > now else PurchaseStatus.expired
+    normalized = _normalize_to_utc(end_at)
+    if normalized is None:
+        return PurchaseStatus.expired
+    now = datetime.now(timezone.utc)
+    return PurchaseStatus.active if normalized > now else PurchaseStatus.expired
 
 
 def upsert_purchase(
@@ -58,6 +68,8 @@ def upsert_purchase(
     order_id: Optional[str] = None,
     acknowledged: Optional[bool] = None,
 ) -> Purchase:
+    start_at = _normalize_to_utc(start_at)
+    end_at = _normalize_to_utc(end_at)
     purchase = (
         session.query(Purchase)
         .filter(Purchase.purchase_token == purchase_token, Purchase.platform == platform)
@@ -120,22 +132,76 @@ def apply_verified_purchase(
     package_name: str,
     verified: dict[str, Any],
 ) -> Purchase:
-    return upsert_purchase(
-        session,
-        user_id=user_id,
-        product_sku=sku,
-        purchase_token=purchase_token,
-        platform=Platform.android,
-        start_at=verified.get("start_at"),
-        end_at=verified.get("end_at"),
-        raw_payload={
-            "packageName": package_name,
-            "api": verified.get("api"),
-            "raw": verified.get("raw"),
-        },
-        order_id=verified.get("order_id"),
-        acknowledged=verified.get("acknowledged"),
-    )
+    start_at = _normalize_to_utc(verified.get("start_at"))
+    end_at = _normalize_to_utc(verified.get("end_at"))
+    status = _derive_status_from_end_at(end_at)
+    raw_payload = {
+        "packageName": package_name,
+        "api": verified.get("api"),
+        "raw": verified.get("raw"),
+    }
+
+    def _apply_update(purchase: Purchase) -> Purchase:
+        purchase.user_id = user_id
+        purchase.platform = Platform.android
+        purchase.sku = sku
+        purchase.purchase_state = PurchaseState.purchased
+        order_id = verified.get("order_id")
+        if order_id:
+            purchase.order_id = order_id
+        acknowledged = verified.get("acknowledged")
+        if acknowledged is not None:
+            purchase.acknowledged = bool(acknowledged)
+        purchase.start_at = start_at
+        purchase.end_at = end_at
+        purchase.status = status
+        purchase.raw_payload = raw_payload
+        return purchase
+
+    try:
+        existing = (
+            session.query(Purchase)
+            .filter(Purchase.purchase_token == purchase_token)
+            .one_or_none()
+        )
+        if existing:
+            _apply_update(existing)
+            session.add(existing)
+            session.commit()
+            session.refresh(existing)
+            return existing
+
+        purchase = Purchase(
+            user_id=user_id,
+            platform=Platform.android,
+            sku=sku,
+            purchase_token=purchase_token,
+            order_id=verified.get("order_id"),
+            purchase_state=PurchaseState.purchased,
+            acknowledged=bool(verified.get("acknowledged"))
+            if verified.get("acknowledged") is not None
+            else False,
+            start_at=start_at,
+            end_at=end_at,
+            status=status,
+            raw_payload=raw_payload,
+        )
+        session.add(purchase)
+        session.commit()
+        session.refresh(purchase)
+        return purchase
+    except IntegrityError:
+        session.rollback()
+        existing = (
+            session.query(Purchase)
+            .filter(Purchase.purchase_token == purchase_token)
+            .one()
+        )
+        _apply_update(existing)
+        session.add(existing)
+        session.commit()
+        session.refresh(existing)
+        return existing
 
 
 def handle_rtdn_event(

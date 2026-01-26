@@ -43,14 +43,41 @@ def _build_androidpublisher():
     return build("androidpublisher", "v3", credentials=creds, cache_discovery=False)
 
 
-def _millis_to_dt(ms: Optional[str | int]) -> Optional[datetime]:
-    if ms is None:
+def _parse_google_time(value: Any) -> Optional[datetime]:
+    """
+    Supports:
+    - RFC3339 strings: "2026-01-26T10:12:33Z" or with offset
+    - Millis/int strings: "1737886353000"
+    Returns aware datetime in UTC or None.
+    """
+    if value is None:
         return None
+
     try:
-        ms_int = int(ms)
-        return datetime.fromtimestamp(ms_int / 1000.0, tz=timezone.utc).replace(tzinfo=None)
+        if isinstance(value, (int, float)):
+            return datetime.fromtimestamp(int(value) / 1000, tz=timezone.utc)
+        if isinstance(value, str) and value.isdigit():
+            return datetime.fromtimestamp(int(value) / 1000, tz=timezone.utc)
+    except Exception:
+        pass
+
+    try:
+        if isinstance(value, str):
+            s = value.strip()
+            if s.endswith("Z"):
+                s = s[:-1] + "+00:00"
+            dt = datetime.fromisoformat(s)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.astimezone(timezone.utc)
     except Exception:
         return None
+
+    return None
+
+
+def _millis_to_dt(ms: Optional[str | int]) -> Optional[datetime]:
+    return _parse_google_time(ms)
 
 
 def fetch_subscription_state(
@@ -86,8 +113,13 @@ def fetch_subscription_state(
                     match = li
                     break
             li = match or line_items[0]
-            end_at = _millis_to_dt(li.get("expiryTime")) or _millis_to_dt(li.get("expiryTimeMillis"))
+            end_at = _parse_google_time(li.get("expiryTime")) or _parse_google_time(
+                li.get("expiryTimeMillis")
+            )
+        if end_at is None:
+            end_at = _parse_google_time(res_v2.get("expiryTime"))
         order_id = res_v2.get("latestOrderId") or res_v2.get("orderId")
+        subscription_state = res_v2.get("subscriptionState") or res_v2.get("state")
         # v2 ack status is not always present; keep None if missing
         acknowledged = res_v2.get("acknowledgementState")
         if isinstance(acknowledged, str):
@@ -104,6 +136,7 @@ def fetch_subscription_state(
             "acknowledged": acknowledged,
             "start_at": start_at,
             "end_at": end_at,
+            "state": subscription_state,
             "raw": res_v2,
             "api": "subscriptionsv2.get",
         }
@@ -128,14 +161,16 @@ def fetch_subscription_state(
     else:
         acknowledged = None
 
-    start_at = _millis_to_dt(res.get("startTimeMillis"))
-    end_at = _millis_to_dt(res.get("expiryTimeMillis"))
+    start_at = _parse_google_time(res.get("startTimeMillis"))
+    end_at = _parse_google_time(res.get("expiryTimeMillis"))
+    subscription_state = res.get("subscriptionState") or res.get("state")
 
     return {
         "order_id": order_id,
         "acknowledged": acknowledged,
         "start_at": start_at,
         "end_at": end_at,
+        "state": subscription_state,
         "raw": res,
         "api": "subscriptions.get",
     }
