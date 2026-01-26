@@ -2,11 +2,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import type { Subscription } from 'react-native-iap';
+import { finishTransaction } from 'react-native-iap';
 import * as RNIap from 'react-native-iap';
 
 import { verifyGooglePurchase } from '@api/billing';
 import { useEntitlements } from '@state/EntitlementsContext';
-import { extractGooglePurchasePayload } from './googlePurchase';
+import {
+  savePendingPurchase,
+  loadPendingPurchase,
+  clearPendingPurchase,
+} from './pendingPurchase';
 import { SUBS_SKUS, Sku } from '../shared/billing_skus';
 
 console.log('[IAP] RNIap keys:', Object.keys(RNIap || {}));
@@ -27,6 +32,12 @@ type PurchaseState = {
 function normalizeSku(productId?: string | null): Sku | null {
   if (!productId) return null;
   return (SUBS_SKUS as readonly string[]).includes(productId) ? (productId as Sku) : null;
+}
+
+function toMaskedToken(token?: string) {
+  if (!token) return '';
+  if (token.length <= 10) return '***';
+  return `${token.slice(0, 4)}...${token.slice(-4)}`;
 }
 
 export function usePlayBilling() {
@@ -230,25 +241,69 @@ export function usePlayBilling() {
 
     // Purchase update listener
     purchaseUpdateSub.current = RNIap.purchaseUpdatedListener(async (purchase: any) => {
+      const purchaseToken = purchase.purchaseToken;
+      const productId =
+        (purchase.productId as string) || (purchase.productIds && purchase.productIds[0]) || '';
+      const packageName = (purchase.packageNameAndroid as string) || undefined;
+
+      if (!purchaseToken || !productId) {
+        return;
+      }
+
+      await savePendingPurchase({
+        purchaseToken,
+        productId,
+        packageName,
+        transactionId: purchase.transactionId ?? undefined,
+        createdAt: Date.now(),
+      });
+
+      let verifyOk = false;
+
       try {
-        const payload = extractGooglePurchasePayload(purchase as any);
-        const sku = normalizeSku(payload.productId);
-        if (!sku) return;
+        await verifyGooglePurchase({
+          purchaseToken,
+          productId,
+          packageName,
+          transactionId: purchase.transactionId ?? undefined,
+        });
 
-        // Server verify + entitlement grant
-        await verifyGooglePurchase(payload);
-        await refreshServerEntitlements();
+        await refreshServerEntitlements?.();
 
-        // Acknowledge / finish
+        verifyOk = true;
+
+        const sku = normalizeSku(productId);
+        if (sku) {
+          setState((s) => ({ ...s, activeSku: sku }));
+        }
+      } catch (err: any) {
+        console.log('[IAP] verify failed, will retry later', {
+          sku: productId,
+          token: toMaskedToken(purchaseToken),
+          message: err?.message,
+        });
+      } finally {
         try {
-          await RNIap.finishTransaction({ purchase, isConsumable: false } as any);
-        } catch {
-          // ignore
+          await finishTransaction({
+            purchase,
+            isConsumable: false,
+          });
+          console.log('[IAP] finishTransaction OK', {
+            sku: productId,
+            token: toMaskedToken(purchaseToken),
+          });
+        } catch (ackErr: any) {
+          console.log('[IAP] finishTransaction FAILED', {
+            sku: productId,
+            token: toMaskedToken(purchaseToken),
+            message: ackErr?.message,
+          });
+          return;
         }
 
-        setState((s) => ({ ...s, activeSku: sku }));
-      } catch (e: any) {
-        setError(`Purchase processing failed: ${e?.message || String(e)}`);
+        if (verifyOk) {
+          await clearPendingPurchase();
+        }
       }
     });
 
@@ -305,6 +360,53 @@ export function usePlayBilling() {
     },
     [isAndroid, productBySku, setError],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function retryPendingIfAny() {
+      try {
+        const pending = await loadPendingPurchase();
+        if (!pending) return;
+
+        const ageMs = Date.now() - pending.createdAt;
+        if (ageMs > 48 * 60 * 60 * 1000) {
+          await clearPendingPurchase();
+          return;
+        }
+
+        console.log('[IAP] retry pending verify', {
+          sku: pending.productId,
+          token: toMaskedToken(pending.purchaseToken),
+        });
+
+        await verifyGooglePurchase({
+          purchaseToken: pending.purchaseToken,
+          productId: pending.productId,
+          packageName: pending.packageName,
+          transactionId: pending.transactionId,
+        });
+
+        await refreshServerEntitlements?.();
+
+        await clearPendingPurchase();
+
+        console.log('[IAP] pending verify OK, cleared', {
+          sku: pending.productId,
+          token: toMaskedToken(pending.purchaseToken),
+        });
+      } catch (err: any) {
+        if (cancelled) return;
+        console.log('[IAP] pending verify retry failed', err?.message);
+      }
+    }
+
+    retryPendingIfAny();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!isAndroid) return;
