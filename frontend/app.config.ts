@@ -96,7 +96,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         {
           android: {
             newArchEnabled: true,
-            kotlinVersion: '2.1.20',
+            kotlinVersion: '2.2.0',
             extraProguardRules:
               '-keep class com.google.android.gms.internal.consent_sdk.** { *; }\n' +
               '-keep class com.android.billingclient.** { *; }\n' +

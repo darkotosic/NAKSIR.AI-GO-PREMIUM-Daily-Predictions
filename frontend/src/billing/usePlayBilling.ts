@@ -348,12 +348,22 @@ export function usePlayBilling() {
 
         console.log('[IAP] buying sku:', sku, 'offerToken:', offerToken);
 
-        await RNIap.requestSubscription({
-          sku,
-          subscriptionOffers: [{ sku, offerToken }],
-        } as any);
+        await (RNIap as any).requestPurchase({
+          request: {
+            google: {
+              skus: [sku],
+              subscriptionOffers: [
+                {
+                  sku,
+                  offerToken,
+                },
+              ],
+            },
+          },
+          type: 'subs',
+        });
       } catch (e: any) {
-        setError(`requestSubscription failed: ${e?.message || String(e)}`);
+        setError(`requestPurchase failed: ${e?.message || String(e)}`);
       } finally {
         setState((s) => ({ ...s, isLoading: false }));
       }
