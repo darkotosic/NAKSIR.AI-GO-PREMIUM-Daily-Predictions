@@ -1,0 +1,1 @@
+export default function PrivacyPage() { return <main className="container section"><h1>Politika privatnosti</h1><p className="muted">Politika privatnosti biće dopunjena pre javnog lansiranja.</p></main>; }
