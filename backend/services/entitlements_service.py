@@ -46,7 +46,7 @@ def upsert_entitlement(
     if valid_until_override is not None:
         valid_until = valid_until_override
     else:
-        base_start = start_at or datetime.utcnow()
+        base_start = start_at or datetime.now(timezone.utc)
         if period_days:
             valid_until = base_start + timedelta(days=period_days)
 
@@ -79,7 +79,9 @@ def get_entitlement_status(
     session: Session, *, user_id, now: Optional[datetime] = None
 ) -> tuple[bool, Optional[datetime], Optional[str], Optional[Entitlement]]:
     entitlement = session.query(Entitlement).filter(Entitlement.user_id == user_id).one_or_none()
-    current_time = now or datetime.utcnow()
+    current_time = now or datetime.now(timezone.utc)
+    if current_time.tzinfo is None:
+        current_time = current_time.replace(tzinfo=timezone.utc)
 
     entitled = False
     expires_at: Optional[datetime] = None
@@ -88,7 +90,9 @@ def get_entitlement_status(
     if entitlement and entitlement.status == EntitlementStatus.active:
         expires_at = entitlement.valid_until
         plan = entitlement.tier
-        if entitlement.valid_until is None or entitlement.valid_until > current_time:
+        if expires_at and expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at is None or expires_at > current_time:
             entitled = True
         else:
             entitlement.status = EntitlementStatus.expired

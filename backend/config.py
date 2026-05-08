@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import json
 import os
 import sys
 from enum import Enum
 from functools import lru_cache
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
@@ -153,6 +154,19 @@ def get_settings() -> Settings:
 
 
 settings = get_settings()
+
+APP_ENV = settings.app_env.value
+GOOGLE_PLAY_PACKAGE_NAME = (settings.google_play_package_name or "").strip()
+GOOGLE_PLAY_SERVICE_ACCOUNT_JSON = (settings.google_play_service_account_json or "").strip()
+
+
+def get_google_service_account_info() -> Optional[Dict[str, Any]]:
+    if not GOOGLE_PLAY_SERVICE_ACCOUNT_JSON:
+        return None
+    try:
+        return json.loads(GOOGLE_PLAY_SERVICE_ACCOUNT_JSON)
+    except Exception:
+        return None
 
 # Glavni endpoint
 API_FOOTBALL_BASE_URL = "https://v3.football.api-sports.io"
