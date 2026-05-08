@@ -1,0 +1,1125 @@
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Animated,
+  Image,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { getAiAnalysis, requestAiAnalysis, AiAnalysisError } from '@api/analysis';
+import type { MatchAnalysis } from '@/types/analysis';
+import { RootStackParamList } from '@navigation/types';
+import { trackEvent } from '@lib/tracking';
+import TelegramBanner from '@components/TelegramBanner';
+import { LoadingState } from '@components/LoadingState';
+import { padTwoDigits } from '@lib/time';
+import UnlockAnalysisModal from '@components/UnlockAnalysisModal';
+import { isAnalysisUnlocked, setAnalysisUnlocked } from '@lib/analysisUnlock';
+
+const COLORS = {
+  background: '#040312',
+  card: '#0b0c1f',
+  neonPurple: '#b06bff',
+  text: '#f8fafc',
+  muted: '#a5b4fc',
+  borderSoft: '#1f1f3a',
+};
+
+const LIVE_STATUSES = new Set(['1H', '2H', 'HT', 'ET', 'P', 'INT', 'LIVE']);
+
+const AIAnalysisScreen: React.FC = () => {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<RootStackParamList, 'AIAnalysis'>>();
+  const fixtureId = route.params?.fixtureId;
+  const summary = route.params?.summary;
+  const originTab = route.params?.originTab ?? 'TodayMatches';
+  const fromMatchDetails = route.params?.fromMatchDetails ?? false;
+  const fromPreview = route.params?.fromPreview ?? false;
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [analysisPayloadState, setAnalysisPayload] = useState<MatchAnalysis | null>(null);
+  const [status, setStatus] = useState<
+    'idle' | 'loading' | 'generating' | 'ready' | 'missing' | 'error'
+  >('idle');
+  const [error, setError] = useState<AiAnalysisError | null>(null);
+  const [cacheStatus, setCacheStatus] = useState<string | null>(null);
+  const [unlockGate, setUnlockGate] = useState<'checking' | 'locked' | 'unlocked'>('checking');
+  const [showUnlockModal, setShowUnlockModal] = useState(false);
+  const [showPremiumPromo, setShowPremiumPromo] = useState(false);
+  const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const pollInFlightRef = useRef(false);
+  const requestIdRef = useRef(0);
+  const isGeneratingRef = useRef(false);
+  const statusShort = summary?.status?.toUpperCase() ?? '';
+  const isLiveMatch = LIVE_STATUSES.has(statusShort);
+  const isFinishedMatch = new Set(['FT', 'AET', 'PEN']).has(statusShort);
+  const kickoffLabel = summary?.kickoff
+    ? new Date(summary.kickoff).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : 'Kickoff TBD';
+  const statusLabelMap: Record<string, string> = {
+    '1H': 'First Half',
+    '2H': 'Second Half',
+    HT: 'Half Time',
+    ET: 'Extra Time',
+    P: 'Penalties',
+    INT: 'Break',
+  };
+  const liveStatusLabel = statusLabelMap[statusShort] ?? summary?.status_long ?? 'Live';
+  const heroStatusLabel = isFinishedMatch ? 'Finished' : isLiveMatch ? liveStatusLabel : kickoffLabel;
+  const scoreLabel = `${summary?.goals?.home ?? '-'} - ${summary?.goals?.away ?? '-'}`;
+  const leagueLogo = summary?.league?.logo;
+  const homeLogo = summary?.teams?.home?.logo;
+  const awayLogo = summary?.teams?.away?.logo;
+
+  const depthWords = useMemo(() => 'NAKSIR GO IN DEPTH OF DATA'.split(' '), []);
+  const depthWordAnim = useMemo(() => depthWords.map(() => new Animated.Value(0)), [depthWords]);
+  const loadingBar = useRef(new Animated.Value(0)).current;
+  const isGenerating = status === 'loading' || status === 'generating';
+
+  useEffect(() => {
+    isGeneratingRef.current = isGenerating;
+  }, [isGenerating]);
+
+  const formatTimer = (seconds: number) => {
+    const mins = padTwoDigits(Math.floor(seconds / 60));
+    const secs = padTwoDigits(seconds % 60);
+    return `${mins}:${secs}`;
+  };
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout | undefined;
+    if (isGenerating) {
+      setElapsedSeconds(0);
+      timer = setInterval(() => {
+        setElapsedSeconds((prev) => prev + 1);
+      }, 1000);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [isGenerating]);
+
+  useEffect(() => {
+    if (!isGenerating) {
+      depthWordAnim.forEach((anim) => anim.setValue(0));
+      loadingBar.setValue(0);
+      return;
+    }
+
+    const wordLoops = depthWordAnim.map((anim, idx) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(anim, {
+            toValue: 1,
+            duration: 900,
+            delay: idx * 120,
+            useNativeDriver: true,
+          }),
+          Animated.timing(anim, {
+            toValue: 0.2,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+        ]),
+      ),
+    );
+    wordLoops.forEach((loop) => loop.start());
+
+    const barLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(loadingBar, {
+          toValue: 1,
+          duration: 1600,
+          useNativeDriver: false,
+        }),
+        Animated.timing(loadingBar, {
+          toValue: 0,
+          duration: 400,
+          useNativeDriver: false,
+        }),
+      ]),
+    );
+
+    barLoop.start();
+
+    return () => {
+      wordLoops.forEach((loop) => loop.stop && loop.stop());
+      barLoop.stop && barLoop.stop();
+    };
+  }, [depthWordAnim, loadingBar, isGenerating]);
+
+  useEffect(() => {
+    if (fixtureId) {
+      trackEvent('OpenAnalysis', { fixture_id: fixtureId });
+    }
+  }, [fixtureId]);
+
+  useEffect(() => {
+    let alive = true;
+    setUnlockGate('checking');
+    setShowUnlockModal(false);
+
+    (async () => {
+      const ok = await isAnalysisUnlocked(fixtureId);
+      if (!alive) return;
+      setUnlockGate(ok ? 'unlocked' : 'locked');
+      setShowUnlockModal(!ok);
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [fixtureId]);
+
+  const stopPolling = useCallback(() => {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+    pollInFlightRef.current = false;
+  }, []);
+
+  const pollForAnalysis = useCallback((requestId: number) => {
+    if (pollTimerRef.current || !fixtureId) return;
+    const startedAt = Date.now();
+    const activeFixtureId = fixtureId;
+
+    pollTimerRef.current = setInterval(async () => {
+      if (pollInFlightRef.current) return;
+      pollInFlightRef.current = true;
+      try {
+        const res = await getAiAnalysis(activeFixtureId);
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
+        const cacheHeader = res.headers?.['x-cache'];
+        if (cacheHeader) {
+          setCacheStatus(cacheHeader.toUpperCase());
+        }
+
+        if (res.status === 200) {
+          setAnalysisPayload(res.data);
+          setStatus('ready');
+          stopPolling();
+          return;
+        }
+
+        if (res.status === 202) {
+          setStatus('generating');
+        }
+      } catch (err) {
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
+        const normalized = err as AiAnalysisError;
+        setStatus('error');
+        setError(normalized);
+        stopPolling();
+      } finally {
+        pollInFlightRef.current = false;
+      }
+
+      if (requestId === requestIdRef.current && Date.now() - startedAt > 60000) {
+        setStatus('error');
+        setError(new AiAnalysisError('AI analysis is taking longer than expected.'));
+        stopPolling();
+      }
+    }, 2500);
+  }, [fixtureId, stopPolling]);
+
+  const startGeneration = useCallback(async (options?: { live?: boolean }) => {
+    if (!fixtureId || isGeneratingRef.current) return;
+    const isLive = options?.live ?? isLiveMatch;
+    const requestId = requestIdRef.current;
+    setStatus('generating');
+    setError(null);
+    try {
+      const res = await requestAiAnalysis({
+        fixtureId,
+        useTrialReward: false,
+        live: isLive,
+      });
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+      const cacheHeader = res.headers?.['x-cache'];
+      if (cacheHeader) {
+        setCacheStatus(cacheHeader.toUpperCase());
+      }
+
+      if (res.status === 200) {
+        setAnalysisPayload(res.data);
+        setStatus('ready');
+        stopPolling();
+        return;
+      }
+
+      if (res.status === 202) {
+        setStatus('generating');
+        if (!isLive) {
+          pollForAnalysis(requestId);
+        }
+        return;
+      }
+
+      setStatus('error');
+      setError(new AiAnalysisError('AI analysis failed. Please try again.'));
+    } catch (err) {
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+      const normalized = err as AiAnalysisError;
+      setStatus('error');
+      setError(normalized);
+    }
+  }, [fixtureId, isLiveMatch, pollForAnalysis, stopPolling]);
+
+  useEffect(() => {
+    stopPolling();
+    requestIdRef.current += 1;
+    setAnalysisPayload(null);
+    setCacheStatus(null);
+    setError(null);
+    setStatus('idle');
+
+    if (!fixtureId) return () => stopPolling();
+
+    // HARD GATE: nema mrežnih poziva dok nije otključano
+    if (unlockGate !== 'unlocked') {
+      return () => stopPolling();
+    }
+
+    startGeneration({ live: isLiveMatch });
+    return () => stopPolling();
+  }, [fixtureId, isLiveMatch, startGeneration, stopPolling, unlockGate]);
+
+  const analysisPayload = analysisPayloadState;
+  const analysis = (analysisPayload as any)?.analysis || analysisPayload;
+  const summaryText =
+    analysis?.preview || analysis?.summary || 'AI has insufficient data for a summary.';
+  const keyFactors =
+    Array.isArray((analysis as any)?.key_factors) && (analysis as any)?.key_factors.length > 0
+      ? (analysis as any).key_factors
+      : null;
+  const valueBet = (analysis as any)?.value_bet;
+  const correctScores =
+    Array.isArray((analysis as any)?.correct_scores_top2) &&
+    (analysis as any)?.correct_scores_top2.length > 0
+      ? (analysis as any)?.correct_scores_top2
+      : null;
+  const cornerProbabilities = (analysis as any)?.corners_probabilities;
+  const cardProbabilities = (analysis as any)?.cards_probabilities;
+  const oddsProbabilities =
+    (analysisPayload as any)?.odds_probabilities || (analysis as any)?.odds_probabilities;
+  const risks =
+    Array.isArray((analysis as any)?.risk_flags) && (analysis as any)?.risk_flags.length > 0
+      ? (analysis as any)?.risk_flags
+      : null;
+
+  const formatPct = (value?: number | null) =>
+    value === null || value === undefined ? '-' : `${value}%`;
+
+  const goBackToMatch = () => {
+    if (fromPreview) {
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+        return;
+      }
+      navigation.navigate('InDepthAnalysis');
+      return;
+    }
+    if (!fixtureId) {
+      navigation.navigate('TodayMatches');
+      return;
+    }
+    if (fromMatchDetails && navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    navigation.replace('MatchDetails', { fixtureId, summary, originTab });
+  };
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <UnlockAnalysisModal
+        visible={showUnlockModal}
+        onCancel={() => {
+          setShowUnlockModal(false);
+          setUnlockGate('locked');
+        }}
+        onUnlocked={async () => {
+          await setAnalysisUnlocked(fixtureId);
+          setUnlockGate('unlocked');
+          setShowUnlockModal(false);
+
+          // show promo popup, but KEEP user on in-depth analysis screen
+          setShowPremiumPromo(true);
+        }}
+      />
+      {unlockGate === 'locked' && (
+        <View style={{ paddingHorizontal: 16, paddingTop: 14 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <Text style={{ color: '#f8fafc', fontWeight: '900', fontSize: 16 }}>
+              Naksir In-depth Analysis
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => navigation.navigate('TodayMatches')}
+              activeOpacity={0.9}
+              style={{
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: '#8b5cf6',
+                backgroundColor: '#0b1220',
+              }}
+            >
+              <Text style={{ color: '#f8fafc', fontWeight: '900', fontSize: 12 }}>Home</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Lock card */}
+          <View
+            style={{
+              borderWidth: 1,
+              borderColor: '#1f1f3a',
+              borderRadius: 16,
+              padding: 14,
+              backgroundColor: '#0b0c1f',
+            }}
+          >
+            <Text style={{ color: '#f8fafc', fontWeight: '900', fontSize: 14 }}>🔒 Analysis locked</Text>
+            <Text style={{ color: '#a5b4fc', marginTop: 8, lineHeight: 18 }}>
+              Watch a video ad to unlock this match’s in-depth Naksir AI analysis.
+            </Text>
+
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => setShowUnlockModal(true)}
+              style={{
+                marginTop: 12,
+                borderWidth: 1,
+                borderColor: '#8b5cf6',
+                borderRadius: 12,
+                paddingVertical: 12,
+                alignItems: 'center',
+                backgroundColor: '#0b1220',
+              }}
+            >
+              <Text style={{ color: '#f8fafc', fontWeight: '900', fontSize: 12, letterSpacing: 0.4 }}>
+                UNLOCK WITH VIDEO AD
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Premium promo card */}
+          <View
+            style={{
+              marginTop: 12,
+              borderWidth: 1,
+              borderColor: 'rgba(250,204,21,0.35)',
+              borderRadius: 16,
+              padding: 14,
+              backgroundColor: 'rgba(0,0,0,0.35)',
+            }}
+          >
+            <Text style={{ color: '#facc15', fontWeight: '900', fontSize: 14 }}>GO PREMIUM</Text>
+            <Text style={{ color: '#f8fafc', fontWeight: '900', fontSize: 14, marginTop: 2 }}>NO ADS</Text>
+            <Text style={{ color: '#a5b4fc', marginTop: 8, lineHeight: 18 }}>
+              Unlock all analyses instantly. Clean experience. Full power.
+            </Text>
+
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => navigation.navigate('Subscriptions')}
+              style={{
+                marginTop: 12,
+                borderWidth: 1,
+                borderColor: '#facc15',
+                borderRadius: 12,
+                paddingVertical: 12,
+                alignItems: 'center',
+                backgroundColor: '#0b1220',
+              }}
+            >
+              <Text style={{ color: '#facc15', fontWeight: '900', fontSize: 12, letterSpacing: 0.6 }}>
+                GO PREMIUM
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+      {unlockGate === 'unlocked' && (
+        <ScrollView contentContainerStyle={styles.container}>
+          <TelegramBanner />
+          <TouchableOpacity style={styles.backButton} onPress={goBackToMatch}>
+            <Text style={styles.backIcon}>←</Text>
+            <Text style={styles.backLabel}>Back to match</Text>
+          </TouchableOpacity>
+
+          {summary ? (
+            <View style={styles.detailHero}>
+              <View style={styles.heroTopRow}>
+                <View style={styles.heroLeagueBlock}>
+                  <View style={styles.heroLeagueRow}>
+                    {leagueLogo ? (
+                      <Image source={{ uri: leagueLogo }} style={styles.heroLeagueLogo} />
+                    ) : null}
+                    <View style={styles.heroLeagueTextBlock}>
+                      <Text style={styles.heroLeagueText}>{summary?.league?.name || 'League'}</Text>
+                      <Text style={styles.heroMetaText}>
+                        {summary?.league?.country || 'Country'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+                <View style={styles.heroStatusPill}>
+                  <Text style={styles.heroStatusScore}>
+                    {isLiveMatch || isFinishedMatch ? scoreLabel : 'VS'}
+                  </Text>
+                  <Text style={styles.heroStatusText}>{heroStatusLabel}</Text>
+                </View>
+              </View>
+
+              <View style={styles.heroTeamsRow}>
+                <View style={styles.heroTeamCard}>
+                  <View style={styles.heroTeamRow}>
+                    {homeLogo ? (
+                      <Image source={{ uri: homeLogo }} style={styles.heroTeamLogo} />
+                    ) : null}
+                    <Text style={styles.heroTeamName} numberOfLines={1}>
+                      {summary?.teams?.home?.name || 'Home'}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.heroTeamCard}>
+                  <View style={[styles.heroTeamRow, styles.heroTeamRowRight]}>
+                    {awayLogo ? (
+                      <Image source={{ uri: awayLogo }} style={styles.heroTeamLogo} />
+                    ) : null}
+                    <Text style={[styles.heroTeamName, styles.heroTeamNameRight]} numberOfLines={1}>
+                      {summary?.teams?.away?.name || 'Away'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+          ) : null}
+
+          {__DEV__ && cacheStatus ? (
+            <Text style={styles.cacheDebug}>Cache status: {cacheStatus}</Text>
+          ) : null}
+
+          {isGenerating && (
+            <View style={styles.loadingState}>
+              <View style={styles.depthWordRow}>
+                {depthWords.map((word, idx) => {
+                  const animatedStyle = {
+                    opacity: depthWordAnim[idx].interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.35, 1],
+                    }),
+                    transform: [
+                      {
+                        translateY: depthWordAnim[idx].interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [10, -6],
+                        }),
+                      },
+                      {
+                        scale: depthWordAnim[idx].interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0.94, 1.08],
+                        }),
+                      },
+                    ],
+                  };
+
+                  return (
+                    <Animated.Text key={`${word}-${idx}`} style={[styles.depthWord, animatedStyle]}>
+                      {word}
+                    </Animated.Text>
+                  );
+                })}
+              </View>
+              <ActivityIndicator color={COLORS.neonPurple} size="large" style={styles.loader} />
+              <Text style={styles.loadingText}>
+                Analyzing odds, recent team form, goals trends, h2h, standings...
+              </Text>
+              <View style={styles.loadingBarTrack}>
+                <Animated.View
+                  style={[
+                    styles.loadingBarFill,
+                    {
+                      width: loadingBar.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ['18%', '100%'],
+                      }),
+                    },
+                  ]}
+                />
+              </View>
+              <View style={styles.timerPill}>
+                <Text style={styles.timerLabel}>Time elapsed</Text>
+                <Text style={styles.timerValue}>{formatTimer(elapsedSeconds)}</Text>
+              </View>
+            </View>
+          )}
+
+          {analysisPayloadState ? (
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Summary</Text>
+              <Text style={styles.bodyText}>{summaryText}</Text>
+
+              <Text style={styles.sectionTitle}>Key factors</Text>
+              <Text style={styles.bodyText}>
+                {keyFactors ? '• ' + keyFactors.join('\n• ') : 'No key factors highlighted.'}
+              </Text>
+
+              {oddsProbabilities && (
+                <View style={styles.sectionBlock}>
+                  <Text style={styles.sectionTitle}>Implied odds probabilities</Text>
+                  <Text style={styles.bodyText}>
+                    Match winner: {'\n'}Home: {formatPct(oddsProbabilities.match_winner?.home)} |
+                    Draw: {formatPct(oddsProbabilities.match_winner?.draw)} | Away:{' '}
+                    {formatPct(oddsProbabilities.match_winner?.away)}
+                  </Text>
+                  <Text style={styles.bodyText}>
+                    Double chance: {'\n'}12: {formatPct(oddsProbabilities.double_chance?.['12'])} |
+                    1X: {formatPct(oddsProbabilities.double_chance?.['1X'])} | X2:{' '}
+                    {formatPct(oddsProbabilities.double_chance?.['X2'])}
+                  </Text>
+                  <Text style={styles.bodyText}>
+                    BTTS: Yes: {formatPct(oddsProbabilities.btts?.yes)} | No:{' '}
+                    {formatPct(oddsProbabilities.btts?.no)}
+                  </Text>
+                  <Text style={styles.bodyText}>
+                    HT over 0.5: {formatPct(oddsProbabilities.ht_over_0_5)}
+                  </Text>
+                  <Text style={styles.bodyText}>
+                    Team over 0.5: Home {formatPct(oddsProbabilities.home_goals_over_0_5)} | Away{' '}
+                    {formatPct(oddsProbabilities.away_goals_over_0_5)}
+                  </Text>
+                  <Text style={styles.bodyText}>
+                    Totals (Over): O1.5 {formatPct(oddsProbabilities.totals?.over_1_5)} | O2.5{' '}
+                    {formatPct(oddsProbabilities.totals?.over_2_5)} | O3.5{' '}
+                    {formatPct(oddsProbabilities.totals?.over_3_5)}
+                  </Text>
+                  <Text style={styles.bodyText}>
+                    Totals (Under): U3.5 {formatPct(oddsProbabilities.totals?.under_3_5)} | U4.5{' '}
+                    {formatPct(oddsProbabilities.totals?.under_4_5)}
+                  </Text>
+                </View>
+              )}
+
+              {valueBet ? (
+                <View style={styles.sectionBlock}>
+                  <Text style={styles.sectionTitle}>Value bets</Text>
+                  <Text style={styles.bodyText}>
+                    Market: {valueBet.market}
+                    {'\n'}Selection: {valueBet.selection}
+                    {'\n'}Success probability: {formatPct(valueBet.model_probability_pct)}
+                  </Text>
+                </View>
+              ) : null}
+
+              {correctScores ? (
+                <View style={styles.sectionBlock}>
+                  <Text style={styles.sectionTitle}>Most probable correct scores</Text>
+                  <Text style={styles.bodyText}>
+                    {correctScores
+                      .map((item: any, idx: number) =>
+                        `${idx + 1}. ${item.score || 'N/A'} (${formatPct(item.probability_pct)})`,
+                      )
+                      .join('\n')}
+                  </Text>
+                </View>
+              ) : null}
+
+              {cornerProbabilities ? (
+                <View style={styles.sectionBlock}>
+                  <Text style={styles.sectionTitle}>Corners probability</Text>
+                  <Text style={styles.bodyText}>
+                    Over 8.5: {formatPct(cornerProbabilities.over_8_5_pct)}
+                    {'\n'}Over 9.5: {formatPct(cornerProbabilities.over_9_5_pct)}
+                    {'\n'}Over 10.5: {formatPct(cornerProbabilities.over_10_5_pct)}
+                  </Text>
+                </View>
+              ) : null}
+
+              {cardProbabilities ? (
+                <View style={styles.sectionBlock}>
+                  <Text style={styles.sectionTitle}>Yellow cards probability</Text>
+                  <Text style={styles.bodyText}>
+                    Over 3.5: {formatPct(cardProbabilities.over_3_5_pct)}
+                    {'\n'}Over 4.5: {formatPct(cardProbabilities.over_4_5_pct)}
+                    {'\n'}Over 5.5: {formatPct(cardProbabilities.over_5_5_pct)}
+                  </Text>
+                </View>
+              ) : null}
+
+              <View style={styles.sectionBlock}>
+                <Text style={styles.sectionTitle}>Risks</Text>
+                <Text style={styles.bodyText}>
+                  {risks ? '• ' + risks.join('\n• ') : 'No major risks flagged.'}
+                </Text>
+              </View>
+
+              {analysis?.disclaimer ? (
+                <View style={styles.sectionBlock}>
+                  <Text style={styles.sectionTitle}>Disclaimer</Text>
+                  <Text style={styles.bodyText}>{analysis.disclaimer}</Text>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+
+          {status === 'missing' && (
+            <View style={styles.card}>
+              <Text style={styles.bodyText}>
+                No cached AI analysis yet for this match. Run it once to generate the report.
+              </Text>
+              <TouchableOpacity
+                style={[styles.retryButton, isGenerating && styles.retryButtonDisabled]}
+                onPress={() => startGeneration()}
+                disabled={isGenerating}
+              >
+                <Text style={styles.retryButtonLabel}>Run analysis</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {status === 'error' && (
+            <View style={styles.card}>
+              <Text style={styles.errorText}>
+                {error?.message || 'AI analysis is temporarily unavailable. Please try again.'}
+              </Text>
+              <TouchableOpacity
+                style={[styles.retryButton, isGenerating && styles.retryButtonDisabled]}
+                onPress={() => startGeneration()}
+                disabled={isGenerating}
+              >
+                <Text style={styles.retryButtonLabel}>Try again</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </ScrollView>
+      )}
+      {showPremiumPromo && (
+        <View style={styles.promoOverlay}>
+          <View style={styles.promoCard}>
+            <View style={styles.promoHeader}>
+              <View>
+                <Text style={styles.promoTitlePrimary}>GO PREMIUM</Text>
+                <Text style={styles.promoTitleSecondary}>NO ADS</Text>
+              </View>
+
+              <TouchableOpacity
+                onPress={() => setShowPremiumPromo(false)}
+                activeOpacity={0.9}
+                style={styles.promoX}
+              >
+                <Text style={styles.promoXText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.promoBody}>
+              You unlocked this analysis with a video ad. Go Premium to unlock all analyses
+              instantly and remove ads.
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => {
+                setShowPremiumPromo(false);
+                navigation.navigate('Subscriptions');
+              }}
+              activeOpacity={0.9}
+              style={styles.promoCta}
+            >
+              <Text style={styles.promoCtaText}>GO PREMIUM</Text>
+              <Text style={styles.promoCtaSubText}>NO ADS</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setShowPremiumPromo(false)}
+              activeOpacity={0.9}
+              style={styles.promoCloseBtn}
+            >
+              <Text style={styles.promoCloseBtnText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+    </SafeAreaView>
+  );
+};
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  container: {
+    padding: 16,
+    backgroundColor: COLORS.background,
+    paddingBottom: 32,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#0b1220',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.neonPurple,
+    alignSelf: 'flex-start',
+    marginBottom: 12,
+  },
+  backIcon: {
+    color: COLORS.text,
+    fontSize: 16,
+  },
+  backLabel: {
+    color: COLORS.text,
+    fontWeight: '700',
+  },
+  card: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 14,
+    borderColor: COLORS.neonPurple,
+    borderWidth: 1.2,
+    shadowColor: COLORS.neonPurple,
+    shadowOpacity: 0.6,
+    shadowRadius: 16,
+  },
+  sectionTitle: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '800',
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  sectionBlock: {
+    marginTop: 10,
+  },
+  bodyText: {
+    color: '#e5e7eb',
+    marginTop: 4,
+    lineHeight: 20,
+  },
+  listItem: {
+    color: '#cbd5e1',
+    marginTop: 4,
+  },
+  errorText: {
+    color: '#fca5a5',
+    fontWeight: '700',
+  },
+  retryButton: {
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.neonPurple,
+    alignSelf: 'flex-start',
+  },
+  retryButtonDisabled: {
+    opacity: 0.5,
+  },
+  retryButtonLabel: {
+    color: COLORS.text,
+    fontWeight: '700',
+  },
+  loadingState: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  loader: {
+    marginVertical: 24,
+  },
+  depthWordRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+    rowGap: 8,
+    columnGap: 8,
+  },
+  depthWord: {
+    color: COLORS.neonPurple,
+    fontWeight: '900',
+    fontSize: 14,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    textShadowColor: 'rgba(176,107,255,0.8)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 12,
+  },
+  loadingText: {
+    color: COLORS.muted,
+    textAlign: 'center',
+    marginTop: 8,
+    paddingHorizontal: 12,
+  },
+  loadingBarTrack: {
+    marginTop: 12,
+    width: '100%',
+    height: 10,
+    borderRadius: 999,
+    backgroundColor: '#0b1024',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.borderSoft,
+  },
+  loadingBarFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: COLORS.neonPurple,
+    shadowColor: COLORS.neonPurple,
+    shadowOpacity: 0.9,
+    shadowRadius: 12,
+  },
+  timerPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#0c1028',
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: COLORS.neonPurple,
+  },
+  timerLabel: {
+    color: COLORS.muted,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  timerValue: {
+    color: COLORS.neonPurple,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  cacheDebug: {
+    color: COLORS.muted,
+    marginBottom: 10,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  detailHero: {
+    backgroundColor: '#0c0f25',
+    borderRadius: 22,
+    padding: 16,
+    borderWidth: 1.6,
+    borderColor: COLORS.neonPurple,
+    marginBottom: 16,
+    shadowColor: COLORS.neonPurple,
+    shadowOpacity: 0.6,
+    shadowRadius: 20,
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  heroLeagueBlock: {
+    flex: 1,
+  },
+  heroLeagueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  heroLeagueLogo: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#0b1220',
+  },
+  heroLeagueTextBlock: {
+    flex: 1,
+  },
+  heroLeagueText: {
+    color: COLORS.text,
+    fontWeight: '800',
+    fontSize: 16,
+  },
+  heroMetaText: {
+    color: COLORS.muted,
+    fontSize: 12,
+    marginTop: 4,
+  },
+  heroStatusPill: {
+    backgroundColor: '#0c1028',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: COLORS.neonPurple,
+    alignItems: 'center',
+    minWidth: 88,
+  },
+  heroStatusScore: {
+    color: COLORS.text,
+    fontWeight: '900',
+    fontSize: 16,
+  },
+  heroStatusText: {
+    color: COLORS.muted,
+    fontSize: 12,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  heroTeamsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  heroTeamCard: {
+    flex: 1,
+    backgroundColor: '#0f162b',
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.borderSoft,
+  },
+  heroTeamRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  heroTeamRowRight: {
+    justifyContent: 'flex-end',
+    flexDirection: 'row-reverse',
+  },
+  heroTeamLogo: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#0b1220',
+  },
+  heroTeamName: {
+    color: COLORS.text,
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  heroTeamNameRight: {
+    textAlign: 'right',
+  },
+  promoOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  promoCard: {
+    width: '100%',
+    maxWidth: 460,
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.55)',
+    backgroundColor: '#0b0c1f',
+  },
+  promoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  promoTitlePrimary: {
+    color: '#facc15',
+    fontWeight: '900',
+    fontSize: 16,
+    letterSpacing: 0.6,
+  },
+  promoTitleSecondary: {
+    color: '#ffffff',
+    fontWeight: '900',
+    fontSize: 14,
+    marginTop: 2,
+    letterSpacing: 0.4,
+  },
+  promoX: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(0,0,0,0.25)',
+  },
+  promoXText: {
+    color: '#ffffff',
+    fontWeight: '900',
+    fontSize: 16,
+  },
+  promoBody: {
+    marginTop: 12,
+    color: 'rgba(255,255,255,0.82)',
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+  promoCta: {
+    marginTop: 14,
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    borderWidth: 1,
+    borderColor: '#facc15',
+    backgroundColor: '#0b1220',
+  },
+  promoCtaText: {
+    color: '#facc15',
+    fontWeight: '900',
+    fontSize: 12,
+    letterSpacing: 0.7,
+  },
+  promoCtaSubText: {
+    color: '#ffffff',
+    fontWeight: '900',
+    fontSize: 12,
+    letterSpacing: 0.7,
+  },
+  promoCloseBtn: {
+    marginTop: 10,
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(0,0,0,0.2)',
+  },
+  promoCloseBtnText: {
+    color: '#ffffff',
+    fontWeight: '900',
+    fontSize: 12,
+    letterSpacing: 0.5,
+    opacity: 0.95,
+  },
+});
+
+export default AIAnalysisScreen;
