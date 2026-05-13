@@ -1,9 +1,11 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { Animated, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MatchCard } from '@components/MatchCard';
+import { MATCH_FILTER_OPTIONS, MatchFilterOption, filterMatchesByOption } from '@lib/matchFilters';
+import { MatchListItem } from '@/types/match';
 import { ErrorState } from '@components/ErrorState';
 import TelegramBanner from '@components/TelegramBanner';
 import { useTodayMatchesQuery } from '@hooks/useTodayMatchesQuery';
@@ -28,24 +30,20 @@ const FilterBar = ({
   onFilterChange,
   onInDepthPress,
 }: {
-  filterOption: 'all' | 'live' | 'top';
-  onFilterChange: (value: 'all' | 'live' | 'top') => void;
+  filterOption: MatchFilterOption;
+  onFilterChange: (value: MatchFilterOption) => void;
   onInDepthPress: () => void;
 }) => (
   <View style={styles.sortRow}>
     <Text style={styles.filterLabel}>Show</Text>
     <View style={styles.sortButtons}>
-      {[
-        { key: 'all', label: 'All matches' },
-        { key: 'live', label: 'Live only' },
-        { key: 'top', label: 'Top matches' },
-      ].map((option) => {
+      {MATCH_FILTER_OPTIONS.map((option) => {
         const isActive = filterOption === option.key;
         return (
           <TouchableOpacity
             key={option.key}
             style={[styles.sortChip, isActive && styles.sortChipActive]}
-            onPress={() => onFilterChange(option.key as 'all' | 'live' | 'top')}
+            onPress={() => onFilterChange(option.key)}
             activeOpacity={0.85}
           >
             <Text style={[styles.sortChipText, isActive && styles.sortChipTextActive]}>
@@ -129,7 +127,7 @@ const SkeletonCard = () => (
 );
 
 type TodayMatchesRow =
-  | { type: 'match'; key: string; item: any }
+  | { type: 'match'; key: string; item: MatchListItem }
   | { type: 'ad'; key: string };
 
 const AD_INSERTION_INTERVAL = 5;
@@ -149,7 +147,7 @@ const TodayMatchesScreen: React.FC = () => {
     isRefetching,
   } = useTodayMatchesQuery();
   const { toggleFavorite, isFavorite } = useFavorites();
-  const [filterOption, setFilterOption] = React.useState<'all' | 'live' | 'top'>('all');
+  const [filterOption, setFilterOption] = React.useState<MatchFilterOption>('all');
 
   const onRefresh = useCallback(() => {
     trackEvent('RefreshMatches');
@@ -161,36 +159,20 @@ const TodayMatchesScreen: React.FC = () => {
     [data],
   );
 
-  const filteredMatches = useMemo(() => {
+  useEffect(() => {
     if (filterOption === 'all') {
-      return allMatches;
+      return;
     }
-    const liveStatuses = new Set(['1H', '2H', 'ET', 'P', 'INT', 'LIVE']);
-    const topLeagueRules = [
-      { name: 'premier league', country: 'england' },
-      { name: 'la liga', country: 'spain' },
-      { name: 'serie a', country: 'italy' },
-      { name: 'bundesliga', country: 'germany' },
-      { name: 'ligue 1', country: 'france' },
-    ];
-    const isTopCompetition = (leagueName?: string, leagueCountry?: string) => {
-      const normalizedName = leagueName?.trim().toLowerCase() ?? '';
-      const normalizedCountry = leagueCountry?.trim().toLowerCase() ?? '';
-      if (normalizedName.includes('uefa')) return true;
-      return topLeagueRules.some(
-        (rule) =>
-          normalizedName.includes(rule.name) &&
-          (!rule.country || normalizedCountry === rule.country),
-      );
-    };
-    return allMatches.filter((match) => {
-      if (filterOption === 'top') {
-        return isTopCompetition(match?.summary?.league?.name, match?.summary?.league?.country);
-      }
-      const status = match?.summary?.status?.toUpperCase();
-      return status ? liveStatuses.has(status) : false;
-    });
-  }, [allMatches, filterOption]);
+
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [filterOption, fetchNextPage, hasNextPage, isFetchingNextPage]);
+
+  const filteredMatches = useMemo(
+    () => filterMatchesByOption(allMatches, filterOption),
+    [allMatches, filterOption],
+  );
 
   const listRows: TodayMatchesRow[] = useMemo(() => {
     if (!filteredMatches.length) {
@@ -286,7 +268,7 @@ const TodayMatchesScreen: React.FC = () => {
 
     return (
       <View style={styles.emptyBox}>
-        <Text style={styles.emptyText}>No matches available right now.</Text>
+        <Text style={styles.emptyText}>No matches available for this filter right now.</Text>
       </View>
     );
   };

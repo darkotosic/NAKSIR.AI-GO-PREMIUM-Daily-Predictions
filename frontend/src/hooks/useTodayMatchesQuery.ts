@@ -5,11 +5,12 @@ import { TodayMatchesPage } from '@/types/match';
 export const useTodayMatchesQuery = () =>
   useInfiniteQuery<TodayMatchesPage>({
     queryKey: ['todayMatches'],
-    queryFn: ({ pageParam = 0 }) => fetchTodayMatchesPage(pageParam as number, 10),
+    queryFn: ({ pageParam = 0 }) => fetchTodayMatchesPage(pageParam as number, 100),
     getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 45 * 1000,
+    refetchInterval: 60 * 1000,
     initialPageParam: 0,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
     retry: 1,
   });
