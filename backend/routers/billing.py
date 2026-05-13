@@ -3,14 +3,19 @@ from __future__ import annotations
 import base64
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from backend.config import settings
+from backend.config import (
+    APP_ENV,
+    GOOGLE_PLAY_PACKAGE_NAME,
+    get_google_service_account_info,
+    settings,
+)
 from backend.db import get_db
 from backend.dependencies import require_api_key
 from backend.models.enums import Platform, PurchaseStatus
@@ -115,9 +120,23 @@ def _verify_pubsub_oidc_or_throw(authorization: Optional[str]) -> None:
 
 
 class BillingVerifyRequest(BaseModel):
-    packageName: str = Field(..., description="Android package name (app id)", min_length=3)
+    packageName: Optional[str] = Field(
+        None, description="Android package name (app id)", min_length=3
+    )
     productId: str = Field(..., description="SKU sa Play Console-a", min_length=2)
     purchaseToken: str = Field(..., description="Token koji vraća Play Billing", min_length=10)
+
+
+class BillingVerifyResponse(BaseModel):
+    ok: bool = True
+    productId: str
+    isActive: bool
+    endAt: Optional[str] = None
+    acknowledged: Optional[bool] = None
+    entitled: Optional[bool] = None
+    expiresAt: Optional[str] = None
+    plan: Optional[str] = None
+    freeRewardUsed: Optional[bool] = None
 
 
 class EntitlementEnvelope(BaseModel):
@@ -133,26 +152,48 @@ class PubSubPushEnvelope(BaseModel):
 
 
 def _require_google_config_or_throw() -> None:
-    if settings.app_env in {"stage", "prod"} and not settings.google_play_service_account_json:
-        raise HTTPException(status_code=503, detail="Billing verification not configured")
+    if APP_ENV in ("prod", "stage"):
+        info = get_google_service_account_info()
+        if not info:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Google Play verify not configured: GOOGLE_PLAY_SERVICE_ACCOUNT_JSON"
+                    " missing or invalid JSON"
+                ),
+            )
+        if not GOOGLE_PLAY_PACKAGE_NAME:
+            raise HTTPException(
+                status_code=503,
+                detail="Google Play verify not configured: GOOGLE_PLAY_PACKAGE_NAME missing",
+            )
+        if not info.get("client_email") or not info.get("private_key"):
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Google Play verify not configured: service account JSON missing"
+                    " client_email/private_key"
+                ),
+            )
 
 
 @router.post(
     "/billing/google/verify",
     summary="REAL: Google Play verifikacija + entitlement",
-    response_model=EntitlementEnvelope,
+    response_model=BillingVerifyResponse,
     dependencies=[Depends(require_api_key)],
 )
 def verify_google_purchase(
     payload: BillingVerifyRequest,
     install_id: str = Header(None, alias="X-Install-Id"),
     session: Session = Depends(get_db),
-) -> EntitlementEnvelope:
+) -> BillingVerifyResponse:
     if not install_id:
         raise HTTPException(status_code=400, detail="X-Install-Id header is required")
 
     purchase_token = payload.purchaseToken
     masked_token = f"{purchase_token[:6]}…{purchase_token[-4:]}"
+    now = datetime.now(timezone.utc)
 
     existing_purchase = get_purchase_by_token(session, purchase_token, Platform.android)
     if existing_purchase and existing_purchase.status == PurchaseStatus.active:
@@ -167,7 +208,16 @@ def verify_google_purchase(
                 payload.productId,
                 user.id,
             )
-            return EntitlementEnvelope(
+            end_at = existing_purchase.end_at
+            if end_at and end_at.tzinfo is None:
+                end_at = end_at.replace(tzinfo=timezone.utc)
+            is_active = bool(end_at and end_at > now)
+            return BillingVerifyResponse(
+                ok=True,
+                productId=existing_purchase.sku,
+                isActive=is_active,
+                endAt=end_at.isoformat() if end_at else None,
+                acknowledged=existing_purchase.acknowledged,
                 entitled=entitled,
                 expiresAt=expires_at.isoformat() if expires_at else None,
                 plan=plan,
@@ -181,9 +231,14 @@ def verify_google_purchase(
     user, wallet = get_or_create_user(session, install_id)
     product = upsert_product(session, product_meta)
 
-    package_name = payload.packageName or settings.google_play_package_name
+    package_name = payload.packageName or GOOGLE_PLAY_PACKAGE_NAME
     if not package_name:
         raise HTTPException(status_code=400, detail="packageName is required")
+    if APP_ENV in ("prod", "stage") and package_name != GOOGLE_PLAY_PACKAGE_NAME:
+        raise HTTPException(
+            status_code=400,
+            detail="packageName mismatch (client vs server config)",
+        )
 
     logger.info(
         "Google verify request | token=%s sku=%s install_id=%s",
@@ -215,14 +270,26 @@ def verify_google_purchase(
         total_allowance=product_meta.get("total_allowance"),
         unlimited=product_meta.get("unlimited", False),
         purchase=purchase,
-        start_at=verified.get("start_at") or datetime.utcnow(),
+        start_at=verified.get("start_at") or now,
         valid_until_override=verified.get("end_at"),
     )
 
-    entitled = entitlement.valid_until is None or entitlement.valid_until > datetime.utcnow()
-    return EntitlementEnvelope(
+    valid_until = entitlement.valid_until
+    if valid_until and valid_until.tzinfo is None:
+        valid_until = valid_until.replace(tzinfo=timezone.utc)
+    entitled = valid_until is None or valid_until > now
+    end_at = purchase.end_at
+    if end_at and end_at.tzinfo is None:
+        end_at = end_at.replace(tzinfo=timezone.utc)
+    is_active = bool(end_at and end_at > now)
+    return BillingVerifyResponse(
+        ok=True,
+        productId=product_meta["sku"],
+        isActive=is_active,
+        endAt=end_at.isoformat() if end_at else None,
+        acknowledged=purchase.acknowledged,
         entitled=entitled,
-        expiresAt=entitlement.valid_until.isoformat() if entitlement.valid_until else None,
+        expiresAt=valid_until.isoformat() if valid_until else None,
         plan=entitlement.tier,
         freeRewardUsed=wallet.free_reward_used,
     )

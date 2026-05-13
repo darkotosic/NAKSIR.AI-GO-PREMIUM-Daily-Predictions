@@ -30,7 +30,7 @@ class Purchase(Base):
     platform: Mapped[Platform] = mapped_column(Enum(Platform, name="platform_enum"), nullable=False, default=Platform.android)
     sku: Mapped[str] = mapped_column(String(128), nullable=False)
 
-    purchase_token: Mapped[str] = mapped_column(Text, nullable=False)
+    purchase_token: Mapped[str] = mapped_column(Text, nullable=False, unique=True, index=True)
     order_id: Mapped[str | None] = mapped_column(String(128), nullable=True, unique=True)
 
     purchase_state: Mapped[PurchaseState] = mapped_column(Enum(PurchaseState, name="purchase_state_enum"), nullable=False)

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { isFinishedMatch, isLiveMatch } from '@lib/matchFilters';
 import { MatchListItem, StandingsRow } from '@/types/match';
 
 const COLORS = {
@@ -25,9 +26,8 @@ export const MatchCard: React.FC<Props> = ({ match, onPress, onToggleFavorite, i
   const summary = match.summary;
   const league = summary?.league;
   const teams = summary?.teams;
-  const status = summary?.status?.toUpperCase() ?? 'NS';
-  const isLive = new Set(['1H', '2H', 'ET', 'P', 'INT', 'LIVE']).has(status);
-  const isFinished = new Set(['FT', 'AET', 'PEN']).has(status);
+  const isLive = isLiveMatch(match);
+  const isFinished = isFinishedMatch(match);
   const kickoffDate = summary?.kickoff ? new Date(summary.kickoff) : undefined;
   const relativeKickoffLabel = (() => {
     if (!kickoffDate) return 'Kickoff TBD';

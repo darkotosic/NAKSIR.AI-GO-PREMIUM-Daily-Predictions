@@ -1,0 +1,477 @@
+import React, { useCallback, useMemo } from 'react';
+import { Animated, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MatchCard } from '@components/MatchCard';
+import { ErrorState } from '@components/ErrorState';
+import TelegramBanner from '@components/TelegramBanner';
+import { useTodayMatchesQuery } from '@hooks/useTodayMatchesQuery';
+import { useFavorites } from '@hooks/useFavorites';
+import { RootStackParamList } from '@navigation/types';
+import { trackEvent } from '@lib/tracking';
+import { NativeAdvanceAdCard } from '@ads/NativeAdvanceAdCard';
+
+const COLORS = {
+  background: '#040312',
+  card: '#0b0c1f',
+  neonPurple: '#b06bff',
+  neonViolet: '#8b5cf6',
+  neonOrange: '#fb923c',
+  text: '#f8fafc',
+  muted: '#a5b4fc',
+  borderSoft: '#1f1f3a',
+};
+
+const FilterBar = ({
+  filterOption,
+  onFilterChange,
+  onInDepthPress,
+}: {
+  filterOption: 'all' | 'live' | 'top';
+  onFilterChange: (value: 'all' | 'live' | 'top') => void;
+  onInDepthPress: () => void;
+}) => (
+  <View style={styles.sortRow}>
+    <Text style={styles.filterLabel}>Show</Text>
+    <View style={styles.sortButtons}>
+      {[
+        { key: 'all', label: 'All matches' },
+        { key: 'live', label: 'Live only' },
+        { key: 'top', label: 'Top matches' },
+      ].map((option) => {
+        const isActive = filterOption === option.key;
+        return (
+          <TouchableOpacity
+            key={option.key}
+            style={[styles.sortChip, isActive && styles.sortChipActive]}
+            onPress={() => onFilterChange(option.key as 'all' | 'live' | 'top')}
+            activeOpacity={0.85}
+          >
+            <Text style={[styles.sortChipText, isActive && styles.sortChipTextActive]}>
+              {option.label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+      <InDepthPulseButton onPress={onInDepthPress} />
+    </View>
+  </View>
+);
+
+const InDepthPulseButton = ({ onPress }: { onPress: () => void }) => {
+  const glow = React.useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glow, {
+          toValue: 1,
+          duration: 1200,
+          useNativeDriver: false,
+        }),
+        Animated.timing(glow, {
+          toValue: 0,
+          duration: 1200,
+          useNativeDriver: false,
+        }),
+      ]),
+    );
+
+    loop.start();
+    return () => loop.stop();
+  }, [glow]);
+
+  const glowOpacity = glow.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.35, 0.85],
+  });
+
+  const shadowRadius = glow.interpolate({
+    inputRange: [0, 1],
+    outputRange: [12, 20],
+  });
+
+  return (
+    <Animated.View
+      style={[
+        styles.inDepthGlowWrap,
+        {
+          shadowOpacity: glowOpacity,
+          shadowRadius,
+        },
+      ]}
+    >
+      <Animated.View pointerEvents="none" style={[styles.inDepthGlowHalo, { opacity: glowOpacity }]} />
+      <TouchableOpacity style={styles.inDepthButton} onPress={onPress} activeOpacity={0.9}>
+        <Text style={styles.inDepthButtonText}>In-Depth Analysis</Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
+const SkeletonCard = () => (
+  <View style={styles.skeletonCard}>
+    <View style={styles.skeletonHeader} />
+    <View style={styles.skeletonRow}>
+      <View style={styles.skeletonLogo} />
+      <View style={styles.skeletonName} />
+      <View style={styles.skeletonVs} />
+      <View style={styles.skeletonName} />
+      <View style={styles.skeletonLogo} />
+    </View>
+    <View style={styles.skeletonChipsRow}>
+      <View style={styles.skeletonChip} />
+      <View style={styles.skeletonChip} />
+      <View style={styles.skeletonChip} />
+    </View>
+  </View>
+);
+
+type TodayMatchesRow =
+  | { type: 'match'; key: string; item: any }
+  | { type: 'ad'; key: string };
+
+const AD_INSERTION_INTERVAL = 5;
+
+const TodayMatchesScreen: React.FC = () => {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const insets = useSafeAreaInsets();
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isRefetching,
+  } = useTodayMatchesQuery();
+  const { toggleFavorite, isFavorite } = useFavorites();
+  const [filterOption, setFilterOption] = React.useState<'all' | 'live' | 'top'>('all');
+
+  const onRefresh = useCallback(() => {
+    trackEvent('RefreshMatches');
+    refetch();
+  }, [refetch]);
+
+  const allMatches = useMemo(
+    () => data?.pages.flatMap((page) => page.items ?? []) ?? [],
+    [data],
+  );
+
+  const filteredMatches = useMemo(() => {
+    if (filterOption === 'all') {
+      return allMatches;
+    }
+    const liveStatuses = new Set(['1H', '2H', 'ET', 'P', 'INT', 'LIVE']);
+    const topLeagueRules = [
+      { name: 'premier league', country: 'england' },
+      { name: 'la liga', country: 'spain' },
+      { name: 'serie a', country: 'italy' },
+      { name: 'bundesliga', country: 'germany' },
+      { name: 'ligue 1', country: 'france' },
+    ];
+    const isTopCompetition = (leagueName?: string, leagueCountry?: string) => {
+      const normalizedName = leagueName?.trim().toLowerCase() ?? '';
+      const normalizedCountry = leagueCountry?.trim().toLowerCase() ?? '';
+      if (normalizedName.includes('uefa')) return true;
+      return topLeagueRules.some(
+        (rule) =>
+          normalizedName.includes(rule.name) &&
+          (!rule.country || normalizedCountry === rule.country),
+      );
+    };
+    return allMatches.filter((match) => {
+      if (filterOption === 'top') {
+        return isTopCompetition(match?.summary?.league?.name, match?.summary?.league?.country);
+      }
+      const status = match?.summary?.status?.toUpperCase();
+      return status ? liveStatuses.has(status) : false;
+    });
+  }, [allMatches, filterOption]);
+
+  const listRows: TodayMatchesRow[] = useMemo(() => {
+    if (!filteredMatches.length) {
+      return [];
+    }
+
+    const rows: TodayMatchesRow[] = [];
+    let adCount = 0;
+
+    filteredMatches.forEach((match, index) => {
+      const fixtureKey = match.fixture_id || match.summary?.fixture_id || `match-${index}`;
+      rows.push({ type: 'match', key: String(fixtureKey), item: match });
+
+      const shouldInsertAd = (index + 1) % AD_INSERTION_INTERVAL === 0;
+      if (shouldInsertAd) {
+        adCount += 1;
+        rows.push({ type: 'ad', key: `ad-${filterOption}-${adCount}` });
+      }
+    });
+
+    if (filterOption === 'live' && adCount === 0) {
+      rows.splice(Math.min(1, rows.length), 0, { type: 'ad', key: `ad-${filterOption}-primary` });
+    }
+
+    return rows;
+  }, [filteredMatches, filterOption]);
+
+  const renderHeader = () => (
+    <View>
+      <TelegramBanner />
+      <FilterBar
+        filterOption={filterOption}
+        onFilterChange={setFilterOption}
+        onInDepthPress={() => navigation.navigate('InDepthAnalysis')}
+      />
+      <View style={styles.refreshRow}>
+        <TouchableOpacity style={styles.refreshButton} onPress={onRefresh} activeOpacity={0.85}>
+          <Text style={styles.refreshText}>↻ Refresh</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  const renderItem = ({ item }: { item: TodayMatchesRow }) => {
+    if (item.type === 'ad') {
+      return (
+        <View style={styles.adContainer}>
+          <NativeAdvanceAdCard />
+        </View>
+      );
+    }
+
+    const fixtureId = item.item.fixture_id || item.item.summary?.fixture_id;
+    return (
+      <MatchCard
+        match={item.item}
+        isFavorite={isFavorite(fixtureId)}
+        onToggleFavorite={() => fixtureId && toggleFavorite(fixtureId)}
+        onPress={() =>
+          navigation.navigate('MatchDetails', {
+            fixtureId,
+            summary: item.item.summary,
+            originTab: 'TodayMatches',
+          })
+        }
+      />
+    );
+  };
+
+  const renderFooter = () => {
+    if (!isFetchingNextPage) return null;
+    return (
+      <View style={{ marginTop: 8 }}>
+        <SkeletonCard />
+      </View>
+    );
+  };
+
+  const emptyComponent = () => {
+    if (isLoading) {
+      return (
+        <View>
+          {[0, 1, 2].map((item) => (
+            <SkeletonCard key={`skeleton-${item}`} />
+          ))}
+        </View>
+      );
+    }
+
+    if (isError) {
+      return <ErrorState message={error?.message || 'Unable to load matches'} onRetry={onRefresh} />;
+    }
+
+    return (
+      <View style={styles.emptyBox}>
+        <Text style={styles.emptyText}>No matches available right now.</Text>
+      </View>
+    );
+  };
+
+  return (
+    <FlatList
+      contentContainerStyle={[styles.container, { paddingTop: insets.top + 8 }]}
+      data={listRows}
+      renderItem={renderItem}
+      keyExtractor={(item) => item.key}
+      ListHeaderComponent={renderHeader}
+      ListFooterComponent={renderFooter}
+      ListEmptyComponent={emptyComponent}
+      refreshControl={
+        <RefreshControl refreshing={isLoading || isRefetching} onRefresh={onRefresh} tintColor={COLORS.neonPurple} />
+      }
+      onEndReached={() => {
+        if (hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      }}
+      onEndReachedThreshold={0.5}
+      initialNumToRender={8}
+      maxToRenderPerBatch={8}
+      windowSize={5}
+      removeClippedSubviews
+    />
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    padding: 16,
+    backgroundColor: COLORS.background,
+    paddingBottom: 32,
+  },
+  filterLabel: {
+    color: COLORS.muted,
+    marginBottom: 6,
+    fontSize: 12,
+    letterSpacing: 0.5,
+  },
+  emptyBox: {
+    padding: 18,
+    borderRadius: 12,
+    backgroundColor: '#0f172a',
+  },
+  emptyText: {
+    color: '#cbd5e1',
+  },
+  sortRow: {
+    marginBottom: 12,
+  },
+  sortButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  sortChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.borderSoft,
+    backgroundColor: '#0b1220',
+  },
+  sortChipActive: {
+    borderColor: COLORS.neonPurple,
+    backgroundColor: '#1b2132',
+  },
+  sortChipHighlight: {
+    borderColor: COLORS.neonViolet,
+    backgroundColor: '#1b2132',
+  },
+  sortChipText: {
+    color: COLORS.muted,
+    fontWeight: '600',
+  },
+  sortChipTextActive: {
+    color: COLORS.text,
+  },
+  refreshRow: {
+    alignItems: 'flex-end',
+    marginBottom: 10,
+  },
+  refreshButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.neonPurple,
+    backgroundColor: '#020617',
+  },
+  refreshText: {
+    color: COLORS.neonPurple,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  inDepthGlowWrap: {
+    position: 'relative',
+    shadowColor: '#fc22df',
+    shadowOffset: { width: 0, height: 8 },
+  },
+  inDepthGlowHalo: {
+    position: 'absolute',
+    top: -4,
+    left: -4,
+    right: -4,
+    bottom: -4,
+    borderRadius: 12,
+    backgroundColor: '#fc22df99',
+    shadowColor: '#fc22df',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 18,
+    elevation: 10,
+  },
+  inDepthButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#fc22dfb0',
+    backgroundColor: '#120a2f',
+  },
+  inDepthButtonText: {
+    color: '#f5f3ff',
+    fontWeight: '800',
+    fontSize: 12,
+    letterSpacing: 0.4,
+  },
+  skeletonCard: {
+    backgroundColor: '#0a0f1f',
+    borderRadius: 20,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: COLORS.borderSoft,
+  },
+  skeletonHeader: {
+    height: 14,
+    width: '45%',
+    backgroundColor: COLORS.borderSoft,
+    borderRadius: 10,
+    marginBottom: 12,
+  },
+  skeletonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  skeletonLogo: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.borderSoft,
+  },
+  skeletonName: {
+    flex: 1,
+    height: 14,
+    marginHorizontal: 8,
+    backgroundColor: COLORS.borderSoft,
+    borderRadius: 10,
+  },
+  skeletonVs: {
+    width: 36,
+    height: 18,
+    borderRadius: 10,
+    backgroundColor: COLORS.borderSoft,
+  },
+  skeletonChipsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  skeletonChip: {
+    flex: 1,
+    height: 26,
+    marginHorizontal: 3,
+    borderRadius: 999,
+    backgroundColor: COLORS.borderSoft,
+  },
+  adContainer: {
+    marginBottom: 14,
+  },
+});
+
+export default TodayMatchesScreen;
