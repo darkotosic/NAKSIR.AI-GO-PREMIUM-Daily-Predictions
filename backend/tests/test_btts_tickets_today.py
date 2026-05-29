@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from backend.services import btts_service
+from backend.routers import btts_tickets
 
 
 @pytest.fixture
@@ -71,7 +71,7 @@ def sample_btts_fixtures() -> list[dict[str, object]]:
 
 
 def test_btts_tickets_today(monkeypatch: pytest.MonkeyPatch, client, sample_btts_fixtures) -> None:
-    monkeypatch.setattr(btts_service, "get_btts_today_fixtures", lambda: sample_btts_fixtures)
+    monkeypatch.setattr(btts_tickets, "get_btts_today_fixtures", lambda: sample_btts_fixtures)
 
     response = client.get(
         "/btts/tickets/today",

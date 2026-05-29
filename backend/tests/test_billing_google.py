@@ -2,7 +2,6 @@ import base64
 import json
 from datetime import datetime, timedelta
 
-import pytest
 
 from backend.config import settings
 
@@ -23,12 +22,12 @@ def test_google_verify_creates_entitlement(monkeypatch, client):
     monkeypatch.setattr(settings, "google_play_service_account_json", '{"type":"service_account"}', raising=False)
 
     # Patch verifier to avoid external calls
-    from backend.services import purchases_service
+    from backend.routers import billing as billing_router
 
     end_at = datetime.utcnow() + timedelta(days=30)
 
     monkeypatch.setattr(
-        purchases_service,
+        billing_router,
         "verify_google_subscription_with_google",
         lambda **kwargs: _fake_verified(end_at),
     )
@@ -39,7 +38,7 @@ def test_google_verify_creates_entitlement(monkeypatch, client):
         headers={"X-API-Key": "test-token", "X-Install-Id": "dev-install-billing-1"},
         json={
             "packageName": "com.naksir.go.premium",
-            "productId": "premium_monthly",  # must exist in billing_plans mapping
+            "productId": "naksir_premium_1m",  # must exist in billing_plans mapping
             "purchaseToken": "tok_abc_123",
         },
     )
@@ -48,7 +47,7 @@ def test_google_verify_creates_entitlement(monkeypatch, client):
     assert r.status_code == 200
     data = r.json()
     assert data["entitled"] in (True, False)
-    assert data["plan"] == "premium_monthly"
+    assert data["plan"] == "naksir_premium_1m"
     assert data["expiresAt"] is not None
 
 
@@ -62,7 +61,7 @@ def test_rtdn_endpoint_accepts_and_updates(monkeypatch, client, db_session):
     from backend.models.enums import Platform, PurchaseState, PurchaseStatus
     from backend.models import Purchase
 
-    u = User(install_id="dev-install-rtdn-1")
+    u = User(device_id="dev-install-rtdn-1")
     db_session.add(u)
     db_session.flush()
 
@@ -99,7 +98,7 @@ def test_rtdn_endpoint_accepts_and_updates(monkeypatch, client, db_session):
     inner = {
         "packageName": "com.naksir.go.premium",
         "subscriptionNotification": {
-            "subscriptionId": "premium_monthly",
+            "subscriptionId": "naksir_premium_1m",
             "purchaseToken": "tok_rtdn_1",
             "notificationType": 2,
         },

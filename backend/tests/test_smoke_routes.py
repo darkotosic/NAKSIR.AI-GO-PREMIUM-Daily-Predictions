@@ -156,7 +156,7 @@ def _install_fake_api(monkeypatch: pytest.MonkeyPatch, fixture: Dict[str, Any], 
 
 
 def test_health_endpoint(client) -> None:
-    response = client.get("/health")
+    response = client.get("/health", headers={"X-API-Key": "test-token"})
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
 

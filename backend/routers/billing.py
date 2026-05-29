@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from backend.apps.models import AppContext
 from backend.config import (
     APP_ENV,
     GOOGLE_PLAY_PACKAGE_NAME,
@@ -17,7 +18,7 @@ from backend.config import (
     settings,
 )
 from backend.db import get_db
-from backend.dependencies import require_api_key
+from backend.dependencies import require_app_context
 from backend.models.enums import Platform, PurchaseStatus
 from backend.services.entitlements_service import (
     get_entitlement_status,
@@ -181,11 +182,11 @@ def _require_google_config_or_throw() -> None:
     "/billing/google/verify",
     summary="REAL: Google Play verifikacija + entitlement",
     response_model=BillingVerifyResponse,
-    dependencies=[Depends(require_api_key)],
 )
 def verify_google_purchase(
     payload: BillingVerifyRequest,
     install_id: str = Header(None, alias="X-Install-Id"),
+    app_ctx: AppContext = Depends(require_app_context),
     session: Session = Depends(get_db),
 ) -> BillingVerifyResponse:
     if not install_id:
@@ -201,7 +202,7 @@ def verify_google_purchase(
             session, user_id=existing_purchase.user_id
         )
         if entitled:
-            user, wallet = get_or_create_user(session, install_id)
+            user, wallet = get_or_create_user(session, install_id, app_id=app_ctx.app_id)
             logger.info(
                 "Idempotent Google verify | token=%s sku=%s user_id=%s",
                 masked_token,
@@ -228,17 +229,15 @@ def verify_google_purchase(
 
     product_meta = resolve_product(payload.productId)
 
-    user, wallet = get_or_create_user(session, install_id)
+    user, wallet = get_or_create_user(session, install_id, app_id=app_ctx.app_id)
     product = upsert_product(session, product_meta)
 
-    package_name = payload.packageName or GOOGLE_PLAY_PACKAGE_NAME
+    expected_package = app_ctx.config.android_package_name or GOOGLE_PLAY_PACKAGE_NAME
+    package_name = payload.packageName or expected_package
     if not package_name:
         raise HTTPException(status_code=400, detail="packageName is required")
-    if APP_ENV in ("prod", "stage") and package_name != GOOGLE_PLAY_PACKAGE_NAME:
-        raise HTTPException(
-            status_code=400,
-            detail="packageName mismatch (client vs server config)",
-        )
+    if APP_ENV in ("prod", "stage") and package_name != expected_package:
+        raise HTTPException(status_code=400, detail="packageName mismatch")
 
     logger.info(
         "Google verify request | token=%s sku=%s install_id=%s",
@@ -433,16 +432,16 @@ async def google_rtdn(
     "/me/entitlements",
     summary="Trenutni entitlement status za install/device",
     response_model=EntitlementEnvelope,
-    dependencies=[Depends(require_api_key)],
 )
 def get_entitlements(
     install_id: str = Header(None, alias="X-Install-Id"),
+    app_ctx: AppContext = Depends(require_app_context),
     session: Session = Depends(get_db),
 ) -> EntitlementEnvelope:
     if not install_id:
         raise HTTPException(status_code=400, detail="X-Install-Id header is required")
 
-    user, wallet = get_or_create_user(session, install_id)
+    user, wallet = get_or_create_user(session, install_id, app_id=app_ctx.app_id)
     entitled, expires_at, plan, _ = get_entitlement_status(session, user_id=user.id, now=datetime.utcnow())
 
     return EntitlementEnvelope(

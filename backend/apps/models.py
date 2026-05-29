@@ -14,6 +14,9 @@ class AppConfig:
 
     allow_list: List[int]
     top_league_ids: List[int]
+    android_package_name: str | None = None
+    live_ai_enabled: bool = False
+    requires_entitlement_for_ai: bool = False
 
 
 @dataclass(frozen=True)
