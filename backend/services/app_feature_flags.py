@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-APP_IDS_WITH_LIVE_AI = {"naksir.go_premium"}
+from backend.apps.registry import get_app_config
 
 
 def is_live_ai_enabled(app_id: str) -> bool:
-    return app_id in APP_IDS_WITH_LIVE_AI
+    return bool(get_app_config(app_id).live_ai_enabled)

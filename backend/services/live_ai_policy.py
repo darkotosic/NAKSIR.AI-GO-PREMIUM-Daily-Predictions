@@ -16,7 +16,7 @@ def compute_15m_bucket_ts(now_ts: int | None = None) -> int:
     """
     Returns bucket timestamp (epoch seconds) rounded down to 15-minute boundary.
     """
-    t = now_ts or int(time.time())
+    t = int(time.time()) if now_ts is None else now_ts
     return (t // 900) * 900  # 900s = 15 minutes
 
 

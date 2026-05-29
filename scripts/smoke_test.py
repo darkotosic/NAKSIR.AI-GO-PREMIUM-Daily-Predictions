@@ -1,9 +1,24 @@
 from __future__ import annotations
 
 import os
+import pathlib
+import sys
 from typing import Any, Dict, List
 
 from fastapi.testclient import TestClient
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+
+os.environ.setdefault("APP_ENV", "dev")
+os.environ.setdefault("API_FOOTBALL_KEY", "test-smoke")
+os.environ.setdefault("OPENAI_API_KEY", "test-smoke")
+os.environ.setdefault("DATABASE_URL", "sqlite:///./smoke.db")
+os.environ.setdefault("API_AUTH_TOKENS", "test-token")
+os.environ.setdefault("ALLOWED_ORIGINS", "http://localhost")
+os.environ.setdefault("USE_FAKE_REDIS", "true")
 
 from backend import ai_analysis
 from backend import api_football
@@ -89,11 +104,6 @@ def _install_fake_api(fixture: Dict[str, Any], odds_raw: List[Dict[str, Any]]) -
 
 
 def main() -> int:
-    os.environ.setdefault("APP_ENV", "dev")
-    os.environ.setdefault("API_AUTH_TOKENS", "test-token")
-    os.environ.setdefault("ALLOWED_ORIGINS", "http://localhost")
-    os.environ.setdefault("USE_FAKE_REDIS", "true")
-
     fixture = _sample_fixture()
     odds_raw = _sample_odds_raw()
     _install_fake_api(fixture, odds_raw)
@@ -101,7 +111,7 @@ def main() -> int:
     app = create_app()
     client = TestClient(app)
 
-    health = client.get("/health")
+    health = client.get("/health", headers={"X-API-Key": "test-token"})
     if health.status_code != 200:
         print("/health failed", health.status_code, health.text)
         return 1

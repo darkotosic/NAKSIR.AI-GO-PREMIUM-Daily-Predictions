@@ -21,11 +21,14 @@ This registry lists public contracts for each micro-cell. Every endpoint and exp
 ### Meta + debug
 - `GET /`
 - `GET /health`
+- `GET /ping`
 - `GET /_debug/routes`
 - `GET /_debug/ops`
 
 ### Matches
 - `GET /matches/today`
+- `GET /matches/tomorrow`
+- `GET /matches/top3-today`
 - `GET /matches/top`
 - `GET /matches/{fixture_id}`
 - `GET /matches/{fixture_id}/full`

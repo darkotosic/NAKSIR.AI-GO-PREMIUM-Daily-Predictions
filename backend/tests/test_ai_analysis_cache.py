@@ -11,7 +11,6 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import tests.conftest  # noqa: F401
-import pytest
 
 pytest_plugins = ["tests.conftest"]
 

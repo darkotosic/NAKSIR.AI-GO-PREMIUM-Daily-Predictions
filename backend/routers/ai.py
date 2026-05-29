@@ -29,6 +29,7 @@ from backend.services.ai_analysis_cache_service import (
     list_cached_ready_for_fixture_ids,
 )
 from backend.services.app_feature_flags import is_live_ai_enabled
+from backend.services.entitlements_service import get_entitlement_status
 from backend.services.live_ai_policy import compute_15m_bucket_ts, is_live_ai_allowed_for_league
 from backend.services.users_service import get_or_create_user
 
@@ -53,14 +54,24 @@ def _require_install_id(install_id: Optional[str]) -> None:
         raise HTTPException(status_code=400, detail="X-Install-Id header is required")
 
 
-def _enforce_ai_access(*args, **kwargs) -> None:
-    """
-    BACKEND ROLLBACK (2026-01-19):
-    AI access is no longer paywalled server-side.
-    Monetization is handled client-side via ads/subscriptions UX.
-    This function intentionally does nothing to avoid 402 regressions in production.
-    """
-    return
+def _enforce_ai_access(session: Session, install_id: str, app_ctx: AppContext) -> None:
+    if not app_ctx.config.requires_entitlement_for_ai:
+        return
+
+    user, _wallet = get_or_create_user(session, install_id, app_id=app_ctx.app_id)
+    entitled, _expires_at, _plan, _entitlement = get_entitlement_status(
+        session, user_id=user.id
+    )
+
+    if not entitled:
+        raise HTTPException(
+            status_code=402,
+            detail={
+                "code": "SUBSCRIPTION_REQUIRED",
+                "message": "VIP subscription required.",
+                "actions": ["BUY_SUBSCRIPTION"],
+            },
+        )
 
 
 def _cache_headers(cache_key: str, cache_status: str) -> dict[str, str]:
@@ -99,7 +110,8 @@ def get_match_ai_analysis(
     _require_install_id(install_id)
 
     app_id = app_ctx.app_id
-    get_or_create_user(session, install_id)
+    get_or_create_user(session, install_id, app_id=app_id)
+    _enforce_ai_access(session, install_id, app_ctx)
 
     is_live = (mode or "").lower() == "live"
     live_enabled = is_live_ai_enabled(app_id)
@@ -222,7 +234,8 @@ def post_match_ai_analysis(
     _require_install_id(install_id)
 
     app_id = app_ctx.app_id
-    get_or_create_user(session, install_id)
+    get_or_create_user(session, install_id, app_id=app_id)
+    _enforce_ai_access(session, install_id, app_ctx)
 
     is_live = (mode or "").lower() == "live"
     live_enabled = is_live_ai_enabled(app_id)

@@ -1,0 +1,55 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "src/*"
+      ],
+      "@navigation/*": [
+        "src/navigation/*"
+      ],
+      "@screens/*": [
+        "src/screens/*"
+      ],
+      "@components/*": [
+        "src/components/*"
+      ],
+      "@api/*": [
+        "src/api/*"
+      ],
+      "@hooks/*": [
+        "src/hooks/*"
+      ],
+      "@lib/*": [
+        "src/lib/*"
+      ],
+      "@types/*": [
+        "src/types/*"
+      ],
+      "@billing/*": [
+        "src/billing/*"
+      ],
+      "@state/*": [
+        "src/state/*"
+      ],
+      "@shared/*": [
+        "src/shared/*"
+      ]
+    },
+    "strict": true,
+    "skipLibCheck": true
+  },
+  "include": [
+    "App.tsx",
+    "index.js",
+    "app.config.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "plugins/**/*.ts"
+  ]
+}

@@ -113,7 +113,7 @@ def get_active_entitlement(
         select(Entitlement)
         .where(Entitlement.user_id == user_id)
         .where(Entitlement.status == EntitlementStatus.active)
-        .where(or_(Entitlement.valid_until == None, Entitlement.valid_until > current_time))
+        .where(or_(Entitlement.valid_until.is_(None), Entitlement.valid_until > current_time))
         .order_by(Entitlement.valid_until.desc().nulls_last())
         .limit(1)
     )
